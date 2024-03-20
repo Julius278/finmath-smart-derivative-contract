@@ -656,6 +656,13 @@
                     <imageName>docker.io/finmath/${project.artifactId}:${project.version}</imageName>
                     <jvmArguments>--add-opens java.base/java.time=ALL-UNNAMED</jvmArguments>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
