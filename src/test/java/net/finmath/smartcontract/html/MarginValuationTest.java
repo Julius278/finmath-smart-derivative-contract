@@ -80,7 +80,7 @@ class MarginValuationTest {
         b4.click();
 
         //wait for margin request to calculate
-        Thread.sleep(3000);
+        Thread.sleep(10000);
 
         Locator b5 = page.getByLabel("valuationResult").first();
         System.out.println("Result: " + b5.textContent());
