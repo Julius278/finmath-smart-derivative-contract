@@ -74,15 +74,18 @@ class MarginValuationTest {
         fileChooser = page.waitForFileChooser(b3::click);
         fileChooser.setFiles(Paths.get("./src/main/resources/net/finmath/smartcontract/valuation/client/md_testset2.xml"));
 
+        //click calculate button
         Locator b4 = page.getByText("calculate").first();
         assertThat(b4).isVisible();
         b4.click();
 
         //wait for margin request to calculate
-        Thread.sleep(2000);
+        Thread.sleep(3000);
 
         Locator b5 = page.getByLabel("valuationResult").first();
+        System.out.println("Result: " + b5.textContent());
         assertThat(b5).isVisible();
+        assertTrue(b5.textContent().contains("Valuation Result"));
         assertTrue(b5.textContent().contains("9908.52"));
     }
 
