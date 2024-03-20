@@ -16,11 +16,11 @@ jobs:
         with:
           java-version: 17
       - name: build maven
-        run: mvn -B clean install -DskipTests
+        run: mvn -B clean package -DskipTests
       - name: check files, if target is there
         run: ls ./target/
       - name: start app
-        run: java -jar ./target/finmath-smart-derivative-contract-*.jar &
+        run: java -jar ./target/finmath-smart-derivative-contract-*-SNAPSHOT.jar &
       - name: wait
         run: sleep 20
       - name: Build with Maven
