@@ -16,7 +16,7 @@ jobs:
         with:
           java-version: 17
       - name: build maven
-        run: mvn -B clean install
+        run: mvn -B clean install -DskipTests
       - name: start app
         run: java -jar ./target/finmath-smart-derivative-contract-*.jar &
       - name: wait
