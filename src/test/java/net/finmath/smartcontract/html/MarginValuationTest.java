@@ -46,6 +46,7 @@ class MarginValuationTest {
         // Launch a Chromium browser in non-headless mode
         //browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false));
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+        //
 
         // Create a Browser Context with HTTP credentials
         BrowserContext context = browser.newContext(new Browser.NewContextOptions().setHttpCredentials(username, password));
