@@ -1,4 +1,4 @@
-name: finmath smart derivative contract frontend
+name: frontend
 
 on:
   push:
