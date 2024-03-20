@@ -1,0 +1,23 @@
+name: finmath smart derivative contract frontend
+
+on:
+  push:
+    branches:
+      - frontend_tests
+
+jobs:
+  test:
+    name: Playwright Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 17
+      - name: start app
+        run: mvn -B clean spring-boot:run
+      - name: wait
+        run: sleep 20
+      - name: Build with Maven
+        run: mvn -B test
