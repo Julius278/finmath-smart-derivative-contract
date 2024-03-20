@@ -16,7 +16,7 @@ jobs:
         with:
           java-version: 17
       - name: start app
-        run: mvn -B clean spring-boot:run
+        run: mvn -B clean spring-boot:run &
       - name: wait
         run: sleep 20
       - name: Build with Maven
