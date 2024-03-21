@@ -13,6 +13,6 @@ jobs:
         with:
           java-version: 17
       - name: test with maven without playwright frontend tests
-        run: mvn -B test -excludeGroups="playwrighTests"
+        run: mvn -B test -DexcludeGroups="playwrighTests"
       - name: Build with Maven without tests
         run: mvn -B package --file pom.xml -DskipTests
