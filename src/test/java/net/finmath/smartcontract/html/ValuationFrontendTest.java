@@ -28,6 +28,7 @@ class ValuationFrontendTest {
         Thread.sleep(10_000);
     }
 
+    @Tag("playwrightTests")
     @BeforeEach
     void setUp() throws InterruptedException {
         // Define username and password credentials for authentication
