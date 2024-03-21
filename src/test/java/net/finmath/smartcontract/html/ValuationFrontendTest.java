@@ -28,11 +28,10 @@ class ValuationFrontendTest {
         Thread.sleep(10_000);
     }
 
-    @Tag("playwrightTests")
     @BeforeEach
+    @Tag("playwrightTests")
     void setUp() throws InterruptedException {
         // Define username and password credentials for authentication
-        //Thread.sleep(10_000);
         String username = "user1";
         String password = "password1";
 
@@ -46,9 +45,6 @@ class ValuationFrontendTest {
 
         // Create a new Page within the Browser Context
         page = context.newPage();
-        // Navigate to the protected URL requiring authentication
-        page.navigate("http://localhost:" + port + "/").finished();
-        System.out.println("login successful");
 
         // Introduce a delay to observe the authentication popup handling
         Thread.sleep(10_000);
@@ -58,6 +54,7 @@ class ValuationFrontendTest {
     @Tag("playwrightTests")
     void testCheck() {
         page.navigate("http://localhost:" + port + "/");
+        System.out.println("login successful");
         assertThat(page.getByText("Go").first()).isVisible();
     }
 

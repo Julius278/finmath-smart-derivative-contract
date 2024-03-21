@@ -630,6 +630,7 @@
                         java.base/java.util=ALL-UNNAMED --add-opens
                         net.finmath.smartderivativecontract/net.finmath.smartcontract.model=ALL-UNNAMED
                     </argLine>
+                    <excludedGroups>playwrightTests</excludedGroups>
                 </configuration>
             </plugin>
 
