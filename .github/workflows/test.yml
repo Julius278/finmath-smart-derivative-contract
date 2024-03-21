@@ -12,5 +12,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 17
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
+      - name: test with maven without playwright frontend tests
+        run: mvn -B test -excludeGroups="playwrighTests"
+      - name: Build with Maven without tests
+        run: mvn -B package --file pom.xml -DskipTests

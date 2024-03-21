@@ -1,9 +1,6 @@
-name: frontend
+name: finmath smart derivative contract
 
-on:
-  push:
-    branches:
-      - frontend-tests
+on: [ push ]
 
 jobs:
   test:
@@ -26,4 +23,4 @@ jobs:
       - name: wait
         run: sleep 20
       - name: Build with Maven
-        run: mvn -B test
+        run: mvn -B test -Dgroups="playwrightTests"
