@@ -50,14 +50,14 @@ public class SmartContractDeployer {
 	/**
 	 * Deploy a contract
 	 *
-	 * @param contractSolFile Name of the solidity file.
+	 * @param contractName Name of the solidity file without .sol ending.
 	 * @return
 	 */
-	public static String deploy(String contractSolFile) throws IOException, TransactionException, InterruptedException {
-		System.out.println("Compiling contract" + contractSolFile);
+	public static String deploy(String contractName) throws IOException, TransactionException, InterruptedException {
+		System.out.println("Compiling contract" + contractName);
 		// 1) Compile with solc if needed
 		Files.createDirectories(SOL_OUT_DIR);
-		compileWithSolc(contractSolFile);
+		compileWithSolc(contractName + ".sol");
 
 		// 2) Connect Web3j
 		Web3j web3  = Web3j.build(new HttpService(RPC_URL));
@@ -76,7 +76,7 @@ public class SmartContractDeployer {
 		System.out.println("Oracle operator (constructor arg): " + ownerAddress);
 
 		// 3) Deploy DecryptionOracle WITH constructor(address _oracle, address _treasury)
-		String oracleBinRaw = Files.readString(SOL_OUT_DIR.resolve("XmlRepresentableInstrument.bin")).trim();
+		String oracleBinRaw = Files.readString(SOL_OUT_DIR.resolve(contractName+".bin")).trim();
 
 		// ABI-encode constructor args and append to bytecode
 		String ctorArgs = FunctionEncoder.encodeConstructor(
@@ -132,7 +132,7 @@ public class SmartContractDeployer {
 
 	private static void compileWithSolc(String solFile) throws IOException, InterruptedException {
 		ProcessBuilder pb = new ProcessBuilder(
-				"solc", "--optimize", "--evm-version", "paris",
+				"solc", "--via-ir", "--optimize", "--evm-version", "paris",
 				"--abi", "--bin", "-o", SOL_OUT_DIR.toString(), "--overwrite",
 				SOL_SRC_DIR.resolve(solFile).toString()
 		);
