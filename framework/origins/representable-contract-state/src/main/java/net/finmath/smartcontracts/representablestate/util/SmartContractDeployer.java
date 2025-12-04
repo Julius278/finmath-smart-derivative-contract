@@ -27,7 +27,9 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 
 /**
- * <p>Deployer</p>
+ * Deployer - deploys a smart contract.
+ *
+ * Useful for demo and testing.
  *
  * @author Christian Fries
  */
@@ -50,14 +52,16 @@ public class SmartContractDeployer {
 	/**
 	 * Deploy a contract
 	 *
-	 * @param contractName Name of the solidity file without .sol ending.
-	 * @return
+	 * @param contract Path to the solidity file
+	 * @return Address of the deployed contract.
 	 */
-	public static String deploy(String contractName) throws IOException, TransactionException, InterruptedException {
+	public static String deploy(Path contract) throws IOException, TransactionException, InterruptedException {
+		String contractFile = contract.getFileName().toString();
+		String contractName = contractFile.substring(0,contractFile.length()-4);
 		System.out.println("Compiling contract" + contractName);
 		// 1) Compile with solc if needed
 		Files.createDirectories(SOL_OUT_DIR);
-		compileWithSolc(contractName + ".sol");
+		compileWithSolc(contract.toString());
 
 		// 2) Connect Web3j
 		Web3j web3  = Web3j.build(new HttpService(RPC_URL));
@@ -115,7 +119,7 @@ public class SmartContractDeployer {
 
 		System.out.println("Saved deployment to " + deployJson.toAbsolutePath());
 		System.out.println("_".repeat(79));
-		System.out.println("\nSet these properties in application.properties for local test - then (re-)start the event listener:\n");
+		System.out.println("Set these properties in application.properties for local test - then (re-)start the event listener:");
 		System.out.println("ethereum.rpcUrl=" + RPC_URL);
 		System.out.println("ethereum.chainId=" + chainId);
 		System.out.println("ethereum.sender.privateKey=" + PRIVATE_KEY);
