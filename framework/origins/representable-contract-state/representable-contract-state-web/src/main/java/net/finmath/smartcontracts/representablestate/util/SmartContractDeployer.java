@@ -21,6 +21,9 @@ import org.web3j.tx.response.TransactionReceiptProcessor;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.ConnectException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,7 +58,9 @@ public class SmartContractDeployer {
 	 * @param contract Path to the solidity file
 	 * @return Address of the deployed contract.
 	 */
-	public static String deploy(Path contract) throws IOException, TransactionException, InterruptedException {
+	public static String deploy(Path contract) throws IOException, InterruptedException, TransactionException {
+		contract = resolveSolidityPath(contract.toString());
+
 		String contractFile = contract.getFileName().toString();
 		String contractName = contractFile.substring(0,contractFile.length()-4);
 		System.out.println("Compiling contract" + contractName);
@@ -64,11 +69,18 @@ public class SmartContractDeployer {
 		compileWithSolc(contract.toString());
 
 		// 2) Connect Web3j
-		Web3j web3  = Web3j.build(new HttpService(RPC_URL));
-		Admin admin = Admin.build(new HttpService(RPC_URL));
-		String clientVer = web3.web3ClientVersion().send().getWeb3ClientVersion();
-		long chainId = admin.ethChainId().send().getChainId().longValue();
-		System.out.println("Connected to: " + clientVer + " chainId=" + chainId);
+		Web3j web3;
+		long chainId;
+		try {
+			web3 = Web3j.build(new HttpService(RPC_URL));
+			Admin admin = Admin.build(new HttpService(RPC_URL));
+			String clientVer = web3.web3ClientVersion().send().getWeb3ClientVersion();
+			chainId = admin.ethChainId().send().getChainId().longValue();
+			System.out.println("Connected to: " + clientVer + " chainId=" + chainId);
+		} catch (ConnectException e) {
+			logger.error("Unable to connect to chain.");
+			throw new RuntimeException("Unable to connect to chain.", e);
+		}
 
 		Credentials creds = Credentials.create(PRIVATE_KEY);
 		RawTransactionManager txMgr = new RawTransactionManager(web3, creds, chainId);
@@ -161,4 +173,37 @@ public class SmartContractDeployer {
 		String a = encodedConstructor == null ? "" : strip0x(encodedConstructor);
 		return "0x" + b + a;
 	}
-}
+
+
+	private static Path resolveSolidityPath(String relative) {
+		try {
+			// Ort der geladenen Klassen (typischerweise .../representable-contract-state-core/target/classes)
+			URL location = SmartContractDeployer.class
+					.getProtectionDomain()
+					.getCodeSource()
+					.getLocation();
+
+			Path classesOrJar = Paths.get(location.toURI());
+
+			Path moduleRoot = classesOrJar;
+
+			// Wenn wir in target/classes stehen → ein Level hoch (target)
+			if ("classes".equals(moduleRoot.getFileName().toString())) {
+				moduleRoot = moduleRoot.getParent();
+			}
+			// Wenn wir in target stehen → ein Level hoch (Modul-Root)
+			if ("target".equals(moduleRoot.getFileName().toString())) {
+				moduleRoot = moduleRoot.getParent();
+			}
+
+			Path candidate = moduleRoot.resolve("src/main/solidity/" + relative);
+			if (Files.exists(candidate)) {
+				return candidate;
+			}
+
+			throw new IllegalArgumentException(
+					"Cannot find Solidity file " + candidate + " (derived from " + relative + ")");
+		} catch (URISyntaxException e) {
+			throw new RuntimeException("Failed to resolve Solidity path from class location", e);
+		}
+	}}
