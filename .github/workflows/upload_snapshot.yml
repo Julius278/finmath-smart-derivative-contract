@@ -1,4 +1,4 @@
-name: finmath smart derivative contract
+name: SNAPSHOT, build and upload
 
 #trigg
 #only push new SNAPSHOTS from develop
