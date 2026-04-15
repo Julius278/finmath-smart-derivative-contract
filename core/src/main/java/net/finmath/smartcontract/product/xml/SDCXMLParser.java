@@ -3,7 +3,6 @@ package net.finmath.smartcontract.product.xml;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
-import jakarta.xml.bind.Unmarshaller;
 import net.finmath.smartcontract.model.ExceptionId;
 import net.finmath.smartcontract.model.MarketDataList;
 import net.finmath.smartcontract.model.SDCException;
@@ -176,6 +175,12 @@ public class SDCXMLParser {
 			if (t instanceof Smartderivativecontract) {
 				jaxbMarshaller.setProperty(Marshaller.JAXB_SCHEMA_LOCATION, "uri:sdc smartderivativecontract.xsd");
 				jaxbMarshaller.setSchema(getSDCSchema());
+
+				System.out.println("===================================================================");
+				System.out.println("===================================================================");
+				System.out.println("===================================================================");
+				System.out.println("===================================================================");
+				System.out.println("===================================================================");
 			}
 
 			StringWriter writer = new StringWriter();

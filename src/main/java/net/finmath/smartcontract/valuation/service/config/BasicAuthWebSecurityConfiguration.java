@@ -39,7 +39,11 @@ public class BasicAuthWebSecurityConfiguration {
 				.csrf(AbstractHttpConfigurer::disable)
 				.authorizeHttpRequests(authz -> {
 					try {
-						authz.anyRequest().authenticated();
+						authz
+								.requestMatchers("/v3/api-docs/**").permitAll()
+								.requestMatchers("/swagger-ui/index.html").permitAll()
+								.requestMatchers("/swagger-ui.html").permitAll()
+								.anyRequest().authenticated();
 					} catch (Exception e) {
 						throw new SDCException(ExceptionId.SDC_AUTH_ERROR, e.getMessage());
 					}
@@ -50,6 +54,7 @@ public class BasicAuthWebSecurityConfiguration {
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(((request, response, authException) -> {
 							logger.warn("401 Unauthorized: {}, {}", extractBasicAuthUsername(request), getOriginalUri(request), authException);
+							response.setHeader("WWW-Authenticate", "Basic realm=\"Realm\"");
 							response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "SDC: Unauthorized access request");
 						}))
 						.accessDeniedHandler((request, response, accessDeniedException) -> {
