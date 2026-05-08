@@ -84,6 +84,7 @@
 			<scope>provided</scope>
 		</dependency>
 
+		<!-- TODO get rid of spring here; e.g. by extracting api stuff to a separate module and exclude spring dependency -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
@@ -169,26 +170,24 @@
 							<library>spring-boot</library>
 							<configOptions>
 								<useSpringBoot3>true</useSpringBoot3>
+								<sourceFolder>src/generated/java/main</sourceFolder>
 								<sourceFolder>src/main/gen</sourceFolder>
 								<dateLibrary>java8</dateLibrary>
-								<openApiNullable>false</openApiNullable>
-								<skipDefaultInterface>true</skipDefaultInterface>
+								<delegatePattern>true</delegatePattern>
+								<!--openApiNullable>false</openApiNullable-->
+								<interfaceOnly>true</interfaceOnly>
+								<!--skipDefaultInterface>true</skipDefaultInterface-->
+								<basePackage>net.finmath.smartcontract</basePackage>
 								<modelPackage>net.finmath.smartcontract.model</modelPackage>
 								<apiPackage>net.finmath.smartcontract.api</apiPackage>
-								<useBeanValidation>false</useBeanValidation>
+								<configPackage>net.finmath.smartcontract.api</configPackage>
 								<useJakartaEe>true</useJakartaEe>
-								<interfaceOnly>true</interfaceOnly>
 							</configOptions>
-							<globalProperties>
-								<models></models>
-								<apis>false</apis>
-								<supportingFiles>false</supportingFiles>
-								<modelDocs>false</modelDocs>
-								<apiDocs>false</apiDocs>
-							</globalProperties>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateSupportingFiles>false</generateSupportingFiles>
+							<generateApiTests>true</generateApiTests>
+							<generateModelTests>true</generateModelTests>
+							<supportingFilesToGenerate>
+								ApiUtil.java
+							</supportingFilesToGenerate>
 						</configuration>
 					</execution>
 				</executions>
