@@ -175,12 +175,6 @@ public class SDCXMLParser {
 			if (t instanceof Smartderivativecontract) {
 				jaxbMarshaller.setProperty(Marshaller.JAXB_SCHEMA_LOCATION, "uri:sdc smartderivativecontract.xsd");
 				jaxbMarshaller.setSchema(getSDCSchema());
-
-				System.out.println("===================================================================");
-				System.out.println("===================================================================");
-				System.out.println("===================================================================");
-				System.out.println("===================================================================");
-				System.out.println("===================================================================");
 			}
 
 			StringWriter writer = new StringWriter();
