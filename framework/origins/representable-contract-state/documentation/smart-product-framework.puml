@@ -1,0 +1,262 @@
+@startuml
+title Smart Product Framework - End-to-End Sequence Flow
+
+actor Issuer
+actor Investor
+participant "Frontend / dApp" as Frontend
+participant "TextResource\n(terms XML)" as XmlResource
+participant "TextResource\n(stylesheet XSLT)" as XsltResource
+participant "InvestorRegistry" as InvestorRegistry
+participant "TradableBondDataRegistry" as Registry
+participant "CurveIndications" as CurveRegistry
+participant "ProductFactoryRegistry\n(generic)" as Factory
+participant "SimpleBondFactory\n(product-specific)" as Deployer
+participant "SimpleBond\n(deployed product)" as Bond
+participant "Renderer" as Renderer
+
+== Initial Setup ==
+
+Issuer -> InvestorRegistry : deploy InvestorRegistry(owner)
+Issuer -> Registry : deploy TradableBondDataRegistry(owner, investorRegistry)
+Issuer -> Factory : deploy ProductFactoryRegistry(owner, registry)
+Issuer -> Registry : setProductFactory(factory)
+Registry -> Factory : productRegistryAddress()
+Factory --> Registry : registry (back-reference check)
+
+Issuer -> Deployer : deploy SimpleBondFactory(genericFactory)
+Issuer -> Factory : registerProductFactory(SIMPLE_BOND_TYPE, deployer)
+Factory -> Deployer : supportsInterface(IProductSpecificFactory)
+Deployer --> Factory : true
+Factory -> Deployer : productTypeId()
+Deployer --> Factory : SIMPLE_BOND_TYPE (type match)
+
+note right of Factory
+Generic factory is the source of truth for:
+productTypeId -> product-specific factory
+end note
+
+== Investor Registration ==
+
+Issuer -> InvestorRegistry : registerInvestor({investor, lei})
+InvestorRegistry -> InvestorRegistry : store status = Active
+InvestorRegistry --> Issuer : InvestorRegistered
+
+== Resource Publication ==
+
+Issuer -> XmlResource : deploy TextResource(owner, BOND_TERMS,\n"application/xml", content, keccak256(content))
+XmlResource -> XmlResource : chunk + verify hash + finalize
+XmlResource --> Issuer : xmlResourceAddress
+
+Issuer -> XsltResource : deploy TextResource(owner, BOND_STYLESHEET,\n"application/xslt+xml", content, keccak256(content))
+XsltResource -> XsltResource : chunk + verify hash + finalize
+XsltResource --> Issuer : xsltResourceAddress
+
+== Program Publication ==
+
+Issuer -> Registry : publishProgram({programName, {terms, xslt, productTypeId}})
+
+Registry -> XmlResource : supportsInterface(ITextResource)
+XmlResource --> Registry : true
+Registry -> XmlResource : isFinalized()
+XmlResource --> Registry : true
+Registry -> XmlResource : resourceType()
+XmlResource --> Registry : BOND_TERMS
+
+Registry -> XsltResource : supportsInterface(ITextResource)
+XsltResource --> Registry : true
+Registry -> XsltResource : isFinalized()
+XsltResource --> Registry : true
+Registry -> XsltResource : resourceType()
+XsltResource --> Registry : BOND_STYLESHEET
+
+Registry -> Registry : programId = keccak256(programName, address(this))
+Registry -> Registry : store ProgramStorage (status = Active)
+Registry --> Issuer : programId (partId = uint256(programId))
+
+note over Issuer, Investor
+The renderer may now call statePartXmlTemplate(partId)
+on the registry to preview the program terms as TEXT.
+The evmstate:call bindings are NOT resolved here -
+they resolve only against a deployed product.
+end note
+
+== Indication Publication ==
+
+Issuer -> CurveRegistry : deploy CurveIndications(owner)
+Issuer -> CurveRegistry : publishCurveIndications(curveName, quotes[])
+CurveRegistry -> CurveRegistry : curveId = keccak256(curveName, address(this))
+CurveRegistry --> Issuer : indicationId (curveId)
+
+Issuer -> Registry : assignProductIndication(programId, curveRegistry, indicationId)
+Registry -> CurveRegistry : supportsInterface(IProductIndications)
+CurveRegistry --> Registry : true
+Registry -> CurveRegistry : indicationStatus(indicationId)
+CurveRegistry --> Registry : Active
+Registry -> CurveRegistry : indicationCategory()
+CurveRegistry --> Registry : CURVE
+Registry -> Registry : _isAcceptedIndication(productTypeId, CURVE) == true
+Registry -> CurveRegistry : partIdForIndication(indicationId)
+CurveRegistry --> Registry : indicationPartId
+Registry -> Registry : store (curveRegistry, indicationId, partId)
+
+note right of Registry
+Registry stores per programId:
+- terms + stylesheet resources
+- productTypeId
+- (indicationContract, indicationId, partId)
+end note
+
+== Frontend Prepares Trade Request ==
+
+Investor -> Frontend : select program
+
+Frontend -> Registry : productIndicationOfProgram(programId)
+Registry --> Frontend : indicationContract, indicationId, partId
+
+Frontend -> Renderer : render indication (partId)
+Renderer -> CurveRegistry : statePartXmlTemplate(partId)
+CurveRegistry --> Renderer : curve indication state XML
+Renderer --> Frontend : rendered curve indication
+
+Frontend -> Registry : productTypeByProgramId(programId)
+Registry --> Frontend : productTypeId
+
+Frontend -> Factory : productFactoryOf(productTypeId)
+Factory --> Frontend : specific factory address
+
+Frontend -> Deployer : productSpecificPayloadSchema()
+Deployer --> Frontend : schema string
+Frontend -> Deployer : productSpecificSchemaHash()
+Deployer --> Frontend : schema hash
+
+note right of Frontend
+Frontend uses the schema string to show fields.
+
+Example SimpleBond:
+notional
+maturity
+end note
+
+Frontend -> Frontend : ABI-encode productSpecificPayload
+Frontend -> Frontend : attach productSpecificSchemaHash
+
+== Trade Request and Deployment ==
+
+Investor -> Frontend : submit trade request
+Frontend -> Registry : createTradeRequest({programId, schemaHash, payload})
+
+Registry -> Registry : require productFactory set
+Registry -> Registry : load ProgramStorage(programId)
+Registry -> Registry : require program Active
+
+Registry -> InvestorRegistry : isEligibleInvestor(investor, programId)
+InvestorRegistry --> Registry : true
+
+Registry -> Factory : canDeployProduct(productTypeId)
+Factory --> Registry : true
+
+Registry -> Registry : tradeId = keccak256(registry, chainId, nonce, investor, programId)
+Registry -> XmlResource : contentHash()
+XmlResource --> Registry : termsContentHash
+Registry -> XsltResource : contentHash()
+XsltResource --> Registry : styleSheetContentHash
+Registry -> Registry : deploymentStateHash = keccak256(...)
+
+Registry -> Factory : deployProduct({common, schemaHash, payload})
+
+Factory -> Factory : require msg.sender == productRegistryAddress
+Factory -> Factory : load specific factory for productTypeId
+Factory -> Factory : require status Active
+Factory -> Factory : require tradeId unused
+
+Factory -> Deployer : deployProduct({common, schemaHash, payload})
+
+Deployer -> Deployer : require msg.sender == genericFactory
+Deployer -> Deployer : require schemaHash == productSpecificSchemaHash()
+Deployer -> Deployer : require common.productTypeId == productTypeId()
+
+Deployer -> Bond : new SimpleBond(common, payload)
+Bond -> Bond : store common immutable state
+Bond -> Bond : productFactory = msg.sender (deployer)
+Bond -> Bond : _applyTerms(payload) -> decode + validate
+Bond -> Bond : status = Requested
+Bond -> Bond : emit StateUpdated
+Bond --> Deployer : product address
+
+Deployer -> Deployer : isFactoryDeployedProduct[product] = true
+Deployer --> Factory : product
+
+Factory -> Factory : productByTradeId[tradeId] = product
+Factory -> Factory : emit ProductDeployed
+Factory --> Registry : product
+
+Registry -> Registry : _productByTradeId[tradeId] = product
+Registry -> Registry : emit TradeRequestCreated
+Registry --> Frontend : tradeId, product
+Frontend --> Investor : product deployed (status Requested)
+
+== Trade Lifecycle (incept / confirm) ==
+
+opt investor amends terms while Requested
+    Investor -> Frontend : update terms
+    Frontend -> Bond : updateTerms(payload)
+    Bond -> Bond : require status Requested
+    Bond -> Bond : _applyTerms(payload)
+    Bond -> Bond : emit TermsUpdated + StateUpdated
+    Bond --> Frontend : ok
+end
+
+Issuer -> Frontend : read current terms hash
+Frontend -> Bond : currentTermsHash()
+Bond --> Frontend : agreedTermsHash
+
+Issuer -> Bond : inceptTrade(agreedTermsHash)
+Bond -> Bond : require issuer, status Requested
+Bond -> Bond : require agreedTermsHash == currentTermsHash()
+Bond -> Bond : store agreedTermsHash, status = Incepted
+Bond -> Bond : emit TradeIncepted
+Bond --> Issuer : ok
+
+Investor -> Bond : confirmTrade(agreedTermsHash)
+Bond -> Bond : require investor, status Incepted
+Bond -> Bond : require agreedTermsHash == stored hash
+Bond -> Bond : status = Active
+Bond -> Bond : emit TradeConfirmed + TradeActivated
+Bond -> Bond : _onActivated() (product-specific hook)
+Bond --> Investor : trade Active
+
+== Rendering ==
+
+Investor -> Frontend : open product
+Frontend -> Renderer : render(product)
+
+Renderer -> Bond : stateXmlTemplate()
+Bond --> Renderer : product state XML (wrapper + deployment bindings + includes)
+
+Renderer -> Bond : productTermsResource()
+Bond --> Renderer : XML resource address
+Renderer -> Bond : styleSheetResource()
+Bond --> Renderer : XSLT resource address
+
+Renderer -> XmlResource : text()
+XmlResource --> Renderer : terms XML
+Renderer -> XsltResource : text()
+XsltResource --> Renderer : XSLT
+
+Renderer -> Renderer : resolve evmstate:call bindings against product
+
+note right of Renderer
+Renderer calls the getters referenced in the terms XML.
+A missing getter means the program/productType mapping was wrong.
+end note
+
+Renderer -> Bond : notional()
+Bond --> Renderer : value
+Renderer -> Bond : maturity()
+Bond --> Renderer : value
+
+Renderer -> Renderer : apply XSLT / render final document
+Renderer --> Frontend : rendered product document
+Frontend --> Investor : display product terms
+
+@enduml
