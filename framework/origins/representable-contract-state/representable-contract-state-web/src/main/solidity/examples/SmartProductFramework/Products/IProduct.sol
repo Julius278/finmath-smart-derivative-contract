@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {IXMLRepresentableState} from "./IRepresentableState.sol";
+
+/// @title IProduct
+/// @notice A deployed product instance. Exposes the deployment state captured
+///         from CommonDeploymentParams and resolves its own on-chain state for
+///         rendering (IXMLRepresentableState).
+///
+/// @dev DEPLOYMENT ANCHOR & VERIFICATION
+///      deploymentStateHash() is an integrity anchor computed by the tradable
+///      product registry at trade time over the exact program state (version +
+///      immutable resource contents) and the agreed product-specific payload.
+///      It is stored immutably here and can be recomputed off-chain from this
+///      product's getters (plus the original payload) to verify the product was
+///      minted against the agreed terms.
+///
+/// @dev AUTHENTICITY
+///      productFactory() returns the product-specific factory that deployed this
+///      product (its constructor's msg.sender). Combined with
+///      IProductSpecificFactory.isFactoryDeployedProduct(this), it forms a
+///      bidirectional authenticity proof, and lets consumers read the product's
+///      schema/type from the authoritative factory.
+///
+/// @dev STATE RENDERING
+///      The program registry anchors the terms/stylesheet as inert text; the
+///      deployed product is the concrete instance that RESOLVES the terms'
+///      evmstate:call bindings against its own getters (e.g. notional()). The
+///      getter surface MUST match the bindings referenced by the product terms
+///      for the product's productTypeId.
+///
+/// @author Raphael Prandtl
+interface IProduct is IXMLRepresentableState {
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                          EVENTS                           */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @notice Emitted whenever the product's mutable state changes (including
+    ///         the initial state set at construction). Lets off-chain consumers
+    ///         track the product through its lifecycle.
+    event StateUpdated(address indexed sender, address indexed stateContract, bytes32 currentStateHash);
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                     DEPLOYMENT STATE                      */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @notice Returns the tradable product registry that initiated deployment.
+    function productRegistry() external view returns (address);
+
+    /// @notice Returns the product-specific factory that deployed this product.
+    /// @dev Captured as the constructor's msg.sender. Enables authenticity
+    ///      verification via
+    ///      IProductSpecificFactory(productFactory()).isFactoryDeployedProduct(this).
+    function productFactory() external view returns (address);
+
+    /// @notice Returns the unique trade identifier this product was created for.
+    function tradeId() external view returns (bytes32);
+
+    /// @notice Returns the issuer of the product.
+    function issuer() external view returns (address);
+
+    /// @notice Returns the investor the product was created for.
+    function investor() external view returns (address);
+
+    /// @notice Returns the program this product was created under.
+    function programId() external view returns (bytes32);
+
+    /// @notice Returns the program version in force at deployment time.
+    /// @dev Pins the exact program revision the product was minted against
+    ///      (part of the deploymentStateHash preimage).
+    function programVersion() external view returns (uint256);
+
+    /// @notice Returns the ITextResource holding the product terms.
+    function productTermsResource() external view returns (address);
+
+    /// @notice Returns the ITextResource holding the (XSLT) stylesheet.
+    function styleSheetResource() external view returns (address);
+
+    /// @notice Returns the product type identifier.
+    /// @dev Matches the deploying factory's productTypeId() and the program's
+    ///      productTypeId.
+    function productTypeId() external view returns (bytes32);
+
+    /// @notice Returns the deployment integrity anchor.
+    /// @dev See the contract-level "DEPLOYMENT ANCHOR & VERIFICATION" note.
+    function deploymentStateHash() external view returns (bytes32);
+}

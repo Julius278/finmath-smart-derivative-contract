@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {IProduct} from "./IProduct.sol";
+import {ITradeLifecycle} from "./ITradeLifecycle.sol";
+import {ITextResource} from "./TextResource/ITextResource.sol";
+import {CommonDeploymentParams} from "./ProductFactory/ProductDeploymentTypes.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
+/// @title AbstractProduct
+/// @notice Product-agnostic base for deployed products. Stores immutable
+///         deployment state, captures the deploying factory (msg.sender),
+///         drives the generic trade inception/confirmation lifecycle, and
+///         provides XML rendering scaffolding.
+///
+/// @dev LIFECYCLE (ITradeLifecycle, ERC-6123-inspired)
+///      Requested -> Incepted -> Active, with Cancelled as a pre-activation
+///      terminal state. The base owns status, guards, and the agreed-terms-hash
+///      handshake; concrete products implement the term storage/update and the
+///      terms fingerprint via _updateTerms / _economicTermsHash. Product-specific
+///      lifecycles (e.g. issuance, coupons, redemption) can be layered on top of
+///      Active via the _onActivated hook.
+///
+/// @dev TERMS FROZEN AFTER INCEPTION
+///      updateTerms is only allowed in Requested. Concrete products MUST NOT
+///      mutate agreement-relevant economic state after Incepted, or the agreed
+///      terms hash would no longer match live state.
+///
+/// @author Raphael Prandtl
+abstract contract AbstractProduct is IProduct, ITradeLifecycle {
+    using Strings for uint256;
+    using Strings for address;
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                       IMMUTABLE STATE                     */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @inheritdoc IProduct
+    address public immutable override productRegistry;
+    /// @inheritdoc IProduct
+    address public immutable override productFactory;
+    /// @inheritdoc IProduct
+    bytes32 public immutable override tradeId;
+    /// @inheritdoc IProduct
+    address public immutable override issuer;
+    /// @inheritdoc IProduct
+    address public immutable override investor;
+    /// @inheritdoc IProduct
+    bytes32 public immutable override programId;
+    /// @inheritdoc IProduct
+    uint256 public immutable override programVersion;
+    /// @inheritdoc IProduct
+    address public immutable override productTermsResource;
+    /// @inheritdoc IProduct
+    address public immutable override styleSheetResource;
+    /// @inheritdoc IProduct
+    bytes32 public immutable override productTypeId;
+    /// @inheritdoc IProduct
+    bytes32 public immutable override deploymentStateHash;
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                        MUTABLE STATE                      */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @dev Current trade status.
+    TradeStatus internal _status;
+
+    /// @dev Agreed terms hash fixed at inception (0 before Incepted).
+    bytes32 internal _agreedTermsHash;
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                       CUSTOM ERRORS                       */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @notice Thrown when a required address field is the zero address.
+    error ZeroAddress(string field);
+    /// @notice Thrown when a required bytes32 field is zero.
+    error ZeroHash(string field);
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                       CONSTRUCTOR                         */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @param c Common deployment parameters assembled by the registry.
+    /// @dev The deploying product-specific factory is captured as msg.sender.
+    ///      The concrete product sets its initial terms after this constructor.
+    constructor(CommonDeploymentParams memory c) {
+        if (c.productRegistry == address(0)) revert ZeroAddress("productRegistry");
+        if (c.tradeId == bytes32(0)) revert ZeroHash("tradeId");
+        if (c.issuer == address(0)) revert ZeroAddress("issuer");
+        if (c.investor == address(0)) revert ZeroAddress("investor");
+        if (c.programId == bytes32(0)) revert ZeroHash("programId");
+        if (c.productTermsResource == address(0)) revert ZeroAddress("productTermsResource");
+        if (c.styleSheetResource == address(0)) revert ZeroAddress("styleSheetResource");
+        if (c.productTypeId == bytes32(0)) revert ZeroHash("productTypeId");
+        if (c.deploymentStateHash == bytes32(0)) revert ZeroHash("deploymentStateHash");
+
+        productRegistry = c.productRegistry;
+        productFactory = msg.sender;
+        tradeId = c.tradeId;
+        issuer = c.issuer;
+        investor = c.investor;
+        programId = c.programId;
+        programVersion = c.programVersion;
+        productTermsResource = c.productTermsResource;
+        styleSheetResource = c.styleSheetResource;
+        productTypeId = c.productTypeId;
+        deploymentStateHash = c.deploymentStateHash;
+
+        _status = TradeStatus.Requested;
+        emit TradeStatusChanged(TradeStatus.Requested, TradeStatus.Requested);
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                         MODIFIERS                         */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    modifier onlyIssuer() {
+        if (msg.sender != issuer) revert NotIssuer(msg.sender);
+        _;
+    }
+
+    modifier onlyInvestor() {
+        if (msg.sender != investor) revert NotInvestor(msg.sender);
+        _;
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                       TRADE LIFECYCLE                     */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    function updateTerms(bytes calldata productSpecificPayload) external override onlyInvestor {
+        if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
+
+        _updateTerms(productSpecificPayload);
+
+        bytes32 newHash = currentTermsHash();
+        emit TermsUpdated(msg.sender, newHash);
+        emit StateUpdated(msg.sender, address(this), newHash);
+    }
+
+    function inceptTrade(bytes32 agreedTermsHash_) external override onlyIssuer {
+        if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
+
+        bytes32 current = currentTermsHash();
+        if (agreedTermsHash_ != current) revert AgreedTermsMismatch(current, agreedTermsHash_);
+
+        _agreedTermsHash = agreedTermsHash_;
+        _setStatus(TradeStatus.Incepted);
+
+        emit TradeIncepted(msg.sender, agreedTermsHash_);
+    }
+
+    function confirmTrade(bytes32 agreedTermsHash_) external override onlyInvestor {
+        if (_status != TradeStatus.Incepted) revert InvalidTradeStatus(_status);
+        if (agreedTermsHash_ != _agreedTermsHash) {
+            revert AgreedTermsMismatch(_agreedTermsHash, agreedTermsHash_);
+        }
+
+        _setStatus(TradeStatus.Active);
+
+        emit TradeConfirmed(msg.sender, agreedTermsHash_);
+        emit TradeActivated();
+
+        _onActivated();
+    }
+
+    function cancelTrade() external override {
+        if (msg.sender != issuer && msg.sender != investor) {
+            revert NotTradeParty(msg.sender);
+        }
+        if (_status != TradeStatus.Requested && _status != TradeStatus.Incepted) {
+            revert InvalidTradeStatus(_status);
+        }
+
+        _setStatus(TradeStatus.Cancelled);
+        emit TradeCanceled(msg.sender);
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                     LIFECYCLE VIEWS                       */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @inheritdoc ITradeLifecycle
+    function tradeStatus() external view override returns (TradeStatus) {
+        return _status;
+    }
+
+    /// @inheritdoc ITradeLifecycle
+    function agreedTermsHash() external view override returns (bytes32) {
+        return _agreedTermsHash;
+    }
+
+    /// @inheritdoc ITradeLifecycle
+    /// @dev Binds the economic terms to this instance and its deployment anchor,
+    ///      so an agreed hash cannot be replayed against another product.
+    function currentTermsHash() public view override returns (bytes32) {
+        return keccak256(abi.encode(address(this), deploymentStateHash, _economicTermsHash()));
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                    INTERNAL LIFECYCLE                     */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    function _setStatus(TradeStatus newStatus) internal {
+        TradeStatus old = _status;
+        _status = newStatus;
+        emit TradeStatusChanged(old, newStatus);
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                          XML VIEW                         */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @inheritdoc IXMLRepresentableState
+    function stateXmlTemplate() external view override returns (string memory) {
+        return _productSpecificStateXml();
+    }
+
+    /// @dev Concrete product renders its root element, economic bindings live in
+    ///      the included terms resource; product only adds wrapper + includes.
+    function _productSpecificStateXml() internal view virtual returns (string memory);
+
+    /// @dev Generic deployment + lifecycle bindings as child elements (resolved
+    ///      by the renderer against this product's getters). Placed inside the
+    ///      concrete product's root element.
+    function _deploymentStateXml() internal pure returns (string memory) {
+        return string.concat(
+            "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
+            "<ProductFactory evmstate:call=\"productFactory()(address)\"/>",
+            "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
+            "<Issuer evmstate:call=\"issuer()(address)\"/>",
+            "<Investor evmstate:call=\"investor()(address)\"/>",
+            "<ProgramId evmstate:call=\"programId()(bytes32)\"/>",
+            "<ProgramVersion evmstate:call=\"programVersion()(uint256)\"/>",
+            "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
+            "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
+            "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"
+        );
+    }
+
+    /// @dev Builds an xi:include for a text resource, parsed as XML so its
+    ///      evmstate:call bindings resolve, with a keccak256 integrity hint.
+    function _include(address resource) internal view returns (string memory) {
+        ITextResource textResource = ITextResource(resource);
+        string memory href = string.concat(
+            "web3://", resource.toHexString(), ":", block.chainid.toString(), "/text"
+        );
+        string memory integrity = string.concat(
+            "keccak256-", uint256(textResource.contentHash()).toHexString(32)
+        );
+        return string.concat(
+            "<xi:include href=\"", href,
+            "\" parse=\"xml\" evmstate:integrity=\"", integrity, "\"/>"
+        );
+    }
+
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    /*                       CONCRETE HOOKS                      */
+    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @dev Decodes and applies a full-replacement terms payload. Called only in
+    ///      Requested (investor). Must validate the decoded economics.
+    function _updateTerms(bytes calldata productSpecificPayload) internal virtual;
+
+    /// @dev Fingerprint of the product's economic terms (folded into
+    ///      currentTermsHash). Must reflect all negotiable terms.
+    function _economicTermsHash() internal view virtual returns (bytes32);
+
+    /// @dev Optional hook invoked once when the trade becomes Active. Default
+    ///      no-op; product-specific lifecycles extend here.
+    function _onActivated() internal virtual {}
+}
