@@ -1,7 +1,7 @@
 @startuml
 title Smart Product Framework - End-to-End Sequence Flow
 
-actor Issuer
+actor "Product Provider" as PProvider
 actor Investor
 participant "Frontend / dApp" as Frontend
 participant "TextResource\n(terms XML)" as XmlResource
@@ -16,15 +16,15 @@ participant "Renderer" as Renderer
 
 == Initial Setup ==
 
-Issuer -> InvestorRegistry : deploy InvestorRegistry(owner)
-Issuer -> Registry : deploy TradableBondDataRegistry(owner, investorRegistry)
-Issuer -> Factory : deploy ProductFactoryRegistry(owner, registry)
-Issuer -> Registry : setProductFactory(factory)
+PProvider -> InvestorRegistry : deploy InvestorRegistry(owner)
+PProvider -> Registry : deploy TradableBondDataRegistry(owner, investorRegistry)
+PProvider -> Factory : deploy ProductFactoryRegistry(owner, registry)
+PProvider -> Registry : setProductFactory(factory)
 Registry -> Factory : productRegistryAddress()
 Factory --> Registry : registry (back-reference check)
 
-Issuer -> Deployer : deploy SimpleBondFactory(genericFactory)
-Issuer -> Factory : registerProductFactory(SIMPLE_BOND_TYPE, deployer)
+PProvider -> Deployer : deploy SimpleBondFactory(genericFactory)
+PProvider -> Factory : registerProductFactory(SIMPLE_BOND_TYPE, deployer)
 Factory -> Deployer : supportsInterface(IProductSpecificFactory)
 Deployer --> Factory : true
 Factory -> Deployer : productTypeId()
@@ -37,23 +37,23 @@ end note
 
 == Investor Registration ==
 
-Issuer -> InvestorRegistry : registerInvestor({investor, lei})
+PProvider -> InvestorRegistry : registerInvestor({investor, lei})
 InvestorRegistry -> InvestorRegistry : store status = Active
-InvestorRegistry --> Issuer : InvestorRegistered
+InvestorRegistry --> PProvider : InvestorRegistered
 
 == Resource Publication ==
 
-Issuer -> XmlResource : deploy TextResource(owner, BOND_TERMS,\n"application/xml", content, keccak256(content))
+PProvider -> XmlResource : deploy TextResource(owner, BOND_TERMS,\n"application/xml", content, keccak256(content))
 XmlResource -> XmlResource : chunk + verify hash + finalize
-XmlResource --> Issuer : xmlResourceAddress
+XmlResource --> PProvider : xmlResourceAddress
 
-Issuer -> XsltResource : deploy TextResource(owner, BOND_STYLESHEET,\n"application/xslt+xml", content, keccak256(content))
+PProvider -> XsltResource : deploy TextResource(owner, BOND_STYLESHEET,\n"application/xslt+xml", content, keccak256(content))
 XsltResource -> XsltResource : chunk + verify hash + finalize
-XsltResource --> Issuer : xsltResourceAddress
+XsltResource --> PProvider : xsltResourceAddress
 
-== Program Publication ==
+== Product Definition Publication ==
 
-Issuer -> Registry : publishProgram({programName, {terms, xslt, productTypeId}})
+PProvider -> Registry : publishProductDefinition({name, {terms, xslt, productTypeId}})
 
 Registry -> XmlResource : supportsInterface(ITextResource)
 XmlResource --> Registry : true
@@ -69,25 +69,25 @@ XsltResource --> Registry : true
 Registry -> XsltResource : resourceType()
 XsltResource --> Registry : BOND_STYLESHEET
 
-Registry -> Registry : programId = keccak256(programName, address(this))
-Registry -> Registry : store ProgramStorage (status = Active)
-Registry --> Issuer : programId (partId = uint256(programId))
+Registry -> Registry : productDefinitionId = keccak256(name, address(this))
+Registry -> Registry : store ProductDefinitionStorage (status = Active)
+Registry --> PProvider : productDefinitionId (partId = uint256(productDefinitionId))
 
-note over Issuer, Investor
+note over PProvider, Investor
 The renderer may now call statePartXmlTemplate(partId)
-on the registry to preview the program terms as TEXT.
+on the registry to preview the product terms as TEXT.
 The evmstate:call bindings are NOT resolved here -
 they resolve only against a deployed product.
 end note
 
 == Indication Publication ==
 
-Issuer -> CurveRegistry : deploy CurveIndications(owner)
-Issuer -> CurveRegistry : publishCurveIndications(curveName, quotes[])
+PProvider -> CurveRegistry : deploy CurveIndications(owner)
+PProvider -> CurveRegistry : publishCurveIndications(curveName, quotes[])
 CurveRegistry -> CurveRegistry : curveId = keccak256(curveName, address(this))
-CurveRegistry --> Issuer : indicationId (curveId)
+CurveRegistry --> PProvider : indicationId (curveId)
 
-Issuer -> Registry : assignProductIndication(programId, curveRegistry, indicationId)
+PProvider -> Registry : assignProductIndication(productDefinitionId, curveRegistry, indicationId)
 Registry -> CurveRegistry : supportsInterface(IProductIndications)
 CurveRegistry --> Registry : true
 Registry -> CurveRegistry : indicationStatus(indicationId)
@@ -100,7 +100,7 @@ CurveRegistry --> Registry : indicationPartId
 Registry -> Registry : store (curveRegistry, indicationId, partId)
 
 note right of Registry
-Registry stores per programId:
+Registry stores per productDefinitionId:
 - terms + stylesheet resources
 - productTypeId
 - (indicationContract, indicationId, partId)
@@ -108,9 +108,9 @@ end note
 
 == Frontend Prepares Trade Request ==
 
-Investor -> Frontend : select program
+Investor -> Frontend : select product definition
 
-Frontend -> Registry : productIndicationOfProgram(programId)
+Frontend -> Registry : productIndicationOfDefinition(productDefinitionId)
 Registry --> Frontend : indicationContract, indicationId, partId
 
 Frontend -> Renderer : render indication (partId)
@@ -118,7 +118,7 @@ Renderer -> CurveRegistry : statePartXmlTemplate(partId)
 CurveRegistry --> Renderer : curve indication state XML
 Renderer --> Frontend : rendered curve indication
 
-Frontend -> Registry : productTypeByProgramId(programId)
+Frontend -> Registry : productTypeByDefinitionId(productDefinitionId)
 Registry --> Frontend : productTypeId
 
 Frontend -> Factory : productFactoryOf(productTypeId)
@@ -143,23 +143,23 @@ Frontend -> Frontend : attach productSpecificSchemaHash
 == Trade Request and Deployment ==
 
 Investor -> Frontend : submit trade request
-Frontend -> Registry : createTradeRequest({programId, schemaHash, payload})
+Frontend -> Registry : createTradeRequest({productDefinitionId, schemaHash, payload})
 
 Registry -> Registry : require productFactory set
-Registry -> Registry : load ProgramStorage(programId)
-Registry -> Registry : require program Active
+Registry -> Registry : load ProductDefinitionStorage(productDefinitionId)
+Registry -> Registry : require product definition Active
 
-Registry -> InvestorRegistry : isEligibleInvestor(investor, programId)
+Registry -> InvestorRegistry : isEligibleInvestor(investor, productDefinitionId)
 InvestorRegistry --> Registry : true
 
 Registry -> Factory : canDeployProduct(productTypeId)
 Factory --> Registry : true
 
-Registry -> Registry : tradeId = keccak256(registry, chainId, nonce, investor, programId)
+Registry -> Registry : tradeId = keccak256(registry, chainId, nonce, investor, productDefinitionId)
 Registry -> XmlResource : contentHash()
 XmlResource --> Registry : termsContentHash
 Registry -> XsltResource : contentHash()
-XsltResource --> Registry : styleSheetContentHash
+XsltResource --> Registry : stylesheetContentHash
 Registry -> Registry : deploymentStateHash = keccak256(...)
 
 Registry -> Factory : deployProduct({common, schemaHash, payload})
@@ -206,16 +206,16 @@ opt investor amends terms while Requested
     Bond --> Frontend : ok
 end
 
-Issuer -> Frontend : read current terms hash
+PProvider -> Frontend : read current terms hash
 Frontend -> Bond : currentTermsHash()
 Bond --> Frontend : agreedTermsHash
 
-Issuer -> Bond : inceptTrade(agreedTermsHash)
-Bond -> Bond : require issuer, status Requested
+PProvider -> Bond : inceptTrade(agreedTermsHash)
+Bond -> Bond : require product provider, status Requested
 Bond -> Bond : require agreedTermsHash == currentTermsHash()
 Bond -> Bond : store agreedTermsHash, status = Incepted
 Bond -> Bond : emit TradeIncepted
-Bond --> Issuer : ok
+Bond --> PProvider : ok
 
 Investor -> Bond : confirmTrade(agreedTermsHash)
 Bond -> Bond : require investor, status Incepted
@@ -235,7 +235,7 @@ Bond --> Renderer : product state XML (wrapper + deployment bindings + includes)
 
 Renderer -> Bond : productTermsResource()
 Bond --> Renderer : XML resource address
-Renderer -> Bond : styleSheetResource()
+Renderer -> Bond : stylesheetResource()
 Bond --> Renderer : XSLT resource address
 
 Renderer -> XmlResource : text()
@@ -247,7 +247,7 @@ Renderer -> Renderer : resolve evmstate:call bindings against product
 
 note right of Renderer
 Renderer calls the getters referenced in the terms XML.
-A missing getter means the program/productType mapping was wrong.
+A missing getter means the product definition/productType mapping was wrong.
 end note
 
 Renderer -> Bond : notional()

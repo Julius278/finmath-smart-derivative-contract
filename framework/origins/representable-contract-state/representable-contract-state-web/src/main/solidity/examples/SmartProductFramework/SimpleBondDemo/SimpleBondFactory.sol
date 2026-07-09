@@ -9,7 +9,7 @@ import {SIMPLE_BOND_TYPE} from "./BondConstants.sol";
 /// @title SimpleBondFactory
 /// @notice Product-specific factory that deploys SimpleBond products.
 /// @dev Caller restriction (onlyGenericFactory) and schema validation are
-///      handled by AbstractProductSpecificFactory; this contract only decodes
+///      handled by AbstractProductSpecificFactory.sol.sol; this contract only decodes
 ///      the payload, validates the economics, and constructs the bond.
 ///
 /// @author Raphael Prandtl

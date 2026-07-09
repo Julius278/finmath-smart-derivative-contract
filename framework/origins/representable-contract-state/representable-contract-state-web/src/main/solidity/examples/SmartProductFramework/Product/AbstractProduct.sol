@@ -38,21 +38,21 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @inheritdoc IProduct
     address public immutable override productRegistry;
     /// @inheritdoc IProduct
-    address public immutable override productFactory;
+    address public immutable override productSpecificFactory;
     /// @inheritdoc IProduct
     bytes32 public immutable override tradeId;
     /// @inheritdoc IProduct
-    address public immutable override issuer;
+    address public immutable override productProvider;
     /// @inheritdoc IProduct
     address public immutable override investor;
     /// @inheritdoc IProduct
-    bytes32 public immutable override programId;
+    bytes32 public immutable override productDefinitionId;
     /// @inheritdoc IProduct
-    uint256 public immutable override programVersion;
+    uint256 public immutable override productDefinitionVersion;
     /// @inheritdoc IProduct
-    address public immutable override productTermsResource;
+    address public immutable override termsResource;
     /// @inheritdoc IProduct
-    address public immutable override styleSheetResource;
+    address public immutable override stylesheetResource;
     /// @inheritdoc IProduct
     bytes32 public immutable override productTypeId;
     /// @inheritdoc IProduct
@@ -87,23 +87,23 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     constructor(CommonDeploymentParams memory c) {
         if (c.productRegistry == address(0)) revert ZeroAddress("productRegistry");
         if (c.tradeId == bytes32(0)) revert ZeroHash("tradeId");
-        if (c.issuer == address(0)) revert ZeroAddress("issuer");
+        if (c.productProvider  == address(0)) revert ZeroAddress("productProvider ");
         if (c.investor == address(0)) revert ZeroAddress("investor");
-        if (c.programId == bytes32(0)) revert ZeroHash("programId");
-        if (c.productTermsResource == address(0)) revert ZeroAddress("productTermsResource");
-        if (c.styleSheetResource == address(0)) revert ZeroAddress("styleSheetResource");
+        if (c.productDefinitionId  == bytes32(0)) revert ZeroHash("productDefinitionId ");
+        if (c.termsResource == address(0)) revert ZeroAddress("termsResource");
+        if (c.stylesheetResource == address(0)) revert ZeroAddress("stylesheetResource");
         if (c.productTypeId == bytes32(0)) revert ZeroHash("productTypeId");
         if (c.deploymentStateHash == bytes32(0)) revert ZeroHash("deploymentStateHash");
 
         productRegistry = c.productRegistry;
-        productFactory = msg.sender;
+        productSpecificFactory = msg.sender;
         tradeId = c.tradeId;
-        issuer = c.issuer;
+        productProvider = c.productProvider;
         investor = c.investor;
-        programId = c.programId;
-        programVersion = c.programVersion;
-        productTermsResource = c.productTermsResource;
-        styleSheetResource = c.styleSheetResource;
+        productDefinitionId = c.productDefinitionId;
+        productDefinitionVersion  = c.productDefinitionVersion ;
+        termsResource = c.termsResource;
+        stylesheetResource = c.stylesheetResource;
         productTypeId = c.productTypeId;
         deploymentStateHash = c.deploymentStateHash;
 
@@ -115,13 +115,17 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /*                         MODIFIERS                         */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    modifier onlyIssuer() {
-        if (msg.sender != issuer) revert NotIssuer(msg.sender);
+    modifier onlyProductProvider() {
+        if (msg.sender != productProvider) {
+            revert NotProductProvider(msg.sender);
+        }
         _;
     }
 
     modifier onlyInvestor() {
-        if (msg.sender != investor) revert NotInvestor(msg.sender);
+        if (msg.sender != investor) {
+            revert NotInvestor(msg.sender);
+        }
         _;
     }
 
@@ -139,7 +143,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit StateUpdated(msg.sender, address(this), newHash);
     }
 
-    function inceptTrade(bytes32 agreedTermsHash_) external override onlyIssuer {
+    function inceptTrade(bytes32 agreedTermsHash_) external override onlyProductProvider {
         if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
 
         bytes32 current = currentTermsHash();
@@ -166,7 +170,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     }
 
     function cancelTrade() external override {
-        if (msg.sender != issuer && msg.sender != investor) {
+        if (msg.sender != productProvider && msg.sender != investor) {
             revert NotTradeParty(msg.sender);
         }
         if (_status != TradeStatus.Requested && _status != TradeStatus.Incepted) {
@@ -227,12 +231,12 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     function _deploymentStateXml() internal pure returns (string memory) {
         return string.concat(
             "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
-            "<ProductFactory evmstate:call=\"productFactory()(address)\"/>",
+            "<ProductSpecificFactory evmstate:call=\"productSpecificFactory()(address)\"/>",
             "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
-            "<Issuer evmstate:call=\"issuer()(address)\"/>",
+            "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
             "<Investor evmstate:call=\"investor()(address)\"/>",
-            "<ProgramId evmstate:call=\"programId()(bytes32)\"/>",
-            "<ProgramVersion evmstate:call=\"programVersion()(uint256)\"/>",
+            "<ProductDefinitionId  evmstate:call=\"productDefinitionId ()(bytes32)\"/>",
+            "<ProductDefinitionVersion  evmstate:call=\"productDefinitionVersion ()(uint256)\"/>",
             "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
             "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
             "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"

@@ -218,7 +218,7 @@ contract ProductFactoryRegistry is IProductFactory, Ownable2Step, ReentrancyGuar
 
         productByTradeId[tradeId] = product;
 
-        emit ProductDeployed(tradeId, common.programId, productTypeId, product, common.issuer, common.investor);
+        emit ProductDeployed(tradeId, common.productDefinitionId, productTypeId, product, common.productProvider, common.investor);
     }
 
     function canDeployProduct(bytes32 productTypeId) external view override returns (bool) {

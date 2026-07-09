@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProduct} from "./Products/AbstractProduct.sol";
+import {AbstractProduct} from "./Product/AbstractProduct.sol";
 import {CommonDeploymentParams} from "./ProductFactory/ProductDeploymentTypes.sol";
 
 /// @title SimpleBond
@@ -95,8 +95,8 @@ contract SimpleBond is AbstractProduct {
             "<SimpleBond xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
             " xmlns:evmstate=\"urn:evm:state:1.0\">",
             _deploymentStateXml(),
-            _include(productTermsResource),
-            _include(styleSheetResource),
+            _include(termsResource),
+            _include(stylesheetResource),
             "</SimpleBond>"
         );
     }

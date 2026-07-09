@@ -16,8 +16,8 @@ import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
 ///      opaque to it and passed through untouched.
 ///
 /// @dev TRUST / VALIDATION BOUNDARY
-///      - The registry validates program status, investor eligibility, and
-///        product-type deployability (via canDeployProduct) before calling.
+///      - The registry validates product definition status, investor eligibility,
+///        and product-type deployability (via canDeployProduct) before calling.
 ///      - deployProduct MUST be callable only by productRegistryAddress() and
 ///        MUST re-enforce deployability (the registry's pre-check and this call
 ///        are not atomic w.r.t. a factory swap).
@@ -43,7 +43,7 @@ interface IProductFactory is IERC165 {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
     /// @notice Emitted when a product is deployed.
-    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed programId, bytes32 indexed productTypeId, address product, address issuer, address investor);
+    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address product, address productProvider, address investor);
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                       FACTORY VIEWS                       */
@@ -93,14 +93,15 @@ interface IProductFactory is IERC165 {
 ///      registration + a productTypeId self-declaration match), not by the id
 ///      derivation itself.
 ///
-///      WORKFLOW: an issuer reads productTypeId() from the deployed factory and
-///      supplies that exact value when publishing a program. Trade requests then
+///      WORKFLOW: an product provider reads productTypeId() from the deployed factory and
+///      supplies that exact value when publishing a product definition. Trade requests then
 ///      route through the generic factory back to this factory by that id.
 ///
 /// @dev TRUST BOUNDARY
 ///      deployProduct MUST be callable only by the generic factory that
-///      registered this factory (the eligibility/program checks happen upstream
-///      in the registry, so direct calls must be rejected).
+///      registered this factory (the eligibility/product definition checks
+///      happen upstream in the registry, so direct calls must be rejected).
+
 interface IProductSpecificFactory is IERC165 {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                       CUSTOM ERRORS                       */
@@ -125,7 +126,7 @@ interface IProductSpecificFactory is IERC165 {
     /// @dev Address-independent semantic constant; see the contract-level
     ///      "PRODUCT TYPE ID SCHEME". Used by the generic factory to verify a
     ///      registration maps a product type to a matching factory, and by
-    ///      issuers as the productTypeId when publishing a program.
+    ///      product providers as the productTypeId when publishing a product definition.
     function productTypeId() external view returns (bytes32);
 
     /// @notice Returns the schema hash of the productSpecificPayload this

@@ -5,7 +5,7 @@ import {IProductSpecificFactory} from "./IProductFactory.sol";
 import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-/// @title AbstractProductSpecificFactory
+/// @title AbstractProductSpecificFactory.sol.sol
 /// @notice Base for factories that construct exactly one product type. Handles
 ///         the generic-factory caller guard, payload schema validation, and
 ///         ERC-165, and delegates the actual construction to _deployProduct.

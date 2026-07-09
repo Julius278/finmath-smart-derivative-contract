@@ -10,9 +10,9 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 /// @title InvestorRegistry
 /// @notice Single-contract implementation of IInvestorRegistry.
 ///         Investors are registered with an initial Active status; their
-///         lifecycle status can be changed by the owner (Revoked is terminal).
-///         Eligibility is derived at call time: in this first
-///         version any Active investor is eligible for any program.
+///         lifecycle status can be changed by the owner. Revoked is terminal.
+///         Eligibility is derived at call time: in this first version any
+///         Active investor is eligible for any product definition.
 /// @dev Ownership uses OpenZeppelin Ownable2Step (two-step transfer).
 ///
 /// @author Raphael Prandtl
@@ -111,21 +111,22 @@ contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
         return _investors[investor].status != InvestorStatus.Unknown;
     }
 
-    function isEligibleInvestor(address investor, bytes32 programId) external view override returns (bool) {
+    function isEligibleInvestor(address investor, bytes32 productDefinitionId) external view override returns (bool) {
         InvestorStorage storage stored = _investors[investor];
         if (stored.status != InvestorStatus.Active) {
             return false;
         }
-        return _isEligibleForProgram(investor, programId, stored);
+        return _isEligibleForProductDefinition(investor, productDefinitionId, stored);
     }
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                      BUSINESS RULES                       */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @dev Program-specific eligibility. First version: any active investor is
-    ///      eligible for any program, so `programId` and stored data are unused.
-    function _isEligibleForProgram(address, bytes32, InvestorStorage storage) internal view virtual returns (bool) {
+    /// @dev Product-definition-specific eligibility. First version: any active
+    ///      investor is eligible for any product definition, so
+    ///      `productDefinitionId` and stored data are unused.
+    function _isEligibleForProductDefinition(address, bytes32, InvestorStorage storage) internal view virtual returns (bool) {
         return true;
     }
 

@@ -17,7 +17,7 @@ pragma solidity ^0.8.24;
 
 /// @dev Product type served by SimpleBondFactory. Used as:
 ///      - SimpleBondFactory.productTypeId(),
-///      - a program's productTypeId when publishing a demo-bond program,
+///      - a product definition's productTypeId when publishing a demo-bond product,
 ///      - an accepted type for curve indications in the bond registry.
 bytes32 constant SIMPLE_BOND_TYPE = keccak256("SIMPLE_BOND");
 
@@ -37,9 +37,9 @@ bytes32 constant CURVE_INDICATION_CATEGORY = keccak256("CURVE");
 /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
 /// @dev resourceType() a text resource must declare to back the product-terms
-///      slot of a bond program.
+///      slot of a bond product.
 bytes32 constant BOND_TERMS_RESOURCE_TYPE = keccak256("BOND_TERMS");
 
 /// @dev resourceType() a text resource must declare to back the stylesheet slot
-///      of a bond program.
+///      of a bond product.
 bytes32 constant BOND_STYLESHEET_RESOURCE_TYPE = keccak256("BOND_STYLESHEET");

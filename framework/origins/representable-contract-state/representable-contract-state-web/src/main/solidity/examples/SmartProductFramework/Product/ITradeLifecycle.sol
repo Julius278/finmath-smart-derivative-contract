@@ -5,12 +5,12 @@ pragma solidity ^0.8.24;
 /// @notice Generic trade inception/confirmation lifecycle for deployed products,
 ///         inspired by ERC-6123 (ISDCTrade) but adapted to a deployment-driven
 ///         model: the investor's request deploys the product (status Requested),
-///         the issuer accepts (inceptTrade), and the investor confirms
+///         the product provider accepts (inceptTrade), and the investor confirms
 ///         (confirmTrade) to activate.
 ///
 /// @dev PARTIES
-///      issuer and investor are fixed at deployment (see IProduct); they are not
-///      passed as arguments here (unlike ERC-6123's withParty).
+///      product provider and investor are fixed at deployment (see IProduct);
+///      they are not passed as arguments here (unlike ERC-6123's withParty).
 ///
 /// @dev TERMS AGREEMENT
 ///      Both parties commit to agreedTermsHash == the product's current terms
@@ -24,7 +24,7 @@ interface ITradeLifecycle {
 
     /// @notice Lifecycle status of a trade.
     /// @dev Requested: created, terms amendable by investor.
-    ///      Incepted:  issuer accepted; terms frozen; awaiting investor confirm.
+    ///      Incepted:  product provider accepted; terms frozen; awaiting investor confirm.
     ///      Active:    investor confirmed; trade live.
     ///      Cancelled: terminated pre-activation by either party.
     enum TradeStatus {
@@ -38,13 +38,13 @@ interface ITradeLifecycle {
     /*                       CUSTOM ERRORS                       */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @notice Thrown when the caller is not the issuer.
-    error NotIssuer(address caller);
+    /// @notice Thrown when the caller is not the product provider.
+    error NotProductProvider(address caller);
 
     /// @notice Thrown when the caller is not the investor.
     error NotInvestor(address caller);
 
-    /// @notice Thrown when the caller is not the investor or the issuer.
+    /// @notice Thrown when the caller is neither investor nor product provider.
     error NotTradeParty(address caller);
 
     /// @notice Thrown when the action is not allowed in the current status.
@@ -60,8 +60,8 @@ interface ITradeLifecycle {
     /// @notice Emitted when the investor amends the requested terms.
     event TermsUpdated(address indexed investor, bytes32 newTermsHash);
 
-    /// @notice Emitted when the issuer incepts (accepts) the trade.
-    event TradeIncepted(address indexed initiator, bytes32 agreedTermsHash);
+    /// @notice Emitted when the product provider incepts/accepts the trade.
+    event TradeIncepted(address indexed productProvider, bytes32 agreedTermsHash);
 
     /// @notice Emitted when the investor confirms the incepted trade.
     event TradeConfirmed(address indexed confirmer, bytes32 agreedTermsHash);
@@ -84,9 +84,9 @@ interface ITradeLifecycle {
     ///        deployment; decoded and validated by the concrete product.
     function updateTerms(bytes calldata productSpecificPayload) external;
 
-    /// @notice Issuer accepts the current terms, freezing them.
+    /// @notice Product provider accepts the current terms, freezing them.
     /// @dev Requires agreedTermsHash == currentTermsHash(); Requested -> Incepted.
-    /// @param agreedTermsHash The terms fingerprint the issuer accepts.
+    /// @param agreedTermsHash The terms fingerprint the product provider accepts.
     function inceptTrade(bytes32 agreedTermsHash) external;
 
     /// @notice Investor confirms the incepted terms, activating the trade.
@@ -94,7 +94,7 @@ interface ITradeLifecycle {
     /// @param agreedTermsHash The terms fingerprint the investor confirms.
     function confirmTrade(bytes32 agreedTermsHash) external;
 
-    /// @notice Cancels the trade before activation (issuer or investor).
+    /// @notice Cancels the trade before activation (product provider or investor).
     /// @dev Allowed in Requested or Incepted; sets Cancelled (terminal).
     function cancelTrade() external;
 

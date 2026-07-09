@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductIndications} from "./ProductIndication/AbstractProductIndications.sol";
+import {AbstractProductIndication} from "./ProductIndication/AbstractProductIndication.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 
@@ -9,7 +9,7 @@ import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 /// @notice Concrete indication registry for curve indications (a set of quotes
 ///         forming an indicative curve for bond-like products).
 /// @dev Lifecycle (status, id/partId, versioning, rendering dispatch) is
-///      inherited from AbstractProductIndications. This contract only adds the
+///      inherited from AbstractProductIndication.sol. This contract only adds the
 ///      curve data model, typed publish/quote mutators, the category constant,
 ///      and the XML rendering hook.
 ///
@@ -18,7 +18,7 @@ import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 ///      new set are withdrawn.
 ///
 /// @author Raphael Prandtl
-contract CurveIndications is AbstractProductIndications {
+contract CurveIndications is AbstractProductIndication {
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                         CONSTANTS                         */

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IProductIndications} from "./IProductIndications.sol";
+import {IProductIndication} from "./IProductIndication.sol";
 import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-/// @title AbstractProductIndications
+/// @title AbstractProductIndication.sol
 /// @notice Generic base for indication registries. Owns the indication
 ///         lifecycle (status, versioning, id/partId derivation, rendering
 ///         dispatch) that is identical across indication types. Concrete
@@ -25,7 +25,7 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 ///      partId       : uint256(indicationId)   (bijective)
 ///
 /// @author Raphael Prandtl
-abstract contract AbstractProductIndications is IProductIndications, Ownable2Step {
+abstract contract AbstractProductIndication is IProductIndication, Ownable2Step {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                          STORAGE                          */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
@@ -85,7 +85,7 @@ abstract contract AbstractProductIndications is IProductIndications, Ownable2Ste
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IProductIndications).interfaceId || interfaceId == type(IXMLRepresentableStatePart).interfaceId
+        return interfaceId == type(IProductIndication).interfaceId || interfaceId == type(IXMLRepresentableStatePart).interfaceId
             || interfaceId == type(IERC165).interfaceId;
     }
 

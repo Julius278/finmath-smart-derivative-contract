@@ -3,32 +3,34 @@ pragma solidity ^0.8.24;
 
 /// @title IInvestorRegistry
 /// @notice Manages investor identity and lifecycle, and validates whether an
-///         investor is eligible to use a given financial program.
+///         investor is eligible to use a given financial product definition.
 ///
 /// @dev OWNERSHIP
 ///      Implementations are expected to be Ownable (OpenZeppelin Ownable2Step):
 ///      owner() and ownership transfer come from that module and are therefore
 ///      not redeclared here.
 ///
-/// @dev RELATIONSHIP TO PRODUCT DATA REGISTRY
-///      A program registry consumes this contract's read API:
-///        - isEligibleInvestor(investor, programId) to check the investor may
-///          use a specific program.
+/// @dev RELATIONSHIP TO PRODUCT REGISTRY
+///      A tradable product registry consumes this contract's read API:
+///        - isEligibleInvestor(investor, productDefinitionId) to check whether
+///          the investor may use a specific product definition.
 ///
 /// @dev ELIGIBILITY MODEL (derived, not stored)
-///      Eligibility is DERIVED from investor state at call time, not stored as
-///      an explicit (investor, programId) grant. The baseline rule is:
-///        eligible == status is Active AND program-specific criteria are met.
-///      The first implementation may treat all programs uniformly (criteria
-///      always satisfied for active investors); future versions can derive
-///      per-program eligibility from stored investor attributes without
+///      Eligibility is derived from investor state at call time, not stored as
+///      an explicit (investor, productDefinitionId) grant. The baseline rule is:
+///        eligible == status is Active AND product-definition-specific criteria
+///        are met.
+///      The first implementation may treat all product definitions uniformly
+///      (criteria always satisfied for active investors); future versions can
+///      derive per-definition eligibility from stored investor attributes without
 ///      changing this interface.
 ///
 /// @dev TERMINOLOGY
 ///      - "registered": the investor is known to the system (status != Unknown),
 ///        regardless of whether currently Active. Once registered, an investor
 ///        is never fully removed; only their status changes.
-///      - "eligible": the investor may currently use a (specific) program.
+///      - "eligible": the investor may currently use a specific product
+///        definition.
 ///
 /// @author Raphael Prandtl
 interface IInvestorRegistry {
@@ -134,9 +136,10 @@ interface IInvestorRegistry {
     /// @notice Returns whether an investor is known to the system.
     function isRegisteredInvestor(address investor) external view returns (bool);
 
-    /// @notice Returns whether an investor may currently use a given program.
-    /// @dev Derived at call time. Baseline: status == Active and program
-    ///      criteria met. `programId` may be unused in simple implementations.
-    function isEligibleInvestor(address investor, bytes32 programId) external view returns (bool);
-
+    /// @notice Returns whether an investor may currently use a given product
+    ///         definition.
+    /// @dev Derived at call time. Baseline: status == Active and
+    ///      product-definition-specific criteria are met.
+    ///      `productDefinitionId` may be unused in simple implementations.
+    function isEligibleInvestor(address investor, bytes32 productDefinitionId) external view returns (bool);
 }

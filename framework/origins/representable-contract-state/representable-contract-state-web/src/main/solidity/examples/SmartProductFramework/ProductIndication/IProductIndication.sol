@@ -15,7 +15,7 @@ import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
 ///      publish functions; it only relies on this generic surface to:
 ///        - validate the contract is an IProductIndications (via ERC-165),
 ///        - read its indicationCategory() to decide compatibility with a
-///          program's productTypeId (via a consuming-layer business hook),
+///          product definition's productTypeId (via a consuming-layer business hook),
 ///        - validate a specific indicationId exists / is presentable,
 ///        - manage its lifecycle status (setIndicationStatus),
 ///        - derive the partId and render via statePartXmlTemplate(partId).
@@ -41,7 +41,7 @@ import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
 ///                     exposed both ways via partIdForIndication / indicationForPartId.
 ///
 /// @author Raphael Prandtl
-interface IProductIndications is IERC165, IXMLRepresentableStatePart {
+interface IProductIndication is IERC165, IXMLRepresentableStatePart {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                           ENUMS                           */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
@@ -98,7 +98,7 @@ interface IProductIndications is IERC165, IXMLRepresentableStatePart {
 
     /// @notice Returns the coarse category of indications this registry serves
     ///         (e.g. keccak256("CURVE")). Used by the consuming layer to decide
-    ///         compatibility with a program's productTypeId.
+    ///         compatibility with a product definition's productTypeId.
     function indicationCategory() external view returns (bytes32);
 
     /// @notice Returns the current status of an indication.
