@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {IProductDefinitionRegistry} from "./IProductDefinitionRegistry.sol";
-import {ITextResource} from "./TextResource/ITextResource.sol";
-import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
+import {ITextResource} from "../TextResource/ITextResource.sol";
+import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
@@ -272,7 +272,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         }
     }
 
-    function _validateProductDefinitionPublicationParams(ProductDefinitionPublicationParams calldata params) internal pure {
+    function _validateProductDefinitionPublicationParams(ProductDefinitionPublicationParams calldata params) internal view {
         if (bytes(params.name).length == 0) {
             revert EmptyString("name");
         }

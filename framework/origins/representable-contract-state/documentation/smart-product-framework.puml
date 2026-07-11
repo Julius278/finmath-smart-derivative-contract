@@ -88,7 +88,7 @@ CurveRegistry -> CurveRegistry : curveId = keccak256(curveName, address(this))
 CurveRegistry --> PProvider : indicationId (curveId)
 
 PProvider -> Registry : assignProductIndication(productDefinitionId, curveRegistry, indicationId)
-Registry -> CurveRegistry : supportsInterface(IProductIndications)
+Registry -> CurveRegistry : supportsInterface(IProductIndication)
 CurveRegistry --> Registry : true
 Registry -> CurveRegistry : indicationStatus(indicationId)
 CurveRegistry --> Registry : Active

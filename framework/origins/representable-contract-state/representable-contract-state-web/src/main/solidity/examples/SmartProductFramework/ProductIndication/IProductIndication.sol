@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
+import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
 
-/// @title IProductIndications
+/// @title IProductIndication
 /// @notice Minimal, product-agnostic base for registries that publish price
 ///         indications for a product (e.g. curve indications for bonds)
 ///         Each concrete registry serves exactly one indication category.
@@ -13,7 +13,7 @@ import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
 ///      A product-data layer references an indication by the pair
 ///      (indicationContract, indicationId). It never calls type-specific
 ///      publish functions; it only relies on this generic surface to:
-///        - validate the contract is an IProductIndications (via ERC-165),
+///        - validate the contract is an IProductIndication (via ERC-165),
 ///        - read its indicationCategory() to decide compatibility with a
 ///          product definition's productTypeId (via a consuming-layer business hook),
 ///        - validate a specific indicationId exists / is presentable,

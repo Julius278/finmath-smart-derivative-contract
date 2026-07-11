@@ -64,7 +64,7 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
     /*                   INDICATION LIFECYCLE                    */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc IProductIndications
+    /// @inheritdoc IProductIndication
     function setIndicationStatus(bytes32 indicationId, IndicationStatus newStatus) external override onlyOwner {
         IndicationCore storage core = _existingCore(indicationId);
         IndicationStatus oldStatus = core.status;

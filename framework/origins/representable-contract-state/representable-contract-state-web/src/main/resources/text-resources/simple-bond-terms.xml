@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SimpleBondTerms
+    xmlns="urn:smart-product-framework:simple-bond:1.0"
+    xmlns:evmstate="urn:evm:state:1.0"
+    templateVersion="1.0.0">
+
+    <Header>
+        <DocumentType>Simple Bond Terms</DocumentType>
+        <ProductName>Simple Demo Bond</ProductName>
+        <Description>
+            Minimal renderer-ready product terms XML for the Smart Product Framework demo.
+            The negotiated economic values are resolved from the deployed SimpleBond contract.
+        </Description>
+    </Header>
+
+    <EconomicTerms>
+        <InstrumentType>Bond</InstrumentType>
+        <Currency>EUR</Currency>
+        <Notional>
+            <Amount evmstate:call="notional()(uint256)" evmstate:format="decimal" evmstate:scale="2"/>
+            <Currency>EUR</Currency>
+        </Notional>
+        <MaturityDate>
+            <UnadjustedDate evmstate:call="maturity()(uint256)" evmstate:format="iso8601-date"/>
+        </MaturityDate>
+    </EconomicTerms>
+
+    <Lifecycle>
+        <Requested>
+            The investor has requested the product and may amend notional or maturity while the trade is still Requested.
+        </Requested>
+        <Incepted>
+            The product provider has accepted the current terms and frozen the agreed terms hash.
+        </Incepted>
+        <Active>
+            The investor has confirmed the incepted terms and the trade is active.
+        </Active>
+    </Lifecycle>
+
+</SimpleBondTerms>

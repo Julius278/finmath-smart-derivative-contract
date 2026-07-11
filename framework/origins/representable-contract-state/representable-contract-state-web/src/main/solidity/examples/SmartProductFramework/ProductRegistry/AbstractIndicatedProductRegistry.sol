@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AbstractProductDefinitionRegistry} from "./AbstractProductDefinitionRegistry.sol";
-import {IProductIndication} from "./ProductIndication/IProductIndication.sol";
+import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @title AbstractIndicatedProductRegistry.sol
@@ -42,7 +42,7 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
     /// @notice Thrown when the indication address has no contract code.
     error InvalidIndicationContract(address productIndication);
 
-    /// @notice Thrown when the target does not implement IProductIndications.
+    /// @notice Thrown when the target does not implement IProductIndication.
     error InvalidIndicationInterface(address productIndication);
 
     /// @notice Thrown when the indication category is not accepted for the
@@ -51,7 +51,7 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
 
     /// @notice Thrown when the referenced indication is not in an assignable
     ///         status. Assignable statuses are Active and Suspended.
-    error InvalidIndicationStatus(address productIndication, IProductIndications.IndicationStatus status);
+    error InvalidIndicationStatus(address productIndication, IProductIndication.IndicationStatus status);
 
     /// @notice Thrown when a product definition has no product indication assigned.
     error MissingProductIndication(bytes32 productDefintionId);

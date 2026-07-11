@@ -230,16 +230,18 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     ///      concrete product's root element.
     function _deploymentStateXml() internal pure returns (string memory) {
         return string.concat(
-            "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
-            "<ProductSpecificFactory evmstate:call=\"productSpecificFactory()(address)\"/>",
-            "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
-            "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
-            "<Investor evmstate:call=\"investor()(address)\"/>",
-            "<ProductDefinitionId  evmstate:call=\"productDefinitionId ()(bytes32)\"/>",
-            "<ProductDefinitionVersion  evmstate:call=\"productDefinitionVersion ()(uint256)\"/>",
-            "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
-            "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
-            "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"
+            "<DeploymentState>",
+                "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
+                "<ProductSpecificFactory evmstate:call=\"productSpecificFactory()(address)\"/>",
+                "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
+                "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
+                "<Investor evmstate:call=\"investor()(address)\"/>",
+                "<ProductDefinitionId evmstate:call=\"productDefinitionId()(bytes32)\"/>",
+                "<ProductDefinitionVersion evmstate:call=\"productDefinitionVersion()(uint256)\"/>",
+                "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
+                "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
+                "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"
+            "</DeploymentState>"
         );
     }
 

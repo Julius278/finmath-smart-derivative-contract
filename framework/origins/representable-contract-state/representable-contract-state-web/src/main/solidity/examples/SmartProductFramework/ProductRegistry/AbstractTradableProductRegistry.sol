@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AbstractIndicatedProductRegistry} from "./AbstractIndicatedProductRegistry.sol";
 import {IProductFactory} from "../ProductFactory/IProductFactory.sol";
 import {IInvestorRegistry} from "../InvestorRegistry/IInvestorRegistry.sol";
-import {ITextResource} from "./TextResource/ITextResource.sol";
+import {ITextResource} from "../TextResource/ITextResource.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /// @title AbstractTradableProductRegistry.sol

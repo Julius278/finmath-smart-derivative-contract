@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractTradableProductRegistry} from "./ProductRegistry/AbstractTradableProductRegistry.sol";
-import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_TERMS_RESOURCE_TYPE, BOND_STYLESHEET_RESOURCE_TYPE} from "../SimpleBondDemo/BondConstants.sol";
+import {AbstractTradableProductRegistry} from "../ProductRegistry/AbstractTradableProductRegistry.sol";
+import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_TERMS_RESOURCE_TYPE, BOND_STYLESHEET_RESOURCE_TYPE} from "./BondConstants.sol";
 
 
 /// @title TradableBondDataRegistry
@@ -32,7 +32,6 @@ contract TradableBondDataRegistry is AbstractTradableProductRegistry {
     /*                    BUSINESS-RULE HOOKS                    */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc AbstractProductDefinitionRegistry.sol.sol
     /// @dev Each slot accepts exactly its designated bond resource type.
     function _isAcceptedResourceType(ResourceSlot slot, bytes32 resourceType) internal pure override returns (bool) {
         if (slot == ResourceSlot.ProductTerms) {
@@ -44,7 +43,6 @@ contract TradableBondDataRegistry is AbstractTradableProductRegistry {
         return false;
     }
 
-    /// @inheritdoc AbstractIndicatedProductRegistry.sol
     /// @dev Curve indications may back either bond product type (many-to-many:
     ///      one category serves multiple product types).
     function _isAcceptedIndication(bytes32 productTypeId, bytes32 indicationCategory) internal pure override returns (bool) {

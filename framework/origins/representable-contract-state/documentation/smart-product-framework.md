@@ -134,7 +134,7 @@ Registries publishing price indications (e.g. yield curves) referenced by produc
 
 | Contract | Role |
 |---|---|
-| `IProductIndications` | Generic, product-agnostic interface. |
+| `IProductIndication` | Generic, product-agnostic interface. |
 | `AbstractProductIndications` | Indication lifecycle, id/partId, rendering dispatch. |
 | `CurveIndications` | Concrete: curve of quotes (`Ownable2Step`). |
 
