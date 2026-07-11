@@ -5,7 +5,7 @@ import "./ITextResource.sol";
 import {SSTORE2} from "solady/utils/SSTORE2.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-/// @title TextResource
+/// @title TextResource.sol
 /// @notice Immutable on-chain storage for a text resource (e.g. XML / XSLT)
 ///         that can be referenced and reused by multiple products via a registry.
 ///
@@ -15,8 +15,15 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 ///                     Limited by the EIP-3860 init-code size limit (~49 KB),
 ///                     so suitable for small to medium resources.
 ///      2. Staged    – deploy with empty content, then append chunks across
-///                     several transactions via appendChunk / appendChunks and
-///                     finalize() at the end. Use this for large resources.
+///                     several transactions via appendChunk and finalize() at
+///                     the end. Use this for large resources.
+///
+/// @dev GAS / MEMORY LIMITATIONS
+///      Staged publishing splits writes across transactions, but this
+///      implementation still reconstructs the full content in memory when
+///      finalize(), content(), or text() is called. Therefore, staged publishing
+///      helps with upload transaction size, but it does not make arbitrarily
+///      large resources practical.
 ///
 /// @dev CONTENT HASH SCHEME (see ITextResource):
 ///      contentHash == keccak256(content())
@@ -24,14 +31,14 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 ///      supplied expected hash, so contentHash() is always reproducible
 ///      off-chain from the raw bytes (frontend integrity check).
 ///
-/// @dev EVM TARGET: relies on the MCOPY opcode (EIP-5656). Must be compiled
-///      and deployed with the Cancun (or later) EVM version.
-///
 /// @author Raphael Prandtl
 contract TextResource is ITextResource {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                       CONSTANTS                           */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+
+    /// @notice Maximum total content size in bytes.
+    uint256 public constant MAX_CONTENT_SIZE = 200_000;
 
     /// @notice Maximum size of a single chunk in bytes.
     /// @dev Bounded by the SSTORE2 / contract-code size limit (24_576 bytes).
@@ -58,6 +65,9 @@ contract TextResource is ITextResource {
 
     /// @notice Thrown when an empty chunk is appended.
     error EmptyChunk(uint256 index);
+
+    /// @notice Thrown when the content exceeds MAX_CONTENT_SIZE.
+    error ContentTooLarge(uint256 length, uint256 maxLength);
 
     /// @notice Thrown when a chunk exceeds MAX_CHUNK_SIZE.
     error ChunkTooLarge(uint256 index, uint256 length, uint256 maxLength);
@@ -114,14 +124,14 @@ contract TextResource is ITextResource {
 
     /// @notice Appends a single pre-chunked data segment (staged mode).
     /// @dev Caller is responsible for splitting data into MAX_CHUNK_SIZE pieces.
-    function appendChunk(bytes calldata chunk) external onlyOwner {
+    function appendChunk(bytes calldata chunk) external onlyOwner onlyBeforeFinalized {
         _appendChunk(chunk);
     }
 
     /// @notice Finalizes the resource and locks it as immutable (staged mode).
     /// @param expectedContentHash Hash the caller expects; verified on-chain
     ///        as keccak256 of the full stored content.
-    function finalize(bytes32 expectedContentHash) external onlyOwner {
+    function finalize(bytes32 expectedContentHash) external onlyOwner onlyBeforeFinalized {
         _finalize(expectedContentHash);
     }
 
@@ -169,9 +179,15 @@ contract TextResource is ITextResource {
         uint256 index = _pointers.length;
         uint256 chunkLength = chunk_.length;
 
-        if (chunkLength == 0) revert EmptyChunk(index);
-        if (chunkLength > MAX_CHUNK_SIZE) revert ChunkTooLarge(index, chunkLength, MAX_CHUNK_SIZE);
-
+        if (chunkLength == 0) {
+            revert EmptyChunk(index);
+        }
+        if (chunkLength > MAX_CHUNK_SIZE) {
+            revert ChunkTooLarge(index, chunkLength, MAX_CHUNK_SIZE);
+        }
+        if (contentLength + chunkLength > MAX_CONTENT_SIZE) {
+            revert ContentTooLarge(contentLength + chunkLength, MAX_CONTENT_SIZE);
+        }
         address pointer = SSTORE2.write(chunk_);
         _pointers.push(pointer);
         contentLength += chunkLength;
@@ -182,16 +198,18 @@ contract TextResource is ITextResource {
     /// @notice Splits full content into MAX_CHUNK_SIZE segments and appends them.
     function _appendContentInChunks(bytes memory content_) internal onlyBeforeFinalized {
         uint256 totalLength = content_.length;
-        if (totalLength == 0) revert EmptyContent();
+        if (totalLength == 0) {
+            revert EmptyContent();
+        }
 
         uint256 offset;
         while (offset < totalLength) {
             uint256 remaining = totalLength - offset;
             uint256 chunkLength = remaining > MAX_CHUNK_SIZE ? MAX_CHUNK_SIZE : remaining;
-
             bytes memory chunk = new bytes(chunkLength);
-            assembly {
-                mcopy(add(chunk, 32), add(add(content_, 32), offset), chunkLength)
+            for (uint256 i; i < chunkLength; ) {
+                chunk[i] = content_[offset + i];
+                unchecked { ++i; }
             }
 
             _appendChunk(chunk);
@@ -226,16 +244,15 @@ contract TextResource is ITextResource {
 
         uint256 offset;
         uint256 pointersLength = _pointers.length;
+
         for (uint256 i; i < pointersLength; ) {
             bytes memory chunk = SSTORE2.read(_pointers[i]);
             uint256 len = chunk.length;
-            assembly {
-                mcopy(add(add(result, 32), offset), add(chunk, 32), len)
+            for (uint256 j; j < len; ) {
+                result[offset + j] = chunk[j];
+                unchecked { ++j; }
             }
-            unchecked {
-                offset += len;
-                ++i;
-            }
+            unchecked { offset += len; ++i;}
         }
     }
 

@@ -30,6 +30,17 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 ///      NOTE: A consuming registry MAY expose this hash to clients for an
 ///            integrity check but is NOT required to verify it on-chain.
 ///
+/// @dev GAS / MEMORY LIMITATIONS
+///      Implementations may reconstruct the full resource content in memory
+///      when serving content(), text(), or when computing/verifying contentHash.
+///      Very large resources can therefore become expensive or even fail due to
+///      gas or memory limits, even if the content was written in multiple
+///      chunks.
+///
+///      Consumers SHOULD treat ITextResource as suitable for bounded-size text
+///      artifacts such as product terms, stylesheets, templates, or metadata.
+///      Implementations MAY enforce their own maximum total content size.
+///
 /// @author Raphael Prandtl
 interface ITextResource is IERC165 {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
