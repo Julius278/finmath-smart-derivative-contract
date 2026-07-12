@@ -32,9 +32,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      supplied expected hash, so contentHash() is always reproducible
  *      off-chain from the raw bytes (frontend integrity check).
  *
- * @dev EVM TARGET: relies on the MCOPY opcode (EIP-5656). Must be compiled
- *      and deployed with the Cancun (or later) EVM version. Retained alongside
- *      the legacy implementation for lower memory-copy costs.
+ * @dev EVM TARGET: avoids the MCOPY opcode and can be compiled for Paris or
+ *      later EVM versions.
  *
  * @author Raphael Prandtl
  **/
@@ -233,16 +232,34 @@ contract TextResource is ITextResource {
      **/
     function _appendContentInChunks(bytes memory content_) private {
         uint256 totalLength = content_.length;
-        if (totalLength == 0) revert EmptyContent();
+        if (totalLength == 0) {
+            revert EmptyContent();
+        }
 
         uint256 offset;
         while (offset < totalLength) {
             uint256 remaining = totalLength - offset;
             uint256 chunkLength = remaining > MAX_CHUNK_SIZE ? MAX_CHUNK_SIZE : remaining;
-
             bytes memory chunk = new bytes(chunkLength);
-            assembly {
-                mcopy(add(chunk, 32), add(add(content_, 32), offset), chunkLength)
+
+            /*
+             * This code avoid mcopy. Alternatively we could just do
+             *   assembly ("memory-safe") {
+             *     mcopy(add(chunk, 32), add(add(content_, 32), offset), chunkLength)
+             *   }
+             * which would require availability of the MCOPY opcode.
+             */
+            assembly ("memory-safe") {
+                let source := add(add(content_, 0x20), offset)
+                let target := add(chunk, 0x20)
+                let end := add(target, chunkLength)
+
+                for {} lt(target, end) {
+                    source := add(source, 0x20)
+                    target := add(target, 0x20)
+                } {
+                    mstore(target, mload(source))
+                }
             }
 
             _appendChunk(chunk);
@@ -280,6 +297,7 @@ contract TextResource is ITextResource {
 
         uint256 offset;
         uint256 pointersLength = _pointers.length;
+
         for (uint256 i; i < pointersLength; ) {
             address pointer = _pointers[i];
             uint256 chunkLength;
