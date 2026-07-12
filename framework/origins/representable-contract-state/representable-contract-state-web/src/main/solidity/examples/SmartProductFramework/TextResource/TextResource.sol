@@ -210,12 +210,13 @@ contract TextResource is ITextResource {
         if (chunkLength > MAX_CHUNK_SIZE) {
             revert ChunkTooLarge(index, chunkLength, MAX_CHUNK_SIZE);
         }
-        if (contentLength + chunkLength > MAX_CONTENT_SIZE) {
-            revert ContentTooLarge(contentLength + chunkLength, MAX_CONTENT_SIZE);
+        uint256 newContentLength = contentLength + chunkLength;
+        if (newContentLength > MAX_CONTENT_SIZE) {
+            revert ContentTooLarge(newContentLength, MAX_CONTENT_SIZE);
         }
         address pointer = SSTORE2.write(chunk_);
         _pointers.push(pointer);
-        contentLength += chunkLength;
+        contentLength = newContentLength;
 
         emit ChunkAppended(msg.sender, pointer, index, chunkLength);
     }
