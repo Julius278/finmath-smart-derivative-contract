@@ -284,6 +284,20 @@ contract TextResource is ITextResource {
             address pointer = _pointers[i];
             uint256 chunkLength;
 
+            /*
+             * The following code relies on the internal memory layout of SSTORE2 pointers,
+             * i.e., it is required that _pointers are SSTORE2 pointers, which is
+             *   [stop-byte | data ]
+             * An alternative implementation like
+             *   bytes memory chunk = SSTORE2.read(_pointers[i]);
+             *   uint256 len = chunk.length;
+             *   assembly {
+             *     mcopy(add(add(result, 32), offset), add(chunk, 32), len)
+             *   }
+             * would require an addition copy to a temp storeage "chunk".
+             * It also relies on the memory layout of bytes, which is
+             *   [ 32-bytes length | data | padding to 32 bytes ]
+             */
             assembly ("memory-safe") {
                 // SSTORE2 prefixes the stored data with one STOP byte.
                 chunkLength := sub(extcodesize(pointer), 1)
