@@ -178,7 +178,7 @@ public class Demo01TextResources {
 
         System.out.println(start);
         System.out.println();
-        System.out.println("...");
+        System.out.println("...(" + (text.length()-2*edgeLength) + " bytes omitted from preview)...");
         System.out.println();
         System.out.println(end);
     }
