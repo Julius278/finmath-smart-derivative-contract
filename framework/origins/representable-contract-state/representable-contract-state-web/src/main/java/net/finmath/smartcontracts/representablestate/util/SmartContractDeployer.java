@@ -118,9 +118,11 @@ public class SmartContractDeployer {
 		System.out.println("via-ir: " + compilerConfig.viaIr());
 		System.out.println("optimize: " + compilerConfig.optimize());
 
+		// 1) Compile with solc if needed
 		Files.createDirectories(SOL_OUT_DIR);
 		compileWithSolc(contract, compilerConfig);
 
+		// 2) Connect Web3j
 		Web3j web3;
 		long chainId;
 
@@ -147,6 +149,7 @@ public class SmartContractDeployer {
 		System.out.println("Deployer address: " + deployerAddress);
 		System.out.println("Constructor args: " + constructorArgs.size());
 
+		// 3) Deploy contract with constructor(...)
 		String contractBinRaw = Files.readString(SOL_OUT_DIR.resolve(contractName + ".bin")).trim();
 
 		String strippedBin = strip0x(contractBinRaw);
@@ -157,6 +160,7 @@ public class SmartContractDeployer {
 
 		System.out.println("Bytecode length: " + strippedBin.length() / 2 + " bytes");
 
+		// ABI-encode constructor args and append to bytecode
 		String encodedConstructorArgs = constructorArgs.isEmpty() ? "" : FunctionEncoder.encodeConstructor(constructorArgs);
 
 		String createData = hexConcat(contractBinRaw, encodedConstructorArgs);
@@ -182,12 +186,14 @@ public class SmartContractDeployer {
 
 		logger.info("Contract {} deployed at {}", contractName, contractAddress);
 
+		// 4) Ensure code present
 		EthGetCode code = web3.ethGetCode(contractAddress, DefaultBlockParameterName.LATEST).send();
 
 		if ("0x".equalsIgnoreCase(code.getCode())) {
 			throw new IllegalStateException("No code at deployed contract address. Check deployment status, solc EVM version and Besu config.");
 		}
 
+		// 5) Persist addresses to JSON
 		writeDeploymentJson(chainId, contractName, contractAddress, txHashContractDeployment, deployerAddress, compilerConfig);
 
 		printLocalApplicationProperties(chainId, contractName, contractAddress);
