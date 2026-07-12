@@ -108,8 +108,9 @@ contract TextResourceCancun is ITextResource {
      * @param mediaType_           IANA media type, e.g. "application/xml".
      * @param content_             Full content for one-shot mode, or empty
      *                             bytes to publish later via the staged API.
-     * @param expectedContentHash_ Required iff content_ is non-empty; verified
-     *                             on-chain as keccak256(content_).
+     * @param expectedContentHash_ Required if content_ is non-empty and must be
+     *                             zero for staged publishing; verified on-chain
+     *                             as keccak256(content_).
      **/
     constructor(address owner_, bytes32 resourceType_, string memory mediaType_, bytes memory content_, bytes32 expectedContentHash_) {
         if (owner_ == address(0)) revert ZeroOwner();
@@ -124,6 +125,8 @@ contract TextResourceCancun is ITextResource {
         if (content_.length != 0) {
             _appendContentInChunks(content_);
             _finalize(expectedContentHash_);
+        } else if (expectedContentHash_ != bytes32(0)) {
+            revert UnexpectedContentHash(expectedContentHash_);
         }
         // Otherwise: staged mode – content is appended later by the owner.
     }
