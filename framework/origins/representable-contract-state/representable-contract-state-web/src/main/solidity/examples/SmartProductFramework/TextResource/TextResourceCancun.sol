@@ -203,7 +203,7 @@ contract TextResourceCancun is ITextResource {
     /**
      * @notice Appends a single pre-chunked data segment.
      **/
-    function _appendChunk(bytes memory chunk_) internal onlyBeforeFinalized {
+    function _appendChunk(bytes memory chunk_) private {
         uint256 index = _pointers.length;
         uint256 chunkLength = chunk_.length;
 
@@ -226,7 +226,7 @@ contract TextResourceCancun is ITextResource {
     /**
      * @notice Splits full content into MAX_CHUNK_SIZE segments and appends them.
      **/
-    function _appendContentInChunks(bytes memory content_) internal onlyBeforeFinalized {
+    function _appendContentInChunks(bytes memory content_) private {
         uint256 totalLength = content_.length;
         if (totalLength == 0) revert EmptyContent();
 
@@ -249,7 +249,7 @@ contract TextResourceCancun is ITextResource {
      * @dev Recomputes keccak256 over the full stored content and verifies it
      *      against the caller-supplied expected hash.
      **/
-    function _finalize(bytes32 expectedContentHash) internal onlyBeforeFinalized {
+    function _finalize(bytes32 expectedContentHash) private {
         if (_pointers.length == 0 || contentLength == 0) revert EmptyContent();
         if (expectedContentHash == bytes32(0)) revert ZeroContentHash();
 
@@ -270,7 +270,7 @@ contract TextResourceCancun is ITextResource {
     /**
      * @notice Reconstructs the full content from all chunks.
      **/
-    function _readContent() internal view returns (bytes memory result) {
+    function _readContent() private view returns (bytes memory result) {
         result = new bytes(contentLength);
 
         uint256 offset;
@@ -296,7 +296,7 @@ contract TextResourceCancun is ITextResource {
      * Internal validation helpers
      */
 
-    function _requireFinalized() internal view {
+    function _requireFinalized() private view {
         if (contentHash == bytes32(0)) revert NotFinalized();
     }
 }
