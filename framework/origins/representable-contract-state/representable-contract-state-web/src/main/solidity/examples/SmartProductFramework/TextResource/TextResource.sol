@@ -238,9 +238,18 @@ contract TextResource is ITextResource {
             uint256 remaining = totalLength - offset;
             uint256 chunkLength = remaining > MAX_CHUNK_SIZE ? MAX_CHUNK_SIZE : remaining;
             bytes memory chunk = new bytes(chunkLength);
-            for (uint256 i; i < chunkLength; ) {
-                chunk[i] = content_[offset + i];
-                unchecked { ++i; }
+
+            assembly ("memory-safe") {
+                let source := add(add(content_, 0x20), offset)
+                let target := add(chunk, 0x20)
+                let end := add(target, chunkLength)
+
+                for {} lt(target, end) {
+                    source := add(source, 0x20)
+                    target := add(target, 0x20)
+                } {
+                    mstore(target, mload(source))
+                }
             }
 
             _appendChunk(chunk);
