@@ -4,10 +4,10 @@ title Smart Product Framework - End-to-End Sequence Flow
 actor "Product Provider" as PProvider
 actor Investor
 participant "Frontend / dApp" as Frontend
-participant "TextResource\n(terms XML)" as XmlResource
-participant "TextResource\n(stylesheet XSLT)" as XsltResource
-participant "InvestorRegistry" as InvestorRegistry
-participant "TradableBondDataRegistry" as Registry
+participant "TextResource\n(terms XML)\n----\nITextResource" as XmlResource
+participant "TextResource\n(documentation XSLT)\n----\nITextResource" as XsltResource
+participant "InvestorRegistry\n\n----\nIInvestorRegistry" as InvestorRegistry
+participant "TradableBondDataRegistry\n\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
 participant "ProductFactoryRegistry\n(generic)" as Factory
 participant "SimpleBondFactory\n(product-specific)" as Deployer
