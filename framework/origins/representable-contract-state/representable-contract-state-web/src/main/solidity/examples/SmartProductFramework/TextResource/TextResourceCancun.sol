@@ -33,7 +33,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      off-chain from the raw bytes (frontend integrity check).
  *
  * @dev EVM TARGET: relies on the MCOPY opcode (EIP-5656). Must be compiled
- *      and deployed with the Cancun (or later) EVM version.
+ *      and deployed with the Cancun (or later) EVM version. Retained alongside
+ *      the legacy implementation for lower memory-copy costs.
  *
  * @author Raphael Prandtl
  **/

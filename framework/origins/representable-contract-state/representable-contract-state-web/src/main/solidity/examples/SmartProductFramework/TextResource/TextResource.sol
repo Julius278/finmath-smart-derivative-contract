@@ -32,6 +32,9 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      supplied expected hash, so contentHash() is always reproducible
  *      off-chain from the raw bytes (frontend integrity check).
  *
+ * @dev EVM TARGET: avoids the MCOPY opcode and can be compiled for Paris or
+ *      later EVM versions. Retained for pre-Cancun chain compatibility.
+ *
  * @author Raphael Prandtl
  **/
 contract TextResource is ITextResource {
