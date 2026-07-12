@@ -278,13 +278,17 @@ contract TextResourceCancun is ITextResource {
         uint256 offset;
         uint256 pointersLength = _pointers.length;
         for (uint256 i; i < pointersLength; ) {
-            bytes memory chunk = SSTORE2.read(_pointers[i]);
-            uint256 len = chunk.length;
-            assembly {
-                mcopy(add(add(result, 32), offset), add(chunk, 32), len)
+            address pointer = _pointers[i];
+            uint256 chunkLength;
+
+            assembly ("memory-safe") {
+                // SSTORE2 prefixes the stored data with one STOP byte.
+                chunkLength := sub(extcodesize(pointer), 1)
+                extcodecopy(pointer, add(add(result, 0x20), offset), 1, chunkLength)
             }
+
             unchecked {
-                offset += len;
+                offset += chunkLength;
                 ++i;
             }
         }

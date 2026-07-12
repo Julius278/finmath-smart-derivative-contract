@@ -278,13 +278,19 @@ contract TextResource is ITextResource {
         uint256 pointersLength = _pointers.length;
 
         for (uint256 i; i < pointersLength; ) {
-            bytes memory chunk = SSTORE2.read(_pointers[i]);
-            uint256 len = chunk.length;
-            for (uint256 j; j < len; ) {
-                result[offset + j] = chunk[j];
-                unchecked { ++j; }
+            address pointer = _pointers[i];
+            uint256 chunkLength;
+
+            assembly ("memory-safe") {
+                // SSTORE2 prefixes the stored data with one STOP byte.
+                chunkLength := sub(extcodesize(pointer), 1)
+                extcodecopy(pointer, add(add(result, 0x20), offset), 1, chunkLength)
             }
-            unchecked { offset += len; ++i;}
+
+            unchecked {
+                offset += chunkLength;
+                ++i;
+            }
         }
     }
 
