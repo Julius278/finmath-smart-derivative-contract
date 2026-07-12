@@ -68,7 +68,6 @@ contract TextResourceCancun is ITextResource {
 
     bytes32 public contentHash;
     uint256 public contentLength;
-    bool public finalized;
 
     /*
      * Custom errors
@@ -135,7 +134,7 @@ contract TextResourceCancun is ITextResource {
     }
 
     modifier onlyBeforeFinalized() {
-        if (finalized) revert AlreadyFinalized();
+        if (contentHash != bytes32(0)) revert AlreadyFinalized();
         _;
     }
 
@@ -173,7 +172,7 @@ contract TextResourceCancun is ITextResource {
      */
 
     function isFinalized() external view virtual override returns (bool) {
-        return finalized;
+        return contentHash != bytes32(0);
     }
 
     /**
@@ -260,7 +259,6 @@ contract TextResourceCancun is ITextResource {
         }
 
         contentHash = computedHash;
-        finalized = true;
 
         emit ResourceFinalized(resourceType, contentLength, computedHash);
     }
@@ -299,6 +297,6 @@ contract TextResourceCancun is ITextResource {
      */
 
     function _requireFinalized() internal view {
-        if (!finalized) revert NotFinalized();
+        if (contentHash == bytes32(0)) revert NotFinalized();
     }
 }
