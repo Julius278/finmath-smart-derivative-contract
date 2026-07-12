@@ -20,7 +20,7 @@ import java.util.List;
 
 public class Demo01TextResources {
 
-    static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
+    static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResourceLegacy.sol");
 
     private static final String TERMS_RESOURCE = "text-resources/simple-bond-terms.xml";
 
