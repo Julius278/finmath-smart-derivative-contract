@@ -32,8 +32,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      supplied expected hash, so contentHash() is always reproducible
  *      off-chain from the raw bytes (frontend integrity check).
  *
- * @dev EVM TARGET: avoids the MCOPY opcode and can be compiled for Paris or
- *      later EVM versions.
+ * @dev EVM TARGET: does not rely on the MCOPY opcode. For pre-Cancun
+ *      compatibility, compile explicitly for the Paris EVM target.
  *
  * @author Raphael Prandtl
  **/
@@ -93,7 +93,7 @@ contract TextResource is ITextResource {
      */
 
     /**
-     * @notice Content chunk appended
+     * @notice Content chunk appended.
      **/
     event ChunkAppended(address indexed sender, address indexed pointer, uint256 chunkIndex, uint256 chunkLength);
 
@@ -243,11 +243,8 @@ contract TextResource is ITextResource {
             bytes memory chunk = new bytes(chunkLength);
 
             /*
-             * This code avoid mcopy. Alternatively we could just do
-             *   assembly ("memory-safe") {
-             *     mcopy(add(chunk, 32), add(add(content_, 32), offset), chunkLength)
-             *   }
-             * which would require availability of the MCOPY opcode.
+             * Copy 32 bytes per iteration instead of using MCOPY, preserving
+             * compatibility with pre-Cancun EVM targets.
              */
             assembly ("memory-safe") {
                 let source := add(add(content_, 0x20), offset)
@@ -303,18 +300,12 @@ contract TextResource is ITextResource {
             uint256 chunkLength;
 
             /*
-             * The following code relies on the internal memory layout of SSTORE2 pointers,
-             * i.e., it is required that _pointers are SSTORE2 pointers, which is
-             *   [stop-byte | data ]
-             * An alternative implementation like
-             *   bytes memory chunk = SSTORE2.read(_pointers[i]);
-             *   uint256 len = chunk.length;
-             *   assembly {
-             *     mcopy(add(add(result, 32), offset), add(chunk, 32), len)
-             *   }
-             * would require an addition copy to a temp storeage "chunk".
-             * It also relies on the memory layout of bytes, which is
-             *   [ 32-bytes length | data | padding to 32 bytes ]
+             * SSTORE2 stores the payload in the pointer contract's runtime bytecode as
+             * [STOP byte | data]. Copying from code offset 1 directly into `result`
+             * avoids allocating and copying through a temporary bytes object.
+             *
+             * This also relies on the Solidity memory layout of bytes:
+             * [32-byte length | data | padding].
              */
             assembly ("memory-safe") {
                 // SSTORE2 prefixes the stored data with one STOP byte.

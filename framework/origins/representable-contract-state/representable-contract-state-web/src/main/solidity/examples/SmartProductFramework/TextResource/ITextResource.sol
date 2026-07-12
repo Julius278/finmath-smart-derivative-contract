@@ -70,7 +70,7 @@ interface ITextResource is IERC165 {
     error EmptyMediaType();
 
     /**
-     * @notice Thrown when content (or a content chunk) is empty.
+     * @notice Thrown when the resource content is empty.
      **/
     error EmptyContent();
 
@@ -80,7 +80,8 @@ interface ITextResource is IERC165 {
     error ZeroContentHash();
 
     /**
-     * @notice Thrown when a content hash is provided for staged publishing.
+     * @notice Thrown when a nonzero content hash is supplied to the constructor
+     *         for staged publishing.
      **/
     error UnexpectedContentHash(bytes32 contentHash);
 
