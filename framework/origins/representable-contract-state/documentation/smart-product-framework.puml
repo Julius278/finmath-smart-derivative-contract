@@ -23,6 +23,8 @@ PProvider -> Registry : setProductFactory(factory)
 Registry -> Factory : productRegistryAddress()
 Factory --> Registry : registry (back-reference check)
 
+== Register a Product Factory (here: SmartBondFactory) ==
+
 PProvider -> Deployer : deploy SimpleBondFactory(genericFactory)
 PProvider -> Factory : registerProductFactory(SIMPLE_BOND_TYPE, deployer)
 Factory -> Deployer : supportsInterface(IProductSpecificFactory)
