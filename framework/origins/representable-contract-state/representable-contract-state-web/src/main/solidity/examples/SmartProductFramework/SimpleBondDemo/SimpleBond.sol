@@ -4,27 +4,25 @@ pragma solidity ^0.8.24;
 import {AbstractProduct} from "../Product/AbstractProduct.sol";
 import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
-/// @title SimpleBond
-/// @notice Minimal demo product: a bond with negotiable notional and maturity.
-/// @dev The product owns its payload format: it decodes the raw
-///      productSpecificPayload once (in _applyTerms), used both at construction
-///      and on investor updates. Economic bindings (Notional, Maturity) live in
-///      the product terms XML resource and resolve against notional()/maturity().
-///
-/// @author Raphael Prandtl
+/**
+ * @title SimpleBond
+ * @notice Minimal demo product: a bond with negotiable notional and maturity.
+ * @dev The product owns its payload format: it decodes the raw
+ *      productSpecificPayload once (in _applyTerms), used both at construction
+ *      and on investor updates. Economic bindings (Notional, Maturity) live in
+ *      the product terms XML resource and resolve against notional()/maturity().
+ *
+ * @author Raphael Prandtl
+ */
 contract SimpleBond is AbstractProduct {
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                        MUTABLE STATE                      */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Mutable State ------------------------------ */
 
     /// @notice Requested/negotiated notional. Resolves the terms' Notional binding.
     uint256 public notional;
     /// @notice Requested/negotiated maturity (unix timestamp).
     uint256 public maturity;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          STRUCTS                          */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Structs ------------------------------ */
 
     /// @notice Decoded product-specific payload for a SimpleBond.
     struct ProductSpecificPayload {
@@ -32,21 +30,19 @@ contract SimpleBond is AbstractProduct {
         uint256 maturity;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Thrown when the requested notional is zero.
     error InvalidNotional();
     /// @notice Thrown when the requested maturity is not in the future.
     error InvalidMaturity();
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
-    /// @param c                     Common deployment parameters.
-    /// @param productSpecificPayload Raw ABI-encoded ProductSpecificPayload.
+    /**
+     * @param c                     Common deployment parameters.
+     * @param productSpecificPayload Raw ABI-encoded ProductSpecificPayload.
+     */
     constructor(CommonDeploymentParams memory c, bytes memory productSpecificPayload)
     AbstractProduct(c)
     {
@@ -54,9 +50,7 @@ contract SimpleBond is AbstractProduct {
         emit StateUpdated(msg.sender, address(this), currentTermsHash());
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       TERMS HOOKS                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Terms Hooks ------------------------------ */
 
     /// @inheritdoc AbstractProduct
     function _updateTerms(bytes calldata productSpecificPayload) internal override {
@@ -68,9 +62,11 @@ contract SimpleBond is AbstractProduct {
         return keccak256(abi.encode(notional, maturity));
     }
 
-    /// @dev Single decode + validate + set, shared by construction and updates.
-    ///      Accepts memory so it is callable from both the constructor and the
-    ///      calldata-based _updateTerms path.
+    /**
+     * @dev Single decode + validate + set, shared by construction and updates.
+     *      Accepts memory so it is callable from both the constructor and the
+     *      calldata-based _updateTerms path.
+     */
     function _applyTerms(bytes memory productSpecificPayload) internal {
         ProductSpecificPayload memory p = abi.decode(productSpecificPayload, (ProductSpecificPayload));
 
@@ -84,9 +80,7 @@ contract SimpleBond is AbstractProduct {
         maturity = p.maturity;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          XML VIEW                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ XML View ------------------------------ */
 
     /// @inheritdoc AbstractProduct
     function _productSpecificStateXml() internal view override returns (string memory) {

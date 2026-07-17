@@ -7,19 +7,19 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 
 
-/// @title InvestorRegistry
-/// @notice Single-contract implementation of IInvestorRegistry.
-///         Investors are registered with an initial Active status; their
-///         lifecycle status can be changed by the owner. Revoked is terminal.
-///         Eligibility is derived at call time: in this first version any
-///         Active investor is eligible for any product definition.
-/// @dev Ownership uses OpenZeppelin Ownable2Step (two-step transfer).
-///
-/// @author Raphael Prandtl
+/**
+ * @title InvestorRegistry
+ * @notice Single-contract implementation of IInvestorRegistry.
+ *         Investors are registered with an initial Active status; their
+ *         lifecycle status can be changed by the owner. Revoked is terminal.
+ *         Eligibility is derived at call time: in this first version any
+ *         Active investor is eligible for any product definition.
+ * @dev Ownership uses OpenZeppelin Ownable2Step (two-step transfer).
+ *
+ * @author Raphael Prandtl
+ */
 contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                        STORAGE                            */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Storage ------------------------------ */
 
     struct InvestorStorage {
         InvestorStatus status;
@@ -30,16 +30,12 @@ contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
 
     mapping(address => InvestorStorage) private _investors;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
     /// @param owner_ Initial owner authorized to manage investors.
     constructor(address owner_) Ownable(owner_) {}
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*              INVESTOR LIFECYCLE MANAGEMENT                */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Investor Lifecycle Management ------------------------------ */
 
     function registerInvestor(InvestorRegistrationParams calldata params) external override onlyOwner {
         _validateRegistrationParams(params);
@@ -85,9 +81,7 @@ contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
         emit InvestorStatusChanged(investor, oldStatus, newStatus);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                     INVESTOR READ API                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Investor Read API ------------------------------ */
 
     function getInvestor(address investor) external view override returns (InvestorView memory) {
         InvestorStorage storage stored = _existingInvestor(investor);
@@ -103,9 +97,7 @@ contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
         return _investors[investor].status;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                 INVESTOR VALIDATION API                   */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Investor Validation API ------------------------------ */
 
     function isRegisteredInvestor(address investor) external view override returns (bool) {
         return _investors[investor].status != InvestorStatus.Unknown;
@@ -119,28 +111,28 @@ contract InvestorRegistry is IInvestorRegistry, Ownable2Step {
         return _isEligibleForProductDefinition(investor, productDefinitionId, stored);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                      BUSINESS RULES                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Business Rules ------------------------------ */
 
-    /// @dev Product-definition-specific eligibility. First version: any active
-    ///      investor is eligible for any product definition, so
-    ///      `productDefinitionId` and stored data are unused.
+    /**
+     * @dev Product-definition-specific eligibility. First version: any active
+     *      investor is eligible for any product definition, so
+     *      `productDefinitionId` and stored data are unused.
+     */
     function _isEligibleForProductDefinition(address, bytes32, InvestorStorage storage) internal view virtual returns (bool) {
         return true;
     }
 
-    /// @dev Allowed transitions: any -> {Active, Suspended, Revoked}, except
-    ///      transitions to Unknown and any transition away from Revoked.
+    /**
+     * @dev Allowed transitions: any -> {Active, Suspended, Revoked}, except
+     *      transitions to Unknown and any transition away from Revoked.
+     */
     function _validateStatusTransition(InvestorStatus oldStatus, InvestorStatus newStatus) internal pure virtual  {
         if (newStatus == InvestorStatus.Unknown || oldStatus == InvestorStatus.Revoked) {
             revert InvalidStatusTransition(oldStatus, newStatus);
         }
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*               INTERNAL VALIDATION HELPERS                 */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Validation Helpers ------------------------------ */
 
     function _validateRegistrationParams(InvestorRegistrationParams calldata params) internal pure {
         if (params.investor == address(0)) {

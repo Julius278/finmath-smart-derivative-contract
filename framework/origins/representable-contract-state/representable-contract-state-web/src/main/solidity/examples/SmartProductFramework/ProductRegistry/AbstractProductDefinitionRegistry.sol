@@ -10,25 +10,25 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 
-/// @title AbstractProductDefinitionRegistry.sol
-/// @notice Layer 1: completes the product definition publication lifecycle on
-///         top of the IProductDefinitionRegistry base interface.
-///         Product-agnostic; product-specific rules, such as accepted resource
-///         types, are supplied by the concrete contract via
-///         _isAcceptedResourceType.
-///
-/// @dev PRODUCT DEFINITION ID / PART ID
-///      productDefinitionId == keccak256(abi.encode(name, address(this)))
-///      partId    == uint256(productDefinitionId)   (bijective; not stored)
-///
-/// @author Raphael Prandtl
+/**
+ * @title AbstractProductDefinitionRegistry.sol
+ * @notice Layer 1: completes the product definition publication lifecycle on
+ *         top of the IProductDefinitionRegistry base interface.
+ *         Product-agnostic; product-specific rules, such as accepted resource
+ *         types, are supplied by the concrete contract via
+ *         _isAcceptedResourceType.
+ *
+ * @dev PRODUCT DEFINITION ID / PART ID
+ *      productDefinitionId == keccak256(abi.encode(name, address(this)))
+ *      partId    == uint256(productDefinitionId)   (bijective; not stored)
+ *
+ * @author Raphael Prandtl
+ */
 abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step {
     using Strings for uint256;
     using Strings for address;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                           ENUMS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Enums ------------------------------ */
 
     /// @notice Logical slot a resource occupies within a product definition.
     enum ResourceSlot {
@@ -37,9 +37,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         StyleSheet
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice ERC-8100: requested partId does not map to a known product definition.
     error UnknownPart(uint256 partId);
@@ -56,16 +54,12 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
     /// @notice Resource type is not accepted for the given slot.
     error InvalidResourceType(address resource, ResourceSlot slot, bytes32 actualResourceType);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          EVENTS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Events ------------------------------ */
 
     /// @notice Generic ERC-8100-style state-part update event.
     event StatePartUpdated(address indexed sender, address indexed stateContract, uint256 indexed partId, uint256 partVersion);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                        STORAGE                            */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Storage ------------------------------ */
 
     /// @dev partId is not stored because it is derivable from the key.
     struct ProductDefinitionStorage {
@@ -80,16 +74,12 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
 
     mapping(bytes32 => ProductDefinitionStorage) internal _productDefinitionsById;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
     /// @param owner_ Initial owner authorized to manage product definitions.
     constructor(address owner_) Ownable(owner_) {}
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /* PRODUCT DEFINITION PUBLICATION AND LIFECYCLE MANAGEMENT   */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Product Definition Publication and Lifecycle Management ------------------------------ */
 
     function publishProductDefinition(ProductDefinitionPublicationParams calldata params) external override onlyOwner returns (bytes32 productDefinitionId) {
         _validateProductDefinitionPublicationParams(params);
@@ -141,9 +131,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*               PRODUCT DEFINITION READ API                 */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Product Definition Read API ------------------------------ */
 
     function getProductDefinition(bytes32 productDefinitionId) external view override returns (ProductDefinitionView memory) {
         ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
@@ -166,9 +154,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         return _existingProductDefinition(productDefinitionId).resources.productTypeId;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          XML VIEW                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ XML View ------------------------------ */
 
     function statePartXmlTemplate(uint256 partId) external view override returns (string memory) {
         bytes32 productDefinitionId = _productDefinitionIdFromPartId(partId);
@@ -180,9 +166,11 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
     }
 
 
-    /// @dev The registry only anchors the XML/XSLT documents; it does not resolve
-    ///      the `evmstate:call` bindings itself (those are served by the deployed
-    ///      product implementing the declared product type interface).
+    /**
+     * @dev The registry only anchors the XML/XSLT documents; it does not resolve
+     *      the `evmstate:call` bindings itself (those are served by the deployed
+     *      product implementing the declared product type interface).
+     */
     function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definition) internal view returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -213,9 +201,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         );
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                  INTERNAL KEY / HASH LOGIC                */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Key / Hash Logic ------------------------------ */
 
     function computeProductDefinitionId(string calldata name) external view override returns (bytes32 productDefinitionId) {
         return _productDefinitionId(name);
@@ -238,9 +224,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         definition.updatedAt = uint64(block.timestamp);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    VALIDATION HELPERS                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Validation Helpers ------------------------------ */
 
     function _existingProductDefinition(bytes32 productDefinitionId) internal view returns (ProductDefinitionStorage storage definition) {
         definition = _productDefinitionsById[productDefinitionId];
@@ -255,11 +239,13 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         }
     }
 
-    /// @dev Allowed transitions:
-    ///      Active    -> Suspended | Closed
-    ///      Suspended -> Active | Closed
-    ///      Closed    -> Archived
-    ///      Archived  -> (terminal)
+    /**
+     * @dev Allowed transitions:
+     *      Active    -> Suspended | Closed
+     *      Suspended -> Active | Closed
+     *      Closed    -> Archived
+     *      Archived  -> (terminal)
+     */
     function _validateStatusTransition(ProductDefinitionStatus  oldStatus, ProductDefinitionStatus  newStatus) internal pure {
         if (newStatus == ProductDefinitionStatus .Unknown) {
             revert InvalidStatusTransition(oldStatus, newStatus);
@@ -326,16 +312,12 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         }
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    FINAL-CONTRACT HOOK                    */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Final-Contract Hook ------------------------------ */
 
     /// @dev Product-specific rule: which resource types are accepted per slot.
     function _isAcceptedResourceType(ResourceSlot slot, bytes32 resourceType) internal view virtual returns (bool);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       STRING HELPERS                      */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ String Helpers ------------------------------ */
 
     function _bytes32ToHexString(bytes32 value) internal pure returns (string memory) {
         return uint256(value).toHexString(32);

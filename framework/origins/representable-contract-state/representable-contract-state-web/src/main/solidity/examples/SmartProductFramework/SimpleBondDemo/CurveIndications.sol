@@ -4,44 +4,42 @@ pragma solidity ^0.8.24;
 import {AbstractProductIndication} from "../ProductIndication/AbstractProductIndication.sol";
 import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 
-/// @title CurveIndications
-/// @notice Concrete indication registry for curve indications (a set of quotes
-///         forming an indicative curve for bond-like products).
-/// @dev Lifecycle (status, id/partId, versioning, rendering dispatch) is
-///      inherited from AbstractProductIndication.sol. This contract only adds the
-///      curve data model, typed publish/quote mutators, the category constant,
-///      and the XML rendering hook.
-///
-///      PUBLISH-OVERWRITES: publishCurveIndications sets the active board to
-///      exactly the provided quote set; previously-active symbols not in the
-///      new set are withdrawn.
-///
-/// @author Raphael Prandtl
+/**
+ * @title CurveIndications
+ * @notice Concrete indication registry for curve indications (a set of quotes
+ *         forming an indicative curve for bond-like products).
+ * @dev Lifecycle (status, id/partId, versioning, rendering dispatch) is
+ *      inherited from AbstractProductIndication.sol. This contract only adds the
+ *      curve data model, typed publish/quote mutators, the category constant,
+ *      and the XML rendering hook.
+ *
+ *      PUBLISH-OVERWRITES: publishCurveIndications sets the active board to
+ *      exactly the provided quote set; previously-active symbols not in the
+ *      new set are withdrawn.
+ *
+ * @author Raphael Prandtl
+ */
 contract CurveIndications is AbstractProductIndication {
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                         CONSTANTS                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constants ------------------------------ */
 
     /// @notice Max number of simultaneously active quotes per curve.
     uint256 public constant MAX_ACTIVE_QUOTES = 20;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                           ENUMS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Enums ------------------------------ */
 
-    /// @notice Lifecycle status of an individual quote within a curve.
-    /// @dev `Unknown` = never created; `Withdrawn` quotes retain their last data
-    ///      but are excluded from the active board and rendering.
+    /**
+     * @notice Lifecycle status of an individual quote within a curve.
+     * @dev `Unknown` = never created; `Withdrawn` quotes retain their last data
+     *      but are excluded from the active board and rendering.
+     */
     enum QuoteStatus {
         Unknown,
         Active,
         Withdrawn
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          STRUCTS                          */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Structs ------------------------------ */
 
     /// @notice Raw quote data submitted by the owner.
     struct QuoteParams {
@@ -77,8 +75,10 @@ contract CurveIndications is AbstractProductIndication {
         uint256 maxNotionalE8;
     }
 
-    /// @notice Flattened, render-friendly view of an active quote.
-    /// @dev ABI: tuple(string,int256,uint256,uint256,string,uint256,string,int256,uint256,uint256,uint256,uint256)
+    /**
+     * @notice Flattened, render-friendly view of an active quote.
+     * @dev ABI: tuple(string,int256,uint256,uint256,string,uint256,string,int256,uint256,uint256,uint256,uint256)
+     */
     struct QuoteView {
         string  symbol;              // field 0
         int256  durationInDays;      // field 1
@@ -94,9 +94,11 @@ contract CurveIndications is AbstractProductIndication {
         uint256 maxNotionalE8;       // field 11
     }
 
-    /// @dev Curve payload keyed by the same indicationId (curveId).
-    ///      Withdrawn quotes stay in quotesBySymbol so they can be
-    ///      reactivated with their history.
+    /**
+     * @dev Curve payload keyed by the same indicationId (curveId).
+     *      Withdrawn quotes stay in quotesBySymbol so they can be
+     *      reactivated with their history.
+     */
     struct CurvePayload {
         string[] activeSymbols;
         mapping(bytes32 => uint256) activeIndexPlusOne; // symbolId -> index+1 in activeSymbols
@@ -105,15 +107,15 @@ contract CurveIndications is AbstractProductIndication {
 
     mapping(bytes32 => CurvePayload) private _payloads;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Thrown when a required string argument is empty.
     error EmptyString(string field);
 
-    /// @notice Thrown when a string contains a character outside the allowed
-    ///         XML-safe whitelist (A-Z a-z 0-9 . _ - / and space).
+    /**
+     * @notice Thrown when a string contains a character outside the allowed
+     *         XML-safe whitelist (A-Z a-z 0-9 . _ - / and space).
+     */
     error InvalidCharacter(string field);
 
     /// @notice Thrown when a curve is published with an empty quote set.
@@ -122,8 +124,10 @@ contract CurveIndications is AbstractProductIndication {
     /// @notice Thrown when the number of quotes exceeds MAX_ACTIVE_QUOTES.
     error TooManyQuotes(uint256 count);
 
-    /// @notice Thrown when the same symbol appears more than once in a
-    ///         single publish input.
+    /**
+     * @notice Thrown when the same symbol appears more than once in a
+     *         single publish input.
+     */
     error DuplicateQuoteSymbol(string symbol);
 
     /// @notice Thrown when referencing a quote that does not exist on the curve.
@@ -132,16 +136,18 @@ contract CurveIndications is AbstractProductIndication {
     /// @notice Thrown when adding a quote whose symbol is already active.
     error QuoteAlreadyActive(bytes32 curveId, string symbol);
 
-    /// @notice Thrown when an operation requires an active quote but the quote
-    ///         is not active (unknown or withdrawn).
+    /**
+     * @notice Thrown when an operation requires an active quote but the quote
+     *         is not active (unknown or withdrawn).
+     */
     error QuoteNotActive(bytes32 curveId, string symbol);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          EVENTS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Events ------------------------------ */
 
-    /// @notice Emitted when a new quote is added to an existing curve
-    ///         (including reactivation of a previously withdrawn quote).
+    /**
+     * @notice Emitted when a new quote is added to an existing curve
+     *         (including reactivation of a previously withdrawn quote).
+     */
     event CurveQuoteAdded(bytes32 indexed curveId, bytes32 indexed symbolId, string symbol, uint256 quoteVersion);
 
     /// @notice Emitted when an existing active quote's data is updated.
@@ -150,23 +156,21 @@ contract CurveIndications is AbstractProductIndication {
     /// @notice Emitted when an active quote is withdrawn from a curve.
     event CurveQuoteWithdrawn(bytes32 indexed curveId, bytes32 indexed symbolId, string symbol, uint256 quoteVersion);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
     /// @param owner_ Initial owner authorized to publish and manage curves.
     constructor(address owner_) AbstractProductIndication(owner_) {}
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                     PUBLISHING / QUOTES                   */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Publishing / Quotes ------------------------------ */
 
-    /// @notice Publishes (or fully re-publishes) a curve's active quote board.
-    /// @dev Creates the curve on first use; on re-publish the curve must be
-    ///      writable (Active or Suspended). The active board becomes exactly
-    ///      `quotes`; previously-active symbols absent from `quotes` are
-    ///      withdrawn.
-    /// @return curveId The derived indication id.
+    /**
+     * @notice Publishes (or fully re-publishes) a curve's active quote board.
+     * @dev Creates the curve on first use; on re-publish the curve must be
+     *      writable (Active or Suspended). The active board becomes exactly
+     *      `quotes`; previously-active symbols absent from `quotes` are
+     *      withdrawn.
+     * @return curveId The derived indication id.
+     */
     function publishCurveIndications(string calldata curveName, QuoteParams[] calldata quotes) external onlyOwner returns (bytes32 curveId) {
         _validateCurveName(curveName);
         _validateQuoteInputs(quotes);
@@ -193,8 +197,10 @@ contract CurveIndications is AbstractProductIndication {
         _touchIndication(curveId, core);
     }
 
-    /// @notice Adds a quote to an existing curve (may reactivate a withdrawn one).
-    /// @dev Reverts if the symbol is already active.
+    /**
+     * @notice Adds a quote to an existing curve (may reactivate a withdrawn one).
+     * @dev Reverts if the symbol is already active.
+     */
     function addCurveQuote(bytes32 curveId, QuoteParams calldata params) external onlyOwner {
         IndicationCore storage core = _existingCore(curveId);
         _ensureWritable(curveId, core.status);
@@ -240,24 +246,22 @@ contract CurveIndications is AbstractProductIndication {
         emit CurveQuoteWithdrawn(curveId, _symbolId(symbol), symbol, quoteVersion);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          HOOKS                            */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Hooks ------------------------------ */
 
     /// @inheritdoc AbstractProductIndication
     function indicationCategory() external pure override returns (bytes32) {
         return CURVE_INDICATION_CATEGORY;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          XML VIEW                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ XML View ------------------------------ */
 
-    /// @dev Thin template: curve-level metadata bindings + an array-of-struct
-    ///      binding over activeQuotesByPartId(partId). The renderer supplies the
-    ///      partId from its render context, clones the <Quote> row per element,
-    ///      and maps tuple fields via item-field. No per-quote XML is built
-    ///      on-chain.
+    /**
+     * @dev Thin template: curve-level metadata bindings + an array-of-struct
+     *      binding over activeQuotesByPartId(partId). The renderer supplies the
+     *      partId from its render context, clones the <Quote> row per element,
+     *      and maps tuple fields via item-field. No per-quote XML is built
+     *      on-chain.
+     */
     function _indicationStateXml(bytes32) internal pure override returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -287,9 +291,7 @@ contract CurveIndications is AbstractProductIndication {
         );
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                         READ API                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Read API ------------------------------ */
 
     /// @notice Number of currently active quotes on a curve.
     function activeQuoteCount(bytes32 curveId) external view returns (uint256) {
@@ -313,8 +315,10 @@ contract CurveIndications is AbstractProductIndication {
         return _activeQuotes(curveId);
     }
 
-    /// @notice Returns active quotes for the renderer-supplied part id.
-    /// @dev Consumed by the array binding in _indicationStateXml.
+    /**
+     * @notice Returns active quotes for the renderer-supplied part id.
+     * @dev Consumed by the array binding in _indicationStateXml.
+     */
     function activeQuotesByPartId(uint256 partId) external view returns (QuoteView[] memory) {
         bytes32 curveId = _indicationIdFromPartId(partId);
         _existingCore(curveId);
@@ -344,9 +348,7 @@ contract CurveIndications is AbstractProductIndication {
         }
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                  INTERNAL MUTATION HELPERS               */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Mutation Helpers ------------------------------ */
 
     /// @dev Creates or updates a quote and ensures it is on the active board.
     function _upsertQuote(CurvePayload storage payload, QuoteParams calldata params) internal returns (uint256 quoteVersion) {
@@ -430,18 +432,14 @@ contract CurveIndications is AbstractProductIndication {
         delete payload.activeIndexPlusOne[symbolId];
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                  INTERNAL KEY / HASH LOGIC               */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Key / Hash Logic ------------------------------ */
 
     /// @dev Curve-scoped symbol key
     function _symbolId(string memory symbol) internal pure returns (bytes32) {
         return keccak256(bytes(symbol));
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    VALIDATION HELPERS                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Validation Helpers ------------------------------ */
 
     function _validateCurveName(string calldata curveName) internal pure {
         if (bytes(curveName).length == 0) revert EmptyString("curveName");
@@ -478,9 +476,11 @@ contract CurveIndications is AbstractProductIndication {
         return false;
     }
 
-    /// @dev Strict write-time charset guard so rendered XML stays well-formed.
-    ///      Allowed: A-Z a-z 0-9 . _ - / and space. Rejects XML-significant
-    ///      characters (< > & " ') and anything else outside the whitelist.
+    /**
+     * @dev Strict write-time charset guard so rendered XML stays well-formed.
+     *      Allowed: A-Z a-z 0-9 . _ - / and space. Rejects XML-significant
+     *      characters (< > & " ') and anything else outside the whitelist.
+     */
     function _requireXmlSafe(string memory value, string memory field) internal pure {
         bytes memory b = bytes(value);
         for (uint256 i; i < b.length; ++i) {

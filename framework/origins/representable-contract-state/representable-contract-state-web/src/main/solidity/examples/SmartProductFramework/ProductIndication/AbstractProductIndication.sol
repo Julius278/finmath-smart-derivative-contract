@@ -8,32 +8,34 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-/// @title AbstractProductIndication.sol
-/// @notice Generic base for indication registries. Owns the indication
-///         lifecycle (status, versioning, id/partId derivation, rendering
-///         dispatch) that is identical across indication types. Concrete
-///         contracts (e.g. CurveIndications) add their typed publish logic,
-///         data model, indicationCategory(), and the _indicationStateXml hook.
-///
-/// @dev PUBLISH-OVERWRITES SEMANTIC
-///      A concrete publish may fully (re)write an indication's payload. Use
-///      _openForPublish to begin a publish: it creates the indication on first
-///      use (emitting IndicationPublished once) or asserts writability on
-///      subsequent re-publishes. After writing payload, call _touchIndication.
-///
-/// @dev ID / PART ID SCHEME
-///      indicationId : keccak256(abi.encode(name, address(this)))
-///      partId       : uint256(indicationId)   (bijective)
-///
-/// @author Raphael Prandtl
+/**
+ * @title AbstractProductIndication.sol
+ * @notice Generic base for indication registries. Owns the indication
+ *         lifecycle (status, versioning, id/partId derivation, rendering
+ *         dispatch) that is identical across indication types. Concrete
+ *         contracts (e.g. CurveIndications) add their typed publish logic,
+ *         data model, indicationCategory(), and the _indicationStateXml hook.
+ *
+ * @dev PUBLISH-OVERWRITES SEMANTIC
+ *      A concrete publish may fully (re)write an indication's payload. Use
+ *      _openForPublish to begin a publish: it creates the indication on first
+ *      use (emitting IndicationPublished once) or asserts writability on
+ *      subsequent re-publishes. After writing payload, call _touchIndication.
+ *
+ * @dev ID / PART ID SCHEME
+ *      indicationId : keccak256(abi.encode(name, address(this)))
+ *      partId       : uint256(indicationId)   (bijective)
+ *
+ * @author Raphael Prandtl
+ */
 abstract contract AbstractProductIndication is IProductIndication, Ownable2Step {
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          STORAGE                          */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Storage ------------------------------ */
 
-    /// @dev Generic per-indication lifecycle state. Type-specific payload
-    ///      (e.g. curve quotes) is stored by the concrete contract, keyed by
-    ///      the same indicationId.
+    /**
+     * @dev Generic per-indication lifecycle state. Type-specific payload
+     *      (e.g. curve quotes) is stored by the concrete contract, keyed by
+     *      the same indicationId.
+     */
     struct IndicationCore {
         IndicationStatus status;
         uint64 publishedAt;
@@ -43,27 +45,23 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
 
     mapping(bytes32 => IndicationCore) private _cores;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Requested partId does not map to a known indication.
     error UnknownPart(uint256 partId);
 
-    /// @notice Indication cannot be modified in its current status
-    ///         (Closed or Archived).
+    /**
+     * @notice Indication cannot be modified in its current status
+     *         (Closed or Archived).
+     */
     error IndicationNotWritable(bytes32 indicationId, IndicationStatus status);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
     /// @param owner_ Initial owner authorized to publish and manage indications.
     constructor(address owner_) Ownable(owner_) {}
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                   INDICATION LIFECYCLE                    */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Indication Lifecycle ------------------------------ */
 
     /// @inheritdoc IProductIndication
     function setIndicationStatus(bytes32 indicationId, IndicationStatus newStatus) external override onlyOwner {
@@ -81,18 +79,14 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         _touchIndication(indicationId, core);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          ERC-165                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ ERC-165 ------------------------------ */
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IProductIndication).interfaceId || interfaceId == type(IXMLRepresentableStatePart).interfaceId
             || interfaceId == type(IERC165).interfaceId;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                     INDICATION READ API                   */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Indication Read API ------------------------------ */
 
     function indicationStatus(bytes32 indicationId) external view override returns (IndicationStatus) {
         return _cores[indicationId].status;
@@ -112,9 +106,7 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         _existingCore(indicationId);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          XML VIEW                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ XML View ------------------------------ */
 
     function statePartXmlTemplate(uint256 partId) external view override returns (string memory) {
         bytes32 indicationId = _indicationIdFromPartId(partId);
@@ -124,13 +116,13 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         return _indicationStateXml(indicationId);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                 INTERNAL LIFECYCLE HELPERS               */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Lifecycle Helpers ------------------------------ */
 
-    /// @dev Begins a publish. On first use of `indicationId`, creates it as
-    ///      Active and emits IndicationPublished + the initial status change.
-    ///      On re-publish, asserts the indication is writable.
+    /**
+     * @dev Begins a publish. On first use of `indicationId`, creates it as
+     *      Active and emits IndicationPublished + the initial status change.
+     *      On re-publish, asserts the indication is writable.
+     */
     function _openForPublish(bytes32 indicationId) internal returns (IndicationCore storage core) {
         core = _cores[indicationId];
         if (core.status == IndicationStatus.Unknown) {
@@ -143,17 +135,17 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /// @dev Bumps version + updatedAt and emits the ERC-8100 StatePartUpdated.
-    ///      Call after every payload or status mutation.
+    /**
+     * @dev Bumps version + updatedAt and emits the ERC-8100 StatePartUpdated.
+     *      Call after every payload or status mutation.
+     */
     function _touchIndication(bytes32 indicationId, IndicationCore storage core) internal {
         unchecked { core.version += 1;}
         core.updatedAt = uint64(block.timestamp);
         emit StatePartUpdated(msg.sender, address(this), _partIdFromIndicationId(indicationId), core.version);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    VALIDATION HELPERS                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Validation Helpers ------------------------------ */
 
     function _existingCore(bytes32 indicationId) internal view returns (IndicationCore storage core) {
         core = _cores[indicationId];
@@ -162,8 +154,10 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /// @dev Raw (non-reverting) access to a lifecycle record, for callers that
-    ///      already established existence (e.g. the render path).
+    /**
+     * @dev Raw (non-reverting) access to a lifecycle record, for callers that
+     *      already established existence (e.g. the render path).
+     */
     function _core(bytes32 indicationId) internal view returns (IndicationCore storage) {
         return _cores[indicationId];
     }
@@ -174,11 +168,13 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /// @dev Allowed transitions:
-    ///      Active    -> Suspended | Closed
-    ///      Suspended -> Active | Closed
-    ///      Closed    -> Archived
-    ///      Archived  -> (terminal)
+    /**
+     * @dev Allowed transitions:
+     *      Active    -> Suspended | Closed
+     *      Suspended -> Active | Closed
+     *      Closed    -> Archived
+     *      Archived  -> (terminal)
+     */
     function _validateStatusTransition(IndicationStatus oldStatus, IndicationStatus newStatus) internal pure virtual {
         if (newStatus == IndicationStatus.Unknown) {
             revert InvalidStatusTransition(oldStatus, newStatus);
@@ -191,9 +187,7 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                  INTERNAL KEY / HASH LOGIC                */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Key / Hash Logic ------------------------------ */
 
     function _indicationIdFromName(string memory name) internal view returns (bytes32) {
         return keccak256(abi.encode(name, address(this)));
@@ -207,9 +201,7 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         return uint256(indicationId);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                     CONCRETE HOOKS                        */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Concrete Hooks ------------------------------ */
 
     /// @dev Concrete contracts return their fixed category constant.
     function indicationCategory() external view virtual override returns (bytes32);

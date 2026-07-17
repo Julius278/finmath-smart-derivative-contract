@@ -9,33 +9,33 @@ import {ITextResource} from "../TextResource/ITextResource.sol";
 import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-/// @title AbstractProduct
-/// @notice Product-agnostic base for deployed products. Stores immutable
-///         deployment state, captures the deploying factory (msg.sender),
-///         drives the generic trade inception/confirmation lifecycle, and
-///         provides XML rendering scaffolding.
-///
-/// @dev LIFECYCLE (ITradeLifecycle, ERC-6123-inspired)
-///      Requested -> Incepted -> Active, with Cancelled as a pre-activation
-///      terminal state. The base owns status, guards, and the agreed-terms-hash
-///      handshake; concrete products implement the term storage/update and the
-///      terms fingerprint via _updateTerms / _economicTermsHash. Product-specific
-///      lifecycles (e.g. issuance, coupons, redemption) can be layered on top of
-///      Active via the _onActivated hook.
-///
-/// @dev TERMS FROZEN AFTER INCEPTION
-///      updateTerms is only allowed in Requested. Concrete products MUST NOT
-///      mutate agreement-relevant economic state after Incepted, or the agreed
-///      terms hash would no longer match live state.
-///
-/// @author Raphael Prandtl
+/**
+ * @title AbstractProduct
+ * @notice Product-agnostic base for deployed products. Stores immutable
+ *         deployment state, captures the deploying factory (msg.sender),
+ *         drives the generic trade inception/confirmation lifecycle, and
+ *         provides XML rendering scaffolding.
+ *
+ * @dev LIFECYCLE (ITradeLifecycle, ERC-6123-inspired)
+ *      Requested -> Incepted -> Active, with Cancelled as a pre-activation
+ *      terminal state. The base owns status, guards, and the agreed-terms-hash
+ *      handshake; concrete products implement the term storage/update and the
+ *      terms fingerprint via _updateTerms / _economicTermsHash. Product-specific
+ *      lifecycles (e.g. issuance, coupons, redemption) can be layered on top of
+ *      Active via the _onActivated hook.
+ *
+ * @dev TERMS FROZEN AFTER INCEPTION
+ *      updateTerms is only allowed in Requested. Concrete products MUST NOT
+ *      mutate agreement-relevant economic state after Incepted, or the agreed
+ *      terms hash would no longer match live state.
+ *
+ * @author Raphael Prandtl
+ */
 abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     using Strings for uint256;
     using Strings for address;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       IMMUTABLE STATE                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Immutable State ------------------------------ */
 
     /// @inheritdoc IProduct
     address public immutable override productRegistry;
@@ -60,9 +60,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @inheritdoc IProduct
     bytes32 public immutable override deploymentStateHash;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                        MUTABLE STATE                      */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Mutable State ------------------------------ */
 
     /// @dev Current trade status.
     TradeStatus internal _status;
@@ -70,22 +68,20 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @dev Agreed terms hash fixed at inception (0 before Incepted).
     bytes32 internal _agreedTermsHash;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Thrown when a required address field is the zero address.
     error ZeroAddress(string field);
     /// @notice Thrown when a required bytes32 field is zero.
     error ZeroHash(string field);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
-    /// @param c Common deployment parameters assembled by the registry.
-    /// @dev The deploying product-specific factory is captured as msg.sender.
-    ///      The concrete product sets its initial terms after this constructor.
+    /**
+     * @param c Common deployment parameters assembled by the registry.
+     * @dev The deploying product-specific factory is captured as msg.sender.
+     *      The concrete product sets its initial terms after this constructor.
+     */
     constructor(CommonDeploymentParams memory c) {
         if (c.productRegistry == address(0)) revert ZeroAddress("productRegistry");
         if (c.tradeId == bytes32(0)) revert ZeroHash("tradeId");
@@ -113,9 +109,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit TradeStatusChanged(TradeStatus.Requested, TradeStatus.Requested);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                         MODIFIERS                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Modifiers ------------------------------ */
 
     modifier onlyProductProvider() {
         if (msg.sender != productProvider) {
@@ -131,9 +125,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         _;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       TRADE LIFECYCLE                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Trade Lifecycle ------------------------------ */
 
     function updateTerms(bytes calldata productSpecificPayload) external override onlyInvestor {
         if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
@@ -183,9 +175,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit TradeCanceled(msg.sender);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                     LIFECYCLE VIEWS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Lifecycle Views ------------------------------ */
 
     /// @inheritdoc ITradeLifecycle
     function tradeStatus() external view override returns (TradeStatus) {
@@ -197,16 +187,16 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         return _agreedTermsHash;
     }
 
-    /// @inheritdoc ITradeLifecycle
-    /// @dev Binds the economic terms to this instance and its deployment anchor,
-    ///      so an agreed hash cannot be replayed against another product.
+    /**
+     * @inheritdoc ITradeLifecycle
+     * @dev Binds the economic terms to this instance and its deployment anchor,
+     *      so an agreed hash cannot be replayed against another product.
+     */
     function currentTermsHash() public view override returns (bytes32) {
         return keccak256(abi.encode(address(this), deploymentStateHash, _economicTermsHash()));
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    INTERNAL LIFECYCLE                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Internal Lifecycle ------------------------------ */
 
     function _setStatus(TradeStatus newStatus) internal {
         TradeStatus old = _status;
@@ -214,22 +204,24 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit TradeStatusChanged(old, newStatus);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          XML VIEW                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ XML View ------------------------------ */
 
     /// @inheritdoc IXMLRepresentableState
     function stateXmlTemplate() external view override returns (string memory) {
         return _productSpecificStateXml();
     }
 
-    /// @dev Concrete product renders its root element, economic bindings live in
-    ///      the included terms resource; product only adds wrapper + includes.
+    /**
+     * @dev Concrete product renders its root element, economic bindings live in
+     *      the included terms resource; product only adds wrapper + includes.
+     */
     function _productSpecificStateXml() internal view virtual returns (string memory);
 
-    /// @dev Generic deployment + lifecycle bindings as child elements (resolved
-    ///      by the renderer against this product's getters). Placed inside the
-    ///      concrete product's root element.
+    /**
+     * @dev Generic deployment + lifecycle bindings as child elements (resolved
+     *      by the renderer against this product's getters). Placed inside the
+     *      concrete product's root element.
+     */
     function _deploymentStateXml() internal pure returns (string memory) {
         return string.concat(
             "<DeploymentState>",
@@ -247,8 +239,10 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         );
     }
 
-    /// @dev Builds an xi:include for a text resource, parsed as XML so its
-    ///      evmstate:call bindings resolve, with a keccak256 integrity hint.
+    /**
+     * @dev Builds an xi:include for a text resource, parsed as XML so its
+     *      evmstate:call bindings resolve, with a keccak256 integrity hint.
+     */
     function _include(address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
         string memory href = string.concat(
@@ -263,19 +257,23 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         );
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONCRETE HOOKS                      */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Concrete Hooks ------------------------------ */
 
-    /// @dev Decodes and applies a full-replacement terms payload. Called only in
-    ///      Requested (investor). Must validate the decoded economics.
+    /**
+     * @dev Decodes and applies a full-replacement terms payload. Called only in
+     *      Requested (investor). Must validate the decoded economics.
+     */
     function _updateTerms(bytes calldata productSpecificPayload) internal virtual;
 
-    /// @dev Fingerprint of the product's economic terms (folded into
-    ///      currentTermsHash). Must reflect all negotiable terms.
+    /**
+     * @dev Fingerprint of the product's economic terms (folded into
+     *      currentTermsHash). Must reflect all negotiable terms.
+     */
     function _economicTermsHash() internal view virtual returns (bytes32);
 
-    /// @dev Optional hook invoked once when the trade becomes Active. Default
-    ///      no-op; product-specific lifecycles extend here.
+    /**
+     * @dev Optional hook invoked once when the trade becomes Active. Default
+     *      no-op; product-specific lifecycles extend here.
+     */
     function _onActivated() internal virtual {}
 }

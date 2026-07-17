@@ -1,36 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IProductDefinitionRegistry.sol
-/// @notice Base layer for publishing financial product definitions and managing
-///         their lifecycle. A product definition is a reusable, published
-///         product specification consisting of terms, stylesheet and product type,
-///         under which concrete product contracts can later be deployed.
-///
-/// @dev LAYERING
-///      This is the base publication layer. Higher layers build on top:
-///        1. lifecycle completion (abstract base contract),
-///        2. inclusion of product definition indications
-///           (e.g. curve indications for bonds),
-///        3. tradable product data (trade requests, investor entry).
-///
-/// @dev PRODUCT DEFINITION ID SCHEME (canonical)
-///      productDefinitionId == keccak256(abi.encode(name, address(registry)))
-///      Consequences: name is the unique key (no duplicate names, no renaming),
-///      and ids are scoped to a specific registry deployment.
-///
-/// @dev OWNERSHIP
-///      Implementations are Ownable (OpenZeppelin Ownable2Step); owner() and
-///      ownership transfer come from that module and are not redeclared here.
-///
-/// @author Raphael Prandtl
+/**
+ * @title IProductDefinitionRegistry.sol
+ * @notice Base layer for publishing financial product definitions and managing
+ *         their lifecycle. A product definition is a reusable, published
+ *         product specification consisting of terms, stylesheet and product type,
+ *         under which concrete product contracts can later be deployed.
+ *
+ * @dev LAYERING
+ *      This is the base publication layer. Higher layers build on top:
+ *        1. lifecycle completion (abstract base contract),
+ *        2. inclusion of product definition indications
+ *           (e.g. curve indications for bonds),
+ *        3. tradable product data (trade requests, investor entry).
+ *
+ * @dev PRODUCT DEFINITION ID SCHEME (canonical)
+ *      productDefinitionId == keccak256(abi.encode(name, address(registry)))
+ *      Consequences: name is the unique key (no duplicate names, no renaming),
+ *      and ids are scoped to a specific registry deployment.
+ *
+ * @dev OWNERSHIP
+ *      Implementations are Ownable (OpenZeppelin Ownable2Step); owner() and
+ *      ownership transfer come from that module and are not redeclared here.
+ *
+ * @author Raphael Prandtl
+ */
 interface IProductDefinitionRegistry {
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                           ENUMS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Enums ------------------------------ */
 
-    /// @notice Lifecycle status of a product definition.
-    /// @dev `Unknown` is the default value and the "not published" sentinel.
+    /**
+     * @notice Lifecycle status of a product definition.
+     * @dev `Unknown` is the default value and the "not published" sentinel.
+     */
     enum ProductDefinitionStatus {
         Unknown,
         Active,
@@ -39,39 +41,43 @@ interface IProductDefinitionRegistry {
         Archived
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          STRUCTS                          */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Structs ------------------------------ */
 
-    /// @notice Essential resources defining a product definition.
-    /// @param termsResource      ITextResource holding the product terms.
-    /// @param stylesheetResource ITextResource holding the XSLT stylesheet.
-    /// @param productTypeId      Identifies the deployable product type that
-    ///        matches these terms and stylesheet. Obtained from the
-    ///        product-type-specific factory's productTypeId(); (see IProductTypeFactory's
-    ///        PRODUCT TYPE ID SCHEME); must equal a type registered in the product factory.
+    /**
+     * @notice Essential resources defining a product definition.
+     * @param termsResource      ITextResource holding the product terms.
+     * @param stylesheetResource ITextResource holding the XSLT stylesheet.
+     * @param productTypeId      Identifies the deployable product type that
+     *        matches these terms and stylesheet. Obtained from the
+     *        product-type-specific factory's productTypeId(); (see IProductTypeFactory's
+     *        PRODUCT TYPE ID SCHEME); must equal a type registered in the product factory.
+     */
     struct ProductDefinitionResources {
         address termsResource;
         address stylesheetResource;
         bytes32 productTypeId;
     }
 
-    /// @notice Parameters for publishing a new product definition.
-    /// @param name      Human-readable name, also the uniqueness key.
-    /// @param resources Anchored resource set: terms, stylesheet, product type.
+    /**
+     * @notice Parameters for publishing a new product definition.
+     * @param name      Human-readable name, also the uniqueness key.
+     * @param resources Anchored resource set: terms, stylesheet, product type.
+     */
     struct ProductDefinitionPublicationParams {
         string name;
         ProductDefinitionResources resources;
     }
 
-    /// @notice Full product definition record as returned by the read API.
-    /// @param status         Current lifecycle status.
-    /// @param publishedAt    Unix timestamp of initial publication.
-    /// @param updatedAt      Unix timestamp of the last mutation.
-    /// @param name           Human-readable name (also the uniqueness key).
-    /// @param partId         ERC-8100 partId used to render this product definition's state.
-    /// @param version        Monotonic version, bumped on resource updates.
-    /// @param resources      Anchored resource set (terms, stylesheet, type).
+    /**
+     * @notice Full product definition record as returned by the read API.
+     * @param status         Current lifecycle status.
+     * @param publishedAt    Unix timestamp of initial publication.
+     * @param updatedAt      Unix timestamp of the last mutation.
+     * @param name           Human-readable name (also the uniqueness key).
+     * @param partId         ERC-8100 partId used to render this product definition's state.
+     * @param version        Monotonic version, bumped on resource updates.
+     * @param resources      Anchored resource set (terms, stylesheet, type).
+     */
     struct ProductDefinitionView {
         ProductDefinitionStatus status;
         uint64 publishedAt;
@@ -82,9 +88,7 @@ interface IProductDefinitionRegistry {
         ProductDefinitionResources resources;
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Thrown when a required address argument is the zero address.
     error ZeroAddress(string field);
@@ -107,13 +111,13 @@ interface IProductDefinitionRegistry {
     /// @notice Thrown when an operation requires a writable product definition.
     error ProductDefinitionNotWritable(bytes32 productDefinitionId, ProductDefinitionStatus status);
 
-    /// @notice Thrown when a status transition is not allowed
-    ///         (e.g. to Unknown, or away from Archived).
+    /**
+     * @notice Thrown when a status transition is not allowed
+     *         (e.g. to Unknown, or away from Archived).
+     */
     error InvalidStatusTransition(ProductDefinitionStatus from, ProductDefinitionStatus to);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          EVENTS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Events ------------------------------ */
 
     /// @notice Emitted when a new product definition is published (initial status Active).
     event ProductDefinitionPublished(bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address termsResource, address stylesheetResource);
@@ -124,9 +128,7 @@ interface IProductDefinitionRegistry {
     /// @notice Emitted on every status change, including initial publication.
     event ProductDefinitionStatusChanged(bytes32 indexed productDefinitionId, ProductDefinitionStatus oldStatus, ProductDefinitionStatus newStatus);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /* PRODUCT DEFINITION PUBLICATION AND LIFECYCLE MANAGEMENT   */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Product Definition Publication and Lifecycle Management ------------------------------ */
     /// @notice Publishes a new product definition and anchors its resources.
     function publishProductDefinition(ProductDefinitionPublicationParams calldata params) external returns (bytes32 productDefinitionId);
 
@@ -136,9 +138,7 @@ interface IProductDefinitionRegistry {
     /// @notice Changes the lifecycle status of a product definition.
     function setProductDefinitionStatus(bytes32 productDefinitionId, ProductDefinitionStatus newStatus) external;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*               PRODUCT DEFINITION READ API                 */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Product Definition Read API ------------------------------ */
 
     /// @notice Returns the full record of a product definition.
     function getProductDefinition(bytes32 productDefinitionId) external view returns (ProductDefinitionView memory);
@@ -149,8 +149,9 @@ interface IProductDefinitionRegistry {
     /// @notice Returns the product type anchored for a product definition.
     function productTypeByDefinitionId(bytes32 productDefinitionId) external view returns (bytes32 productTypeId);
 
-    /// @notice Derives the product definition id for a given name (off-chain convenience).
-    /// @dev Mirrors the canonical id scheme; does not check existence.
+    /**
+     * @notice Derives the product definition id for a given name (off-chain convenience).
+     * @dev Mirrors the canonical id scheme; does not check existence.
+     */
     function computeProductDefinitionId(string calldata name) external view returns (bytes32 productDefinitionId);
 }
-

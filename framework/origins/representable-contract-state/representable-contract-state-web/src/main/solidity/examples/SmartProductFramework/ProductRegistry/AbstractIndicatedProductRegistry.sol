@@ -5,25 +5,25 @@ import {AbstractProductDefinitionRegistry} from "./AbstractProductDefinitionRegi
 import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-/// @title AbstractIndicatedProductRegistry.sol
-/// @notice Layer 2: extends the product definition registry so each product
-///         definition can carry a single, replaceable reference to a product indication
-///         (IProductIndication) — e.g. a curve indication for a bond definition.
-///
-/// @dev The indication is stored per productDefinitionId as a tuple
-///      (productIndication, indicationId, partId). Assignment validates the
-///      target via ERC-165, the specific indication's status, and a
-///      product-specific compatibility hook (_isAcceptedIndication).
-///
-///      Liveness at consumption time is NOT guaranteed here. A consuming or
-///      trading layer should re-check the current indication status before
-///      presenting or trading against an indication.
-///
-/// @author Raphael Prandtl
+/**
+ * @title AbstractIndicatedProductRegistry.sol
+ * @notice Layer 2: extends the product definition registry so each product
+ *         definition can carry a single, replaceable reference to a product indication
+ *         (IProductIndication) — e.g. a curve indication for a bond definition.
+ *
+ * @dev The indication is stored per productDefinitionId as a tuple
+ *      (productIndication, indicationId, partId). Assignment validates the
+ *      target via ERC-165, the specific indication's status, and a
+ *      product-specific compatibility hook (_isAcceptedIndication).
+ *
+ *      Liveness at consumption time is NOT guaranteed here. A consuming or
+ *      trading layer should re-check the current indication status before
+ *      presenting or trading against an indication.
+ *
+ * @author Raphael Prandtl
+ */
 abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionRegistry {
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          STORAGE                          */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Storage ------------------------------ */
 
     /// @notice Per-product-definition indication reference.
     struct ProductIndicationAssignment {
@@ -35,9 +35,7 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
     /// @dev Keyed by the same productDefinitionId as _productDefinitionsById.
     mapping(bytes32 => ProductIndicationAssignment) internal _indicationsByDefinitionId;
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CUSTOM ERRORS                       */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Custom Errors ------------------------------ */
 
     /// @notice Thrown when the indication address has no contract code.
     error InvalidIndicationContract(address productIndication);
@@ -45,34 +43,32 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
     /// @notice Thrown when the target does not implement IProductIndication.
     error InvalidIndicationInterface(address productIndication);
 
-    /// @notice Thrown when the indication category is not accepted for the
-    ///         product definition's product type.
+    /**
+     * @notice Thrown when the indication category is not accepted for the
+     *         product definition's product type.
+     */
     error InvalidIndicationCategory(address productIndication, bytes32 indicationCategory);
 
-    /// @notice Thrown when the referenced indication is not in an assignable
-    ///         status. Assignable statuses are Active and Suspended.
+    /**
+     * @notice Thrown when the referenced indication is not in an assignable
+     *         status. Assignable statuses are Active and Suspended.
+     */
     error InvalidIndicationStatus(address productIndication, IProductIndication.IndicationStatus status);
 
     /// @notice Thrown when a product definition has no product indication assigned.
     error MissingProductIndication(bytes32 productDefintionId);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                          EVENTS                           */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Events ------------------------------ */
 
 /// @notice Emitted when a product definition's product indication is assigned or replaced.
     event ProductIndicationAssigned(bytes32 indexed productDefinitionId, address indexed productIndication, bytes32 indicationId);
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       CONSTRUCTOR                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Constructor ------------------------------ */
 
     /// @param owner_ Initial owner authorized to manage product definitions and indication assignments.
     constructor(address owner_) AbstractProductDefinitionRegistry(owner_) {}
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                 PRODUCT INDICATION ASSIGNMENT            */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Product Indication Assignment ------------------------------ */
 
     /// @notice Assigns (or replaces) the product indication of a product definition.
     function assignProductIndication(bytes32 productDefinitionId, address productIndication, bytes32 indicationId) external onlyOwner {
@@ -92,23 +88,21 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
         emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                         READ API                         */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Read API ------------------------------ */
 
-    /// @notice Returns the product indication assigned to a product definition,
-    ///         together with the partId to render it on the indication contract.
-    /// @dev Does not check the indication's current status — consumers should
-    ///      verify liveness if required.
+    /**
+     * @notice Returns the product indication assigned to a product definition,
+     *         together with the partId to render it on the indication contract.
+     * @dev Does not check the indication's current status — consumers should
+     *      verify liveness if required.
+     */
     function productIndicationOfDefinition(bytes32 productDefinitionId) external view returns (address productIndication, bytes32 indicationId, uint256 partId) {
         ProductIndicationAssignment storage assignment = _existingProductIndicationAssignment(productDefinitionId);
         return (assignment.productIndication, assignment.indicationId, assignment.partId);
     }
 
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    VALIDATION HELPERS                     */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Validation Helpers ------------------------------ */
 
     function _existingProductIndicationAssignment(bytes32 productDefinitionId) internal view returns (ProductIndicationAssignment storage assignment) {
         assignment = _indicationsByDefinitionId[productDefinitionId];
@@ -162,11 +156,11 @@ abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionR
     }
 
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                    FINAL-CONTRACT HOOK                    */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
+    // ------------------------------ Final-Contract Hook ------------------------------ */
 
-    /// @dev Product-specific rule: may an indication of `indicationCategory` be
-    ///      attached to a product definition of `productTypeId`?
+    /**
+     * @dev Product-specific rule: may an indication of `indicationCategory` be
+     *      attached to a product definition of `productTypeId`?
+     */
     function _isAcceptedIndication(bytes32 productTypeId, bytes32 indicationCategory) internal view virtual returns (bool);
 }
