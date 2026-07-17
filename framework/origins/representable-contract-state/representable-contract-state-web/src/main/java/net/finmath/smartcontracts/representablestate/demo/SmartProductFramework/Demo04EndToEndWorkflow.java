@@ -270,7 +270,12 @@ public class Demo04EndToEndWorkflow {
 				)
 		);
 		assertContains(indicationTemplate, "<CurveIndications");
-		assertContains(indicationTemplate, "activeQuotes(bytes32)");
+		assertNotContains(indicationTemplate, "evmstate:");
+		assertContains(indicationTemplate, "<Status>1</Status>");
+		assertContains(indicationTemplate, "<ActiveQuoteCount>2</ActiveQuoteCount>");
+		assertContains(indicationTemplate, "<Symbol>EUR-2Y</Symbol>");
+		assertContains(indicationTemplate, "<Coupon>2.50</Coupon>");
+		assertContains(indicationTemplate, "<Yield>2.75</Yield>");
 
 		SmartContractDeployer.transact(
 				registry,
@@ -293,7 +298,7 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("Indication part id:       " + indicationPartId);
 		System.out.println("Curve part endpoint*:     http://localhost:8080/xml/part?contract="
 				+ curveIndications + "&partid=" + indicationPartId);
-		System.out.println("* Requires renderer support for argument-bearing evmstate calls and the curve quote tuple.");
+		System.out.println("* Curve XML is fully materialized on-chain; no argument-bearing renderer calls are required.");
 		System.out.println("-".repeat(79));
 
 		/*
