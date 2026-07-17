@@ -88,7 +88,7 @@ abstract contract AbstractProductSpecificFactory is IProductSpecificFactory {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
     /// @inheritdoc IProductSpecificFactory
-    function productTypeId() external pure virtual override returns (bytes32);
+    function productTypeId() public pure virtual override returns (bytes32);
 
     /// @notice Human-readable schema describing the expected
     ///         productSpecificPayload encoding (documentation / off-chain aid).

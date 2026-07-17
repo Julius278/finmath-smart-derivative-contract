@@ -35,7 +35,7 @@ contract SimpleBondFactory is AbstractProductSpecificFactory {
     /*                   PRODUCT SPECIFICATION                   */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    function productTypeId() external pure override returns (bytes32) {
+    function productTypeId() public pure override returns (bytes32) {
         return SIMPLE_BOND_TYPE;
     }
 

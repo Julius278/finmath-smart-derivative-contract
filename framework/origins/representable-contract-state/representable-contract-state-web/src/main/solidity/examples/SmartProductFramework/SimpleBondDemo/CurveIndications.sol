@@ -19,6 +19,7 @@ import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 ///
 /// @author Raphael Prandtl
 contract CurveIndications is AbstractProductIndication {
+    using Strings for uint256;
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                         CONSTANTS                         */
@@ -156,7 +157,7 @@ contract CurveIndications is AbstractProductIndication {
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
     /// @param owner_ Initial owner authorized to publish and manage curves.
-    constructor(address owner_) AbstractProductIndications(owner_) {}
+    constructor(address owner_) AbstractProductIndication(owner_) {}
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                     PUBLISHING / QUOTES                   */
@@ -245,7 +246,7 @@ contract CurveIndications is AbstractProductIndication {
     /*                          HOOKS                            */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc AbstractProductIndications
+    /// @inheritdoc AbstractProductIndication
     function indicationCategory() external pure override returns (bytes32) {
         return CURVE_INDICATION_CATEGORY;
     }
@@ -254,12 +255,12 @@ contract CurveIndications is AbstractProductIndication {
     /*                          XML VIEW                         */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc AbstractProductIndications
+    /// @inheritdoc AbstractProductIndication
     /// @dev Thin template: curve-level metadata bindings + an array-of-struct
     ///      binding over activeQuotes(curveId). The renderer clones the <Quote>
     ///      row per element and maps tuple fields via item-field. No per-quote
     ///      XML is built on-chain.
-    function _indicationStateXml(bytes32 curveId) internal view override returns (string memory) {
+    function _indicationStateXml(bytes32 curveId) internal pure override returns (string memory) {
         string memory curveIdHex = _bytes32ToHexString(curveId);
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",

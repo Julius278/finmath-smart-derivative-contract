@@ -135,7 +135,7 @@ Registries publishing price indications (e.g. yield curves) referenced by produc
 | Contract | Role |
 |---|---|
 | `IProductIndication` | Generic, product-agnostic interface. |
-| `AbstractProductIndications` | Indication lifecycle, id/partId, rendering dispatch. |
+| `AbstractProductIndication` | Indication lifecycle, id/partId, rendering dispatch. |
 | `CurveIndications` | Concrete: curve of quotes (`Ownable2Step`). |
 
 - `indicationCategory()` (e.g. `keccak256("CURVE")`) is a coarse tag; the

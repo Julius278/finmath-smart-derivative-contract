@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
+
 import {IProductIndication} from "./IProductIndication.sol";
-import {IXMLRepresentableStatePart} from "../IRepresentableState.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
