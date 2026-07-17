@@ -142,9 +142,14 @@ Registry --> Frontend : indicationContract, indicationId, partId
 
 Frontend -> Renderer : render indication(contract, partId)
 Renderer -> CurveRegistry : statePartXmlTemplate(partId)
-CurveRegistry -> CurveRegistry : partId -> curveId\nread core + active quote storage\nformat dates and fixed-point values
-CurveRegistry --> Renderer : fully materialized curve XML
-Renderer -> Renderer : parse + serialize ordinary XML\n(no evmstate calls required)
+CurveRegistry --> Renderer : lean XML template with\nevmstate:args="$partId" callbacks
+Renderer -> CurveRegistry : indicationStatusByPartId(partId)
+CurveRegistry --> Renderer : status
+Renderer -> CurveRegistry : activeQuoteCountByPartId(partId)
+CurveRegistry --> Renderer : quote count
+Renderer -> CurveRegistry : activeQuotesByPartId(partId)
+CurveRegistry --> Renderer : QuoteView[]
+Renderer -> Renderer : expand quote rows and format fields
 Renderer --> Frontend : curve indication XML
 
 Frontend -> Registry : productTypeByDefinitionId(productDefinitionId)
@@ -290,7 +295,10 @@ Frontend --> Investor : display rendered product document
 
 note right of Renderer
 EvmXmlRenderer resolves XIncludes and no-argument
-evmstate bindings. It does not currently execute XSLT.
+evmstate bindings. During state-part rendering it also
+supports one uint256 callback argument supplied as $partId.
+It does not currently execute XSLT;
+Demo04 applies the stylesheet separately.
 end note
 
 @enduml

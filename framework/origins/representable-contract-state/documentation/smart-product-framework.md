@@ -243,6 +243,9 @@ across the registry, factories, indications, and text-resource classification, e
 - Dynamic collections (e.g. curve quotes) use the array-of-struct profile:
   `evmstate:call="...(tuple(...)[])"`, `evmstate:item-element`,
   `evmstate:item-field`.
+- State-part templates may bind a callback's single `uint256` input to the
+  renderer context with `evmstate:args="$partId"`. Arbitrary or literal
+  arguments remain unsupported.
 - Resource integrity is carried inline via `evmstate:integrity="keccak256-0x…"`.
 
 ---
@@ -281,5 +284,4 @@ across the registry, factories, indications, and text-resource classification, e
 > real products will extend the trade lifecycle with product-specific phases
 > (issuance, coupons, redemption) on top of `Active` via the `_onActivated`
 > hook.
-
 
