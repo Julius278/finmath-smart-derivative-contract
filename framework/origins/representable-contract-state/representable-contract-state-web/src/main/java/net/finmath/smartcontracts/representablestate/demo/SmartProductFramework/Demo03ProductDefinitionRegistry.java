@@ -19,7 +19,7 @@ public class Demo03ProductDefinitionRegistry {
 
     static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
 
-    static final Path INVESTOR_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "InvestorRegistry", "InvestorRegistry.sol");
+    static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 
     static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
 
@@ -51,13 +51,13 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("Product type name:       " + PRODUCT_TYPE_NAME);
         System.out.println("-".repeat(79));
 
-        System.out.println("Deploying InvestorRegistry.");
-        String investorRegistry = SmartContractDeployer.deploy(INVESTOR_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner));
-        System.out.println("InvestorRegistry deployed at " + investorRegistry);
+        System.out.println("Deploying ClientRegistry.");
+        String clientRegistry = SmartContractDeployer.deploy(CLIENT_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner));
+        System.out.println("ClientRegistry deployed at " + clientRegistry);
         System.out.println("-".repeat(79));
 
         System.out.println("Deploying TradableBondDataRegistry.");
-        String registry = SmartContractDeployer.deploy(TRADABLE_BOND_DATA_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner), new Address(investorRegistry));
+        String registry = SmartContractDeployer.deploy(TRADABLE_BOND_DATA_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner), new Address(clientRegistry));
         System.out.println("TradableBondDataRegistry deployed at " + registry);
         System.out.println("-".repeat(79));
 

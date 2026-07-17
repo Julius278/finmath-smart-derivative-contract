@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import {AbstractIndicatedProductRegistry} from "./AbstractIndicatedProductRegistry.sol";
 import {IProductFactory} from "../ProductFactory/IProductFactory.sol";
-import {IInvestorRegistry} from "../InvestorRegistry/IInvestorRegistry.sol";
+import {IClientRegistry} from "../ClientRegistry/IClientRegistry.sol";
 import {ITextResource} from "../TextResource/ITextResource.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**
  * @title AbstractTradableProductRegistry.sol
  * @notice Layer 3: on top of product definitions and product indications,
- *         lets eligible investors create trade requests that deploy concrete
+ *         lets eligible clients create trade requests that deploy concrete
  *         product instances via the product factory.
  *
  * @dev Persists a tradeId -> product instance record and anchors the exact
@@ -23,8 +23,8 @@ import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory
 abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductRegistry {
     // ------------------------------ Immutable State ------------------------------ */
 
-    /// @notice Investor registry consulted for eligibility.
-    address public immutable investorRegistryAddress;
+    /// @notice Client registry consulted for eligibility.
+    address public immutable clientRegistryAddress;
 
     // ------------------------------ Mutable State ------------------------------ */
 
@@ -43,7 +43,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
     // ------------------------------ Structs ------------------------------ */
 
     /**
-     * @notice Investor-supplied parameters for a trade request.
+     * @notice Client-supplied parameters for a trade request.
      * @param productDefinitionId       Product definition to trade against.
      * @param productSpecificSchemaHash Hash of the product-specific payload schema.
      * @param productSpecificPayload    Product-specific deployment payload.
@@ -60,8 +60,8 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
     /// @notice Thrown when a trade is attempted before a factory is set.
     error MissingProductFactory();
 
-    /// @notice Thrown when the provided investor registry address is invalid.
-    error MissingInvestorRegistry();
+    /// @notice Thrown when the provided client registry address is invalid.
+    error MissingClientRegistry();
 
     /**
      * @notice Thrown when the provided factory is invalid or does not point
@@ -70,7 +70,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
     error InvalidProductFactory(address factory);
 
     /// @notice Thrown when the caller is not eligible for the product definition.
-    error InvestorNotEligible(address investor, bytes32 productDefinitionId);
+    error ClientNotEligible(address client, bytes32 productDefinitionId);
 
     /// @notice Thrown when the factory cannot deploy the product definition's type.
     error ProductTypeNotDeployable(bytes32 productTypeId);
@@ -84,20 +84,20 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
     event ProductFactorySet(address indexed previousFactory, address indexed newFactory);
 
     /// @notice Emitted when a trade request is created and its product deployed.
-    event TradeRequestCreated(bytes32 indexed tradeId, address indexed productProvider, address indexed investor, bytes32 productDefinitionId, bytes32 productTypeId, address product);
+    event TradeRequestCreated(bytes32 indexed tradeId, address indexed productProvider, address indexed client, bytes32 productDefinitionId, bytes32 productTypeId, address product);
 
     // ------------------------------ Constructor / Modifiers ------------------------------ */
 
     /**
      * @param owner_                   Initial owner / product provider.
-     * @param investorRegistryAddress_ Investor registry for eligibility checks.
+     * @param clientRegistryAddress_ Client registry for eligibility checks.
      */
-    constructor(address owner_, address investorRegistryAddress_)
+    constructor(address owner_, address clientRegistryAddress_)
     AbstractIndicatedProductRegistry(owner_) {
-        if (investorRegistryAddress_ == address(0) || investorRegistryAddress_.code.length == 0) {
-            revert MissingInvestorRegistry();
+        if (clientRegistryAddress_ == address(0) || clientRegistryAddress_.code.length == 0) {
+            revert MissingClientRegistry();
         }
-        investorRegistryAddress = investorRegistryAddress_;
+        clientRegistryAddress = clientRegistryAddress_;
     }
 
     modifier onlyAfterFactorySet() {
@@ -113,7 +113,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
      * @notice Creates a trade request, validates the product definition,
      *         the caller's eligibility and the product type, then deploys the
      *         product instance and records the tradeId -> product mapping.
-     * @dev The caller (msg.sender) is the investor; owner() is the product provider.
+     * @dev The caller (msg.sender) is the client; owner() is the product provider.
      */
     function createTradeRequest(TradeRequestParams calldata params) external onlyAfterFactorySet returns (bytes32 tradeId, address product) {
         bytes32 productDefinitionId = params.productDefinitionId;
@@ -123,9 +123,9 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
             revert ProductDefinitionNotActive(productDefinitionId, definition.status);
         }
 
-        address investor = msg.sender;
-        if (!_isEligibleInvestor(investor, productDefinitionId)) {
-            revert InvestorNotEligible(investor, productDefinitionId);
+        address client = msg.sender;
+        if (!_isEligibleClient(client, productDefinitionId)) {
+            revert ClientNotEligible(client, productDefinitionId);
         }
 
         ProductDefinitionResources  memory resources = definition.resources;
@@ -135,9 +135,9 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
         }
 
         address productProvider = owner();
-        tradeId = _nextTradeId(investor, productDefinitionId);
+        tradeId = _nextTradeId(client, productDefinitionId);
 
-        bytes32 deploymentStateHash = _deploymentStateHash(tradeId, productProvider, investor, productDefinitionId, definition.version,
+        bytes32 deploymentStateHash = _deploymentStateHash(tradeId, productProvider, client, productDefinitionId, definition.version,
             resources, params.productSpecificSchemaHash, params.productSpecificPayload);
 
         product = IProductFactory(factory).deployProduct(
@@ -146,7 +146,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
                 productRegistry: address(this),
                 tradeId: tradeId,
                 productProvider: productProvider,
-                investor: investor,
+                client: client,
                 productDefinitionId: productDefinitionId,
                 productDefinitionVersion: definition.version,
                 termsResource: resources.termsResource,
@@ -161,7 +161,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
 
         _productByTradeId[tradeId] = product;
 
-        emit TradeRequestCreated(tradeId, productProvider, investor, productDefinitionId, resources.productTypeId, product);
+        emit TradeRequestCreated(tradeId, productProvider, client, productDefinitionId, resources.productTypeId, product);
     }
 
     // ------------------------------ Read API ------------------------------ */
@@ -192,17 +192,17 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
         productFactory = factory;
     }
 
-    // ------------------------------ Investor Validation ------------------------------ */
+    // ------------------------------ Client Validation ------------------------------ */
 
-    function _isEligibleInvestor(address investor, bytes32 productDefinitionId) internal view returns (bool) {
-        return IInvestorRegistry(investorRegistryAddress).isEligibleInvestor(investor, productDefinitionId);
+    function _isEligibleClient(address client, bytes32 productDefinitionId) internal view returns (bool) {
+        return IClientRegistry(clientRegistryAddress).isEligibleClient(client, productDefinitionId);
     }
 
     // ------------------------------ Internal Mutation Helpers ------------------------------ */
 
-    function _nextTradeId(address investor, bytes32 productDefinitionId) internal returns (bytes32) {
+    function _nextTradeId(address client, bytes32 productDefinitionId) internal returns (bytes32) {
         unchecked { ++_tradeIdNonce; }
-        return keccak256(abi.encode(address(this), block.chainid, _tradeIdNonce, investor, productDefinitionId));
+        return keccak256(abi.encode(address(this), block.chainid, _tradeIdNonce, client, productDefinitionId));
     }
 
     /**
@@ -212,11 +212,11 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
      *      and to the agreed product-specific payload, so it can be
      *      independently recomputed and verified later.
      */
-    function _deploymentStateHash(bytes32 tradeId, address productProvider, address investor, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinitionResources memory resources, bytes32 productSpecificSchemaHash, bytes calldata productSpecificPayload) internal view returns (bytes32) {
+    function _deploymentStateHash(bytes32 tradeId, address productProvider, address client, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinitionResources memory resources, bytes32 productSpecificSchemaHash, bytes calldata productSpecificPayload) internal view returns (bytes32) {
         bytes32 termsContentHash = ITextResource(resources.termsResource).contentHash();
         bytes32 stylesheetContentHash = ITextResource(resources.stylesheetResource).contentHash();
 
-        return keccak256(abi.encode(address(this), block.chainid, tradeId, productProvider, investor, productDefinitionId, productDefinitionVersion, resources.productTypeId,
+        return keccak256(abi.encode(address(this), block.chainid, tradeId, productProvider, client, productDefinitionId, productDefinitionVersion, resources.productTypeId,
                 resources.termsResource, termsContentHash, resources.stylesheetResource, stylesheetContentHash, productSpecificSchemaHash,keccak256(productSpecificPayload)));
     }
 }

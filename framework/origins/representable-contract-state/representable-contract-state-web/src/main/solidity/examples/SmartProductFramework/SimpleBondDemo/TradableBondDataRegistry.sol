@@ -24,10 +24,10 @@ contract TradableBondDataRegistry is AbstractTradableProductRegistry {
 
     /**
      * @param owner_                   Initial owner / product provider.
-     * @param investorRegistryAddress_ Investor registry for eligibility checks.
+     * @param clientRegistryAddress_ Client registry for eligibility checks.
      */
-    constructor(address owner_, address investorRegistryAddress_)
-    AbstractTradableProductRegistry(owner_, investorRegistryAddress_)
+    constructor(address owner_, address clientRegistryAddress_)
+    AbstractTradableProductRegistry(owner_, clientRegistryAddress_)
     {}
 
     // ------------------------------ Business-Rule Hooks ------------------------------ */

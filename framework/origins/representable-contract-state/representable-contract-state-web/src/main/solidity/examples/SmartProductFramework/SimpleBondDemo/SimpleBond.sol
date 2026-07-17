@@ -9,7 +9,7 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
  * @notice Minimal demo product: a bond with negotiable notional and maturity.
  * @dev The product owns its payload format: it decodes the raw
  *      productSpecificPayload once (in _applyTerms), used both at construction
- *      and on investor updates. Economic bindings (Notional, Maturity) live in
+ *      and on client updates. Economic bindings (Notional, Maturity) live in
  *      the product terms XML resource and resolve against notional()/maturity().
  *
  * @author Raphael Prandtl
@@ -86,7 +86,8 @@ contract SimpleBond is AbstractProduct {
     function _productSpecificStateXml() internal view override returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-            "<SimpleBond xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
+            "<SimpleBond xmlns=\"urn:smart-product-framework:simple-bond:1.0\"",
+            " xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
             " xmlns:evmstate=\"urn:evm:state:1.0\">",
             _deploymentStateXml(),
             _include(termsResource),

@@ -100,8 +100,8 @@
                         <td class="mono"><xsl:value-of select="//s:ProductProvider"/></td>
                     </tr>
                     <tr>
-                        <th>Investor</th>
-                        <td class="mono"><xsl:value-of select="//s:Investor"/></td>
+                        <th>Client</th>
+                        <td class="mono"><xsl:value-of select="//s:Client"/></td>
                     </tr>
                     <tr>
                         <th>Product Definition ID</th>

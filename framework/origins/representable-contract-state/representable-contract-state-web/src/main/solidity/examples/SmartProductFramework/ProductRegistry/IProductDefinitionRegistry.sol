@@ -13,7 +13,7 @@ pragma solidity ^0.8.24;
  *        1. lifecycle completion (abstract base contract),
  *        2. inclusion of product definition indications
  *           (e.g. curve indications for bonds),
- *        3. tradable product data (trade requests, investor entry).
+ *        3. tradable product data (trade requests, client entry).
  *
  * @dev PRODUCT DEFINITION ID SCHEME (canonical)
  *      productDefinitionId == keccak256(abi.encode(name, address(registry)))

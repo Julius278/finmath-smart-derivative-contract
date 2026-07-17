@@ -27,13 +27,13 @@
 
     <Lifecycle>
         <Requested>
-            The investor has requested the product and may amend notional or maturity while the trade is still Requested.
+            The client has requested the product and may amend notional or maturity while the trade is still Requested.
         </Requested>
         <Incepted>
             The product provider has accepted the current terms and frozen the agreed terms hash.
         </Incepted>
         <Active>
-            The investor has confirmed the incepted terms and the trade is active.
+            The client has confirmed the incepted terms and the trade is active.
         </Active>
     </Lifecycle>
 

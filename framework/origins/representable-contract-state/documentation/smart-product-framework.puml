@@ -2,11 +2,11 @@
 title Smart Product Framework - End-to-End Sequence Flow
 
 actor "Product Provider" as PProvider
-actor Investor
+actor Client
 participant "Frontend / dApp" as Frontend
 participant "TextResource\n(terms XML)\n----\nITextResource" as XmlResource
 participant "TextResource\n(documentation XSLT)\n----\nITextResource" as XsltResource
-participant "InvestorRegistry\n\n----\nIInvestorRegistry" as InvestorRegistry
+participant "ClientRegistry\n\n----\nIClientRegistry" as ClientRegistry
 participant "TradableBondDataRegistry\n\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
 participant "ProductFactoryRegistry\n(generic)" as Factory
@@ -16,8 +16,8 @@ participant "EvmXmlRenderer" as Renderer
 
 == Initial Setup ==
 
-PProvider -> InvestorRegistry : deploy InvestorRegistry(owner)
-PProvider -> Registry : deploy TradableBondDataRegistry(owner, investorRegistry)
+PProvider -> ClientRegistry : deploy ClientRegistry(owner)
+PProvider -> Registry : deploy TradableBondDataRegistry(owner, clientRegistry)
 PProvider -> Factory : deploy ProductFactoryRegistry(owner, registry)
 PProvider -> Registry : setProductFactory(factory)
 Registry -> Factory : productRegistryAddress()
@@ -88,7 +88,7 @@ Registry --> PProvider : ProductDefinitionPublished + StatePartUpdated
 PProvider -> Registry : computeProductDefinitionId(name)
 Registry --> PProvider : productDefinitionId\n(partId = uint256(productDefinitionId))
 
-note over PProvider, Investor
+note over PProvider, Client
 The registry's statePartXmlTemplate(partId) includes the terms
 and stylesheet with parse="text". This is a source preview:
 evmstate bindings are returned as text and are not evaluated
@@ -127,15 +127,15 @@ Assignment accepts Active or Suspended indications.
 Current trade creation does not re-check indication liveness.
 end note
 
-== Investor Registration ==
+== Client Registration ==
 
-PProvider -> InvestorRegistry : registerInvestor({investor, lei})
-InvestorRegistry -> InvestorRegistry : store status = Active
-InvestorRegistry --> PProvider : InvestorRegistered + InvestorStatusChanged
+PProvider -> ClientRegistry : registerClient({client, lei})
+ClientRegistry -> ClientRegistry : store status = Active
+ClientRegistry --> PProvider : ClientRegistered + ClientStatusChanged
 
 == Frontend Prepares Trade Request ==
 
-Investor -> Frontend : select product definition
+Client -> Frontend : select product definition
 
 Frontend -> Registry : productIndicationOfDefinition(productDefinitionId)
 Registry --> Frontend : indicationContract, indicationId, partId
@@ -177,20 +177,20 @@ Frontend -> Frontend : attach productSpecificSchemaHash
 
 == Trade Request and Deployment ==
 
-Investor -> Frontend : submit trade request
-Frontend -> Registry : createTradeRequest({productDefinitionId, schemaHash, payload})\n(investor-signed transaction)
+Client -> Frontend : submit trade request
+Frontend -> Registry : createTradeRequest({productDefinitionId, schemaHash, payload})\n(client-signed transaction)
 
 Registry -> Registry : require productFactory set
 Registry -> Registry : load ProductDefinitionStorage(productDefinitionId)
 Registry -> Registry : require product definition Active
 
-Registry -> InvestorRegistry : isEligibleInvestor(investor, productDefinitionId)
-InvestorRegistry --> Registry : true
+Registry -> ClientRegistry : isEligibleClient(client, productDefinitionId)
+ClientRegistry --> Registry : true
 
 Registry -> Factory : canDeployProduct(productTypeId)
 Factory --> Registry : true
 
-Registry -> Registry : tradeId = keccak256(abi.encode(\nregistry, chainId, nonce, investor, productDefinitionId))
+Registry -> Registry : tradeId = keccak256(abi.encode(\nregistry, chainId, nonce, client, productDefinitionId))
 Registry -> XmlResource : contentHash()
 XmlResource --> Registry : termsContentHash
 Registry -> XsltResource : contentHash()
@@ -228,14 +228,14 @@ Factory --> Registry : product
 Registry -> Registry : _productByTradeId[tradeId] = product
 Registry -> Registry : emit TradeRequestCreated
 Registry --> Frontend : transaction event contains tradeId + product
-Frontend --> Investor : product deployed (status Requested)
+Frontend --> Client : product deployed (status Requested)
 
 == Trade Lifecycle (incept / confirm) ==
 
-opt investor amends terms while Requested
-	Investor -> Frontend : update terms
-	Frontend -> Bond : updateTerms(payload)\n(investor-signed transaction)
-	Bond -> Bond : require investor + status Requested
+opt client amends terms while Requested
+	Client -> Frontend : update terms
+	Frontend -> Bond : updateTerms(payload)\n(client-signed transaction)
+	Bond -> Bond : require client + status Requested
 	Bond -> Bond : _applyTerms(payload)
 	Bond -> Bond : emit TermsUpdated + StateUpdated
 	Bond --> Frontend : ok
@@ -252,17 +252,17 @@ Bond -> Bond : store agreedTermsHash\nstatus = Incepted
 Bond -> Bond : emit TradeStatusChanged + TradeIncepted
 Bond --> PProvider : ok
 
-Investor -> Bond : confirmTrade(agreedTermsHash)
-Bond -> Bond : require investor + status Incepted
+Client -> Bond : confirmTrade(agreedTermsHash)
+Bond -> Bond : require client + status Incepted
 Bond -> Bond : require agreedTermsHash == stored hash
 Bond -> Bond : status = Active
 Bond -> Bond : emit TradeStatusChanged + TradeConfirmed + TradeActivated
 Bond -> Bond : _onActivated() (product-specific hook)
-Bond --> Investor : trade Active
+Bond --> Client : trade Active
 
 == Product XML Rendering and Presentation ==
 
-Investor -> Frontend : open product
+Client -> Frontend : open product
 Frontend -> Renderer : render(product)
 
 Renderer -> Bond : stateXmlTemplate()
@@ -291,7 +291,7 @@ Renderer --> Frontend : resolved product XML
 Frontend -> XsltResource : text()
 XsltResource --> Frontend : stylesheet
 Frontend -> Frontend : apply XSLT to resolved XML\n(Demo04 presentation step)
-Frontend --> Investor : display rendered product document
+Frontend --> Client : display rendered product document
 
 note right of Renderer
 EvmXmlRenderer resolves XIncludes and no-argument

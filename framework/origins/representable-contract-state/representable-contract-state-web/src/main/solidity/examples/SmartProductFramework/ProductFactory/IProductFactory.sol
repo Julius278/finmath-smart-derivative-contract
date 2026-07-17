@@ -17,7 +17,7 @@ import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
  *      opaque to it and passed through untouched.
  *
  * @dev TRUST / VALIDATION BOUNDARY
- *      - The registry validates product definition status, investor eligibility,
+ *      - The registry validates product definition status, client eligibility,
  *        and product-type deployability (via canDeployProduct) before calling.
  *      - deployProduct MUST be callable only by productRegistryAddress() and
  *        MUST re-enforce deployability (the registry's pre-check and this call
@@ -43,7 +43,7 @@ interface IProductFactory is IERC165 {
     // ------------------------------ Events ------------------------------ */
 
     /// @notice Emitted when a product is deployed.
-    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address product, address productProvider, address investor);
+    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address product, address productProvider, address client);
 
     // ------------------------------ Factory Views ------------------------------ */
 

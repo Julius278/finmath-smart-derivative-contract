@@ -65,8 +65,8 @@ interface IProduct is IXMLRepresentableState {
      */
     function productProvider() external view returns (address);
 
-    /// @notice Returns the investor the product was created for.
-    function investor() external view returns (address);
+    /// @notice Returns the client the product was created for.
+    function client() external view returns (address);
 
     /// @notice Returns the product definition this product was created under.
     function productDefinitionId() external view returns (bytes32);

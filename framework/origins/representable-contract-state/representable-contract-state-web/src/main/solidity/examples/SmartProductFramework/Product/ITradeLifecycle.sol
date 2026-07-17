@@ -5,12 +5,12 @@ pragma solidity ^0.8.24;
  * @title ITradeLifecycle
  * @notice Generic trade inception/confirmation lifecycle for deployed products,
  *         inspired by ERC-6123 (ISDCTrade) but adapted to a deployment-driven
- *         model: the investor's request deploys the product (status Requested),
- *         the product provider accepts (inceptTrade), and the investor confirms
+ *         model: the client's request deploys the product (status Requested),
+ *         the product provider accepts (inceptTrade), and the client confirms
  *         (confirmTrade) to activate.
  *
  * @dev PARTIES
- *      product provider and investor are fixed at deployment (see IProduct);
+ *      product provider and client are fixed at deployment (see IProduct);
  *      they are not passed as arguments here (unlike ERC-6123's withParty).
  *
  * @dev TERMS AGREEMENT
@@ -24,9 +24,9 @@ interface ITradeLifecycle {
 
     /**
      * @notice Lifecycle status of a trade.
-     * @dev Requested: created, terms amendable by investor.
-     *      Incepted:  product provider accepted; terms frozen; awaiting investor confirm.
-     *      Active:    investor confirmed; trade live.
+     * @dev Requested: created, terms amendable by client.
+     *      Incepted:  product provider accepted; terms frozen; awaiting client confirmation.
+     *      Active:    client confirmed; trade live.
      *      Cancelled: terminated pre-activation by either party.
      */
     enum TradeStatus {
@@ -41,10 +41,10 @@ interface ITradeLifecycle {
     /// @notice Thrown when the caller is not the product provider.
     error NotProductProvider(address caller);
 
-    /// @notice Thrown when the caller is not the investor.
-    error NotInvestor(address caller);
+    /// @notice Thrown when the caller is not the client.
+    error NotClient(address caller);
 
-    /// @notice Thrown when the caller is neither investor nor product provider.
+    /// @notice Thrown when the caller is neither client nor product provider.
     error NotTradeParty(address caller);
 
     /// @notice Thrown when the action is not allowed in the current status.
@@ -55,13 +55,13 @@ interface ITradeLifecycle {
 
     // ------------------------------ Events ------------------------------ */
 
-    /// @notice Emitted when the investor amends the requested terms.
-    event TermsUpdated(address indexed investor, bytes32 newTermsHash);
+    /// @notice Emitted when the client amends the requested terms.
+    event TermsUpdated(address indexed client, bytes32 newTermsHash);
 
     /// @notice Emitted when the product provider incepts/accepts the trade.
     event TradeIncepted(address indexed productProvider, bytes32 agreedTermsHash);
 
-    /// @notice Emitted when the investor confirms the incepted trade.
+    /// @notice Emitted when the client confirms the incepted trade.
     event TradeConfirmed(address indexed confirmer, bytes32 agreedTermsHash);
 
     /// @notice Emitted when the trade becomes active.
@@ -76,7 +76,7 @@ interface ITradeLifecycle {
     // ------------------------------ Trade Lifecycle ------------------------------ */
 
     /**
-     * @notice Amends the requested trade terms (investor only, Requested only).
+     * @notice Amends the requested trade terms (client only, Requested only).
      * @param productSpecificPayload Full replacement terms, same schema as
      *        deployment; decoded and validated by the concrete product.
      */
@@ -90,14 +90,14 @@ interface ITradeLifecycle {
     function inceptTrade(bytes32 agreedTermsHash) external;
 
     /**
-     * @notice Investor confirms the incepted terms, activating the trade.
+     * @notice Client confirms the incepted terms, activating the trade.
      * @dev Requires agreedTermsHash == the incepted hash; Incepted -> Active.
-     * @param agreedTermsHash The terms fingerprint the investor confirms.
+     * @param agreedTermsHash The terms fingerprint the client confirms.
      */
     function confirmTrade(bytes32 agreedTermsHash) external;
 
     /**
-     * @notice Cancels the trade before activation (product provider or investor).
+     * @notice Cancels the trade before activation (product provider or client).
      * @dev Allowed in Requested or Incepted; sets Cancelled (terminal).
      */
     function cancelTrade() external;

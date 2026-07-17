@@ -4,7 +4,7 @@ A modular Solidity framework for issuing, referencing, and trading tokenized
 financial products (e.g. bonds) with **on-chain, self-rendering terms**.
 
 Product terms (XML) and stylesheets (XSLT) are stored immutably on-chain and
-referenced by reusable *product definitions*. Investors request trades against a product definition;
+referenced by reusable *product definitions*. Clients request trades against a product definition;
 each trade deploys a concrete *product* instance that resolves its own live
 state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 
@@ -16,7 +16,7 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 - [Architecture Overview](#architecture-overview)
 - [Modules](#modules)
     - [1. Text Resources](#1-text-resources)
-    - [2. Investor Registry](#2-investor-registry)
+    - [2. Client Registry](#2-client-registry)
     - [3. Product Definition Registry (3 layers)](#3-product-definition-registry-3-layers)
     - [4. Product Indications](#4-product-indications)
     - [5. Product Factories](#5-product-factories)
@@ -53,7 +53,7 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 skinparam componentStyle rectangle
 top to bottom direction
 
-rectangle "InvestorRegistry\nidentity + eligibility" as IR
+rectangle "ClientRegistry\nidentity + eligibility" as IR
 rectangle "TradableBondDataRegistry concrete\n------\nAbstractTradableProductDataRegistry\nAbstractIndicatedProductDataRegistry\nAbstractProductDataRegistry" as REG
 rectangle "TextResource\nterms / xslt" as TR
 rectangle "CurveIndications\nper product definition" as CI
@@ -61,7 +61,7 @@ rectangle "ProductFactoryRegistry\ngeneric router" as GF
 rectangle "SimpleDemoBondFactory\nproduct-specific" as SF
 rectangle "SimpleDemoBond\ndeployed product\nself-rendering + lifecycle" as P
 
-REG --> IR : isEligibleInvestor
+REG --> IR : isEligibleClient
 REG --> TR : references / anchors
 REG --> CI : assign / read indication
 CI  --> TR : anchors
@@ -95,14 +95,14 @@ as SSTORE2-chunked bytecode.
 - Chunk size bounded by `MAX_CHUNK_SIZE = 20_000` (< SSTORE2's 24 KB limit).
 - Uses `mcopy` (EIP-5656) — **requires Cancun EVM**.
 
-### 2. Investor Registry
+### 2. Client Registry
 
-Source of truth for investor identity, lifecycle, and eligibility.
+Source of truth for client identity, lifecycle, and eligibility.
 
 | Contract | Role |
 |---|---|
-| `IInvestorRegistry` | Interface. |
-| `InvestorRegistry` | Deployable (`Ownable2Step`). |
+| `IClientRegistry` | Interface. |
+| `ClientRegistry` | Deployable (`Ownable2Step`). |
 
 - Lifecycle: `Unknown → Active → {Suspended, Revoked}`; `Revoked` is terminal.
 - **Registered** = known to the system (`status != Unknown`).
@@ -195,15 +195,15 @@ generic trade lifecycle.
 1. Publish resources — deploy and finalize TextResource(terms) and TextResource(stylesheet).
 2. Publish product definition — registry.publishProductDefinition(name, {terms, xslt, productTypeId}).
 3. Assign indication — registry.assignProductIndication(productDefinitionId, curve, indicationId).
-4. Register investor — investorRegistry.registerInvestor({investor, lei}).
+4. Register client — clientRegistry.registerClient({client, lei}).
 5. Request trade — registry.createTradeRequest({productDefinitionId, schemaHash, payload}):
-   - checks product definition is Active, investor is eligible, product type is deployable;
+   - checks product definition is Active, client is eligible, product type is deployable;
    - deploys the product via the factory chain;
    - records tradeId -> product and anchors deploymentStateHash.
-6. (optional) Amend — product.updateTerms(payload) (investor, while Requested). 
-7. Incept — product.inceptTrade(agreedTermsHash) (product provider) -> Incepted. 
-8. Confirm — product.confirmTrade(agreedTermsHash) (investor) -> Active. 
-9. Render — the renderer calls product.stateXmlTemplate(), resolving the evmstate bindings and the 
+6. (optional) Amend — product.updateTerms(payload) (client, while Requested).
+7. Incept — product.inceptTrade(agreedTermsHash) (product provider) -> Incepted.
+8. Confirm — product.confirmTrade(agreedTermsHash) (client) -> Active.
+9. Render — the renderer calls product.stateXmlTemplate(), resolves the evmstate bindings, and the frontend applies the stylesheet.
 
 ---
 
@@ -218,8 +218,8 @@ generic trade lifecycle.
 | `partId` (productDefinition) | `uint256(productDefinitionId)`                                                                                                                                                                                                                            |
 | `indicationId` | implementation-defined; obtain `partId` via `partIdForIndication` (do **not** assume `uint256(id)`)                                                                                                                                                       |
 | `productTypeId` | address-independent semantic constant (e.g. `keccak256("SIMPLE_BOND")`)                                                                                                                                                                                   |
-| `tradeId` | `keccak256(abi.encode(registry, chainId, nonce, investor, productDefinitionId))`                                                                                                                                                                          |
-| `deploymentStateHash` | `keccak256(abi.encode(registry, chainId, tradeId, product provider, investor, productDefinitionId, productDefinitionVersion, productTypeId, termsResource, termsContentHash, stylesheetResource, stylesheetContentHash, schemaHash, keccak256(payload)))` |
+| `tradeId` | `keccak256(abi.encode(registry, chainId, nonce, client, productDefinitionId))`                                                                                                                                                                          |
+| `deploymentStateHash` | `keccak256(abi.encode(registry, chainId, tradeId, product provider, client, productDefinitionId, productDefinitionVersion, productTypeId, termsResource, termsContentHash, stylesheetResource, stylesheetContentHash, schemaHash, keccak256(payload)))` |
 | `currentTermsHash` | `keccak256(abi.encode(product, deploymentStateHash, economicTermsHash))`                                                                                                                                                                                  |
 
 ### Shared constants
@@ -252,8 +252,8 @@ across the registry, factories, indications, and text-resource classification, e
 
 ## Deployment Order
 
-1. InvestorRegistry(owner)
-2. TradableBondDataRegistry(owner, investorRegistry)
+1. ClientRegistry(owner)
+2. TradableBondDataRegistry(owner, clientRegistry)
 3. ProductFactoryRegistry(owner, registry)
 4. registry.setProductFactory(productFactoryRegistry) # back-ref check 
 5. SimpleDemoBondFactory(productFactoryRegistry) # generic addr 
@@ -262,7 +262,7 @@ across the registry, factories, indications, and text-resource classification, e
 8. CurveIndications(owner) + publish curve indications 
 9. registry.publishProductDefinition(...)
 10. registry.assignProductIndication(...)
-11. investorRegistry.registerInvestor(...)
+11. clientRegistry.registerClient(...)
 
 ---
 
@@ -284,4 +284,3 @@ across the registry, factories, indications, and text-resource classification, e
 > real products will extend the trade lifecycle with product-specific phases
 > (issuance, coupons, redemption) on top of `Active` via the `_onActivated`
 > hook.
-

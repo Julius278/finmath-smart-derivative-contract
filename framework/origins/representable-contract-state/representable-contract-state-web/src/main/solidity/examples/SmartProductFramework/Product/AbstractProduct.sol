@@ -46,7 +46,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @inheritdoc IProduct
     address public immutable override productProvider;
     /// @inheritdoc IProduct
-    address public immutable override investor;
+    address public immutable override client;
     /// @inheritdoc IProduct
     bytes32 public immutable override productDefinitionId;
     /// @inheritdoc IProduct
@@ -86,7 +86,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         if (c.productRegistry == address(0)) revert ZeroAddress("productRegistry");
         if (c.tradeId == bytes32(0)) revert ZeroHash("tradeId");
         if (c.productProvider  == address(0)) revert ZeroAddress("productProvider ");
-        if (c.investor == address(0)) revert ZeroAddress("investor");
+        if (c.client == address(0)) revert ZeroAddress("client");
         if (c.productDefinitionId  == bytes32(0)) revert ZeroHash("productDefinitionId ");
         if (c.termsResource == address(0)) revert ZeroAddress("termsResource");
         if (c.stylesheetResource == address(0)) revert ZeroAddress("stylesheetResource");
@@ -97,7 +97,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         productSpecificFactory = msg.sender;
         tradeId = c.tradeId;
         productProvider = c.productProvider;
-        investor = c.investor;
+        client = c.client;
         productDefinitionId = c.productDefinitionId;
         productDefinitionVersion  = c.productDefinitionVersion ;
         termsResource = c.termsResource;
@@ -118,16 +118,16 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         _;
     }
 
-    modifier onlyInvestor() {
-        if (msg.sender != investor) {
-            revert NotInvestor(msg.sender);
+    modifier onlyClient() {
+        if (msg.sender != client) {
+            revert NotClient(msg.sender);
         }
         _;
     }
 
     // ------------------------------ Trade Lifecycle ------------------------------ */
 
-    function updateTerms(bytes calldata productSpecificPayload) external override onlyInvestor {
+    function updateTerms(bytes calldata productSpecificPayload) external override onlyClient {
         if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
 
         _updateTerms(productSpecificPayload);
@@ -149,7 +149,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit TradeIncepted(msg.sender, agreedTermsHash_);
     }
 
-    function confirmTrade(bytes32 agreedTermsHash_) external override onlyInvestor {
+    function confirmTrade(bytes32 agreedTermsHash_) external override onlyClient {
         if (_status != TradeStatus.Incepted) revert InvalidTradeStatus(_status);
         if (agreedTermsHash_ != _agreedTermsHash) {
             revert AgreedTermsMismatch(_agreedTermsHash, agreedTermsHash_);
@@ -164,7 +164,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     }
 
     function cancelTrade() external override {
-        if (msg.sender != productProvider && msg.sender != investor) {
+        if (msg.sender != productProvider && msg.sender != client) {
             revert NotTradeParty(msg.sender);
         }
         if (_status != TradeStatus.Requested && _status != TradeStatus.Incepted) {
@@ -229,7 +229,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
                 "<ProductSpecificFactory evmstate:call=\"productSpecificFactory()(address)\"/>",
                 "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
                 "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
-                "<Investor evmstate:call=\"investor()(address)\"/>",
+                "<Client evmstate:call=\"client()(address)\"/>",
                 "<ProductDefinitionId evmstate:call=\"productDefinitionId()(bytes32)\"/>",
                 "<ProductDefinitionVersion evmstate:call=\"productDefinitionVersion()(uint256)\"/>",
                 "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
@@ -261,7 +261,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
 
     /**
      * @dev Decodes and applies a full-replacement terms payload. Called only in
-     *      Requested (investor). Must validate the decoded economics.
+     *      Requested (client). Must validate the decoded economics.
      */
     function _updateTerms(bytes calldata productSpecificPayload) internal virtual;
 

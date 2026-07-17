@@ -59,10 +59,10 @@ import java.util.List;
  * <ol>
  *     <li>wire and register the generic and product-specific factories,</li>
  *     <li>publish and assign a curve indication,</li>
- *     <li>register and fund an investor dev account,</li>
+ *     <li>register and fund a client dev account,</li>
  *     <li>perform the frontend discovery steps and ABI-encode a payload,</li>
- *     <li>create and optionally amend a trade request as the investor,</li>
- *     <li>incept as product provider and confirm as investor, and</li>
+ *     <li>create and optionally amend a trade request as the client,</li>
+ *     <li>incept as product provider and confirm as client, and</li>
  *     <li>verify provenance and render the live product state.</li>
  * </ol>
  *
@@ -74,7 +74,7 @@ import java.util.List;
 public class Demo04EndToEndWorkflow {
 
 	static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
-	static final Path INVESTOR_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "InvestorRegistry", "InvestorRegistry.sol");
+	static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 	static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
 	static final Path PRODUCT_FACTORY_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductFactory", "ProductFactoryRegistry.sol");
 	static final Path SIMPLE_BOND_FACTORY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "SimpleBondFactory.sol");
@@ -83,13 +83,13 @@ public class Demo04EndToEndWorkflow {
 	private static final String RPC_URL = "http://127.0.0.1:8545";
 	private static final BigInteger GAS_PRICE = BigInteger.valueOf(1_000_000_000L);
 	private static final BigInteger GAS_LIMIT = BigInteger.valueOf(20_000_000L);
-	private static final BigInteger INVESTOR_TARGET_BALANCE = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
+	private static final BigInteger CLIENT_TARGET_BALANCE = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
 
 	// Public Anvil/Hardhat development accounts used elsewhere in this project.
 	private static final String PRODUCT_PROVIDER_PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-	private static final String INVESTOR_PRIVATE_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+	private static final String CLIENT_PRIVATE_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 
-	private static final String INVESTOR_LEI = "529900T8BM49AURSDO55";
+	private static final String CLIENT_LEI = "529900T8BM49AURSDO55";
 	private static final String TERMS_RESOURCE = "text-resources/simple-bond-terms.xml";
 	private static final String STYLESHEET_RESOURCE = "text-resources/simple-bond-stylesheet.xslt";
 	private static final String TERMS_RESOURCE_TYPE = "BOND_TERMS";
@@ -110,26 +110,26 @@ public class Demo04EndToEndWorkflow {
 		printChainInstructions();
 
 		String productProvider = Credentials.create(PRODUCT_PROVIDER_PRIVATE_KEY).getAddress();
-		String investor = Credentials.create(INVESTOR_PRIVATE_KEY).getAddress();
+		String client = Credentials.create(CLIENT_PRIVATE_KEY).getAddress();
 
 		assertAddressEquals(SmartContractDeployer.defaultSenderAddress(), productProvider,
 				"The product-provider key must match SmartContractDeployer's deployment key.");
 
 		System.out.println("Demo 04 - Smart Product Framework end-to-end workflow");
 		System.out.println("Product provider:         " + productProvider);
-		System.out.println("Investor:                 " + investor);
+		System.out.println("Client:                 " + client);
 		System.out.println("Product definition:       " + PRODUCT_DEFINITION_NAME);
 		System.out.println("Curve:                    " + CURVE_NAME);
 		System.out.println("-".repeat(79));
 
-		ensureInvestorFunded(productProvider, investor);
+		ensureClientFunded(productProvider, client);
 
 		/*
 		 * Initial setup and factory registration.
 		 */
-		System.out.println("Deploying InvestorRegistry.");
-		String investorRegistry = SmartContractDeployer.deploy(
-				INVESTOR_REGISTRY_CONTRACT,
+		System.out.println("Deploying ClientRegistry.");
+		String clientRegistry = SmartContractDeployer.deploy(
+				CLIENT_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider)
 		);
@@ -139,7 +139,7 @@ public class Demo04EndToEndWorkflow {
 				TRADABLE_BOND_DATA_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider),
-				new Address(investorRegistry)
+				new Address(clientRegistry)
 		);
 
 		System.out.println("Deploying ProductFactoryRegistry.");
@@ -309,26 +309,26 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Investor registration.
+		 * Client registration.
 		 */
 		SmartContractDeployer.transact(
-				investorRegistry,
+				clientRegistry,
 				function(
-						"registerInvestor",
-						new InvestorRegistrationParams(new Address(investor), new Utf8String(INVESTOR_LEI))
+						"registerClient",
+						new ClientRegistrationParams(new Address(client), new Utf8String(CLIENT_LEI))
 				)
 		);
 
 		assertTrue(
 				callBool(
-						investorRegistry,
-						function("isEligibleInvestor", new Address(investor), new Bytes32(productDefinitionId))
+						clientRegistry,
+						function("isEligibleClient", new Address(client), new Bytes32(productDefinitionId))
 				),
-				"The registered investor is not eligible for the product definition."
+				"The registered client is not eligible for the product definition."
 		);
 
-		System.out.println("Investor registered and eligible.");
-		System.out.println("Investor LEI:             " + INVESTOR_LEI);
+		System.out.println("Client registered and eligible.");
+		System.out.println("Client LEI:             " + CLIENT_LEI);
 		System.out.println("-".repeat(79));
 
 		/*
@@ -366,10 +366,10 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Investor trade request and deployment through both factory layers.
+		 * Client trade request and deployment through both factory layers.
 		 */
 		TransactionReceipt tradeRequestReceipt = transactAs(
-				INVESTOR_PRIVATE_KEY,
+				CLIENT_PRIVATE_KEY,
 				registry,
 				function(
 						"createTradeRequest",
@@ -399,7 +399,7 @@ public class Demo04EndToEndWorkflow {
 
 		assertAddressEquals(registry, callAddress(product, "productRegistry"), "Product registry mismatch.");
 		assertAddressEquals(productProvider, callAddress(product, "productProvider"), "Product provider mismatch.");
-		assertAddressEquals(investor, callAddress(product, "investor"), "Product investor mismatch.");
+		assertAddressEquals(client, callAddress(product, "client"), "Product client mismatch.");
 		assertAddressEquals(termsResource.contractAddress(), callAddress(product, "termsResource"), "Terms resource mismatch.");
 		assertAddressEquals(stylesheetResource.contractAddress(), callAddress(product, "stylesheetResource"), "Stylesheet resource mismatch.");
 		assertBytesEqual(tradeId, callBytes32(product, "tradeId"), "Product trade id mismatch.");
@@ -421,7 +421,7 @@ public class Demo04EndToEndWorkflow {
 		byte[] amendedPayload = encodeSimpleBondPayload(amendedNotional, amendedMaturity);
 
 		transactAs(
-				INVESTOR_PRIVATE_KEY,
+				CLIENT_PRIVATE_KEY,
 				product,
 				function("updateTerms", new DynamicBytes(amendedPayload))
 		);
@@ -432,14 +432,14 @@ public class Demo04EndToEndWorkflow {
 		byte[] agreedTermsHash = callBytes32(product, "currentTermsHash");
 		assertFalse(Arrays.equals(initialTermsHash, agreedTermsHash), "Terms hash did not change after amendment.");
 
-		System.out.println("Investor amended the Requested terms.");
+		System.out.println("Client amended the Requested terms.");
 		System.out.println("Amended notional:         " + amendedNotional);
 		System.out.println("Amended maturity:         " + amendedMaturity);
 		System.out.println("Agreed terms hash:        " + Numeric.toHexString(agreedTermsHash));
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Product-provider inception and investor confirmation.
+		 * Product-provider inception and client confirmation.
 		 */
 		SmartContractDeployer.transact(
 				product,
@@ -449,13 +449,13 @@ public class Demo04EndToEndWorkflow {
 		assertBytesEqual(agreedTermsHash, callBytes32(product, "agreedTermsHash"), "Stored agreed terms hash mismatch.");
 
 		transactAs(
-				INVESTOR_PRIVATE_KEY,
+				CLIENT_PRIVATE_KEY,
 				product,
 				function("confirmTrade", new Bytes32(agreedTermsHash))
 		);
 		assertTradeStatus(product, STATUS_ACTIVE, "Active");
 
-		System.out.println("Trade incepted by the product provider and confirmed by the investor.");
+		System.out.println("Trade incepted by the product provider and confirmed by the client.");
 		System.out.println("Final trade status:       Active");
 		System.out.println("-".repeat(79));
 
@@ -499,6 +499,7 @@ public class Demo04EndToEndWorkflow {
 		String stylesheet = callString(stylesheetResource.contractAddress(), "text");
 		String renderedHtml = applyXslt(renderedXml, stylesheet);
 		assertContains(renderedHtml, new BigDecimal(amendedNotional, 2).toPlainString());
+		assertContains(renderedHtml, client);
 
 		System.out.println("Rendered product XML:");
 		System.out.println(renderedXml);
@@ -509,7 +510,7 @@ public class Demo04EndToEndWorkflow {
 
 		System.out.println("=".repeat(79));
 		System.out.println("Demo 04 completed.");
-		System.out.println("InvestorRegistry:         " + investorRegistry);
+		System.out.println("ClientRegistry:         " + clientRegistry);
 		System.out.println("Product registry:         " + registry);
 		System.out.println("Generic factory:          " + genericFactory);
 		System.out.println("SimpleBond factory:       " + simpleBondFactory);
@@ -616,17 +617,17 @@ public class Demo04EndToEndWorkflow {
 		return new PublishedTextResource(contractAddress, expectedContentHash);
 	}
 
-	private static void ensureInvestorFunded(String productProvider, String investor) throws Exception {
+	private static void ensureClientFunded(String productProvider, String client) throws Exception {
 		Web3j web3 = Web3j.build(new HttpService(RPC_URL));
 		try {
-			BigInteger balance = web3.ethGetBalance(investor, DefaultBlockParameterName.LATEST).send().getBalance();
-			if (balance.compareTo(INVESTOR_TARGET_BALANCE) >= 0) {
-				System.out.println("Investor dev account is already funded: "
+			BigInteger balance = web3.ethGetBalance(client, DefaultBlockParameterName.LATEST).send().getBalance();
+			if (balance.compareTo(CLIENT_TARGET_BALANCE) >= 0) {
+				System.out.println("Client dev account is already funded: "
 						+ Convert.fromWei(new BigDecimal(balance), Convert.Unit.ETHER) + " ETH");
 				return;
 			}
 
-			BigInteger topUp = INVESTOR_TARGET_BALANCE.subtract(balance);
+			BigInteger topUp = CLIENT_TARGET_BALANCE.subtract(balance);
 			long chainId = web3.ethChainId().send().getChainId().longValueExact();
 			RawTransactionManager txManager = new RawTransactionManager(
 					web3,
@@ -639,16 +640,16 @@ public class Demo04EndToEndWorkflow {
 			EthSendTransaction response = txManager.sendTransaction(
 					GAS_PRICE,
 					BigInteger.valueOf(21_000),
-					investor,
+					client,
 					"0x",
 					topUp
 			);
-			checkSendResponse(response, "fund investor");
+			checkSendResponse(response, "fund client");
 
 			TransactionReceipt receipt = receiptProcessor(web3).waitForTransactionReceipt(response.getTransactionHash());
-			checkReceipt(receipt, "fund investor");
+			checkReceipt(receipt, "fund client");
 
-			System.out.println("Funded investor dev account with "
+			System.out.println("Funded client dev account with "
 					+ Convert.fromWei(new BigDecimal(topUp), Convert.Unit.ETHER) + " ETH.");
 		}
 		finally {
@@ -982,14 +983,14 @@ public class Demo04EndToEndWorkflow {
 		}
 	}
 
-	public static class InvestorRegistrationParams extends DynamicStruct {
+	public static class ClientRegistrationParams extends DynamicStruct {
 
-		public final Address investor;
+		public final Address client;
 		public final Utf8String lei;
 
-		public InvestorRegistrationParams(Address investor, Utf8String lei) {
-			super(investor, lei);
-			this.investor = investor;
+		public ClientRegistrationParams(Address client, Utf8String lei) {
+			super(client, lei);
+			this.client = client;
 			this.lei = lei;
 		}
 	}

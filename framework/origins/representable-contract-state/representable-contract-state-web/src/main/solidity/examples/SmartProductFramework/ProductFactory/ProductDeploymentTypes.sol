@@ -17,7 +17,7 @@ pragma solidity ^0.8.24;
  * @param tradeId                   Unique trade identifier.
  * @param productProvider           The product provider, usually the registry
  *                                  owner at deployment time.
- * @param investor                  The investor initiating the trade.
+ * @param client                  The client initiating the trade.
  * @param productDefinitionId       The product definition the product is
  *                                  created under.
  * @param productDefinitionVersion  The version of the product definition at
@@ -32,7 +32,7 @@ struct CommonDeploymentParams {
     address productRegistry;
     bytes32 tradeId;
     address productProvider;
-    address investor;
+    address client;
     bytes32 productDefinitionId;
     uint256 productDefinitionVersion;
     address termsResource;
