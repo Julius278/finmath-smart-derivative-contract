@@ -33,9 +33,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Deployer - deploys a smart contract.
- *
- * Useful for demos and testing.
+ * Deployer - deploys a smart contract. Useful for demos and testing.
  *
  * @author Christian Fries
  * @author Raphael Prandtl
@@ -136,7 +134,7 @@ public class SmartContractDeployer {
 
 			System.out.println("Connected to: " + clientVer + " chainId=" + chainId);
 		} catch (ConnectException e) {
-			logger.error("Unable to connect to chain.");
+			logger.error("Unable to connect to chain. Ensure that you have set the correct RPC_URL and in case of a local chain, that it runs.");
 			throw new RuntimeException("Unable to connect to chain.", e);
 		}
 
