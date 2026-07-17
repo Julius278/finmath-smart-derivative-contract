@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {AbstractProductIndication} from "../ProductIndication/AbstractProductIndication.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 
 /// @title CurveIndications
@@ -19,8 +18,6 @@ import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 ///
 /// @author Raphael Prandtl
 contract CurveIndications is AbstractProductIndication {
-
-    using Strings for uint256;
 
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
     /*                         CONSTANTS                         */
@@ -256,76 +253,20 @@ contract CurveIndications is AbstractProductIndication {
     /*                          XML VIEW                         */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc AbstractProductIndication
-    /// @dev Materializes the curve state on-chain. This avoids argument-bearing
-    ///      `evmstate:call` bindings, which are not supported by the renderer.
-    ///      Quote strings are XML-safe because they are validated on write.
-    function _indicationStateXml(bytes32 curveId) internal view override returns (string memory) {
-        IndicationCore storage core = _core(curveId);
-        CurvePayload storage payload = _payloads[curveId];
-        string memory curveIdHex = _bytes32ToHexString(curveId);
-
-        string memory quotesXml;
-        for (uint256 i; i < payload.activeSymbols.length; ++i) {
-            QuoteStorage storage quote = payload.quotesBySymbol[_symbolId(payload.activeSymbols[i])];
-            quotesXml = string.concat(quotesXml, _quoteXml(quote));
-        }
-
-        return string.concat(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-            "<CurveIndications curveId=\"", curveIdHex, "\">",
-            "<Status>", uint256(core.status).toString(), "</Status>",
-            "<ActiveQuoteCount>", payload.activeSymbols.length.toString(), "</ActiveQuoteCount>",
-            "<Quotes>", quotesXml, "</Quotes>",
-            "</CurveIndications>"
-        );
-    }
-
-    /// @dev Materializes one active quote using the formats previously applied
-    ///      by EvmXmlRenderer.
-    function _quoteXml(QuoteStorage storage quote) internal view returns (string memory) {
-        string memory xml = string.concat(
-            "<Quote>",
-            "<Symbol>", quote.symbol, "</Symbol>",
-            "<DurationInDays>", Strings.toStringSigned(quote.durationInDays), "</DurationInDays>",
-            "<Settlement>", _formatIso8601DateTime(quote.settlementDate), "</Settlement>",
-            "<Maturity>", _formatIso8601DateTime(quote.maturityDate), "</Maturity>"
-        );
-
-        xml = string.concat(
-            xml,
-            "<Convention>", quote.dayCountConvention, "</Convention>",
-            "<Coupon>", _formatDecimal(quote.couponRateBps, 2), "</Coupon>",
-            "<Currency>", quote.currency, "</Currency>",
-            "<Yield>", _formatSignedDecimal(quote.yieldBps, 2), "</Yield>"
-        );
-
-        return string.concat(
-            xml,
-            "<IssuePrice>", _formatDecimal(quote.issuePriceE8, 8), "</IssuePrice>",
-            "<RedemptionValue>", _formatDecimal(quote.redemptionValueE8, 8), "</RedemptionValue>",
-            "<MinNotional>", _formatDecimal(quote.minNotionalE8, 8), "</MinNotional>",
-            "<MaxNotional>", _formatDecimal(quote.maxNotionalE8, 8), "</MaxNotional>",
-            "</Quote>"
-        );
-    }
-
     /// @dev Thin template: curve-level metadata bindings + an array-of-struct
-    ///      binding over activeQuotes(curveId). The renderer clones the <Quote>
-    ///      row per element and maps tuple fields via item-field. No per-quote
-    ///      XML is built on-chain.
-    function _indicationStateXmlUnsupported(bytes32 curveId) internal pure returns (string memory) {
-        string memory curveIdHex = _bytes32ToHexString(curveId);
+    ///      binding over activeQuotesByPartId(partId). The renderer supplies the
+    ///      partId from its render context, clones the <Quote> row per element,
+    ///      and maps tuple fields via item-field. No per-quote XML is built
+    ///      on-chain.
+    function _indicationStateXml(bytes32) internal pure override returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-            "<CurveIndications xmlns:evmstate=\"urn:evm:state:1.0\"",
-            " curveId=\"", curveIdHex, "\">",
-            // curve-level metadata via scalar bindings
-            "<Status evmstate:call=\"indicationStatus(bytes32)(uint8)\" evmstate:args=\"", curveIdHex, "\"/>",
-            "<ActiveQuoteCount evmstate:call=\"activeQuoteCount(bytes32)(uint256)\" evmstate:args=\"", curveIdHex, "\" evmstate:format=\"integer\"/>",
-            // array-of-struct binding: one <Quote> per active quote
-            "<Quotes evmstate:call=\"activeQuotes(bytes32)(tuple(string,int256,uint256,uint256,string,uint256,string,int256,uint256,uint256,uint256,uint256)[])\"",
-            " evmstate:args=\"", curveIdHex, "\"",
+            "<CurveIndications xmlns:evmstate=\"urn:evm:state:1.0\">",
+            "<Status evmstate:call=\"indicationStatusByPartId(uint256)(uint8)\" evmstate:args=\"$partId\"/>",
+            "<ActiveQuoteCount evmstate:call=\"activeQuoteCountByPartId(uint256)(uint256)\"",
+            " evmstate:args=\"$partId\" evmstate:format=\"integer\"/>",
+            "<Quotes evmstate:call=\"activeQuotesByPartId(uint256)(tuple(string,int256,uint256,uint256,string,uint256,string,int256,uint256,uint256,uint256,uint256)[])\"",
+            " evmstate:args=\"$partId\"",
             " evmstate:item-element=\"Quote\">",
             "<Quote>",
             "<Symbol evmstate:item-field=\"0\"/>",
@@ -355,13 +296,32 @@ contract CurveIndications is AbstractProductIndication {
         return _payloads[curveId].activeSymbols.length;
     }
 
+    /// @notice Number of currently active quotes for a renderer part id.
+    function activeQuoteCountByPartId(uint256 partId) external view returns (uint256) {
+        bytes32 curveId = _indicationIdFromPartId(partId);
+        _existingCore(curveId);
+        return _payloads[curveId].activeSymbols.length;
+    }
+
+    /// @notice Lifecycle status for a renderer part id.
+    function indicationStatusByPartId(uint256 partId) external view returns (IndicationStatus) {
+        return _existingCore(_indicationIdFromPartId(partId)).status;
+    }
+
     /// @notice Returns all currently active quotes of a curve as a struct array.
-    /// @dev Kept as a typed read API. XML rendering reads the same storage
-    ///      locally because the renderer does not support call arguments.
-    /// @dev Consumed by the renderer via
-    ///      evmstate:call="activeQuotes(bytes32)(tuple(...)[])" with per-field
-    ///      item-field bindings in the curve terms template.
-    function activeQuotes(bytes32 curveId) external view returns (QuoteView[] memory quotes) {
+    function activeQuotes(bytes32 curveId) external view returns (QuoteView[] memory) {
+        return _activeQuotes(curveId);
+    }
+
+    /// @notice Returns active quotes for the renderer-supplied part id.
+    /// @dev Consumed by the array binding in _indicationStateXml.
+    function activeQuotesByPartId(uint256 partId) external view returns (QuoteView[] memory) {
+        bytes32 curveId = _indicationIdFromPartId(partId);
+        _existingCore(curveId);
+        return _activeQuotes(curveId);
+    }
+
+    function _activeQuotes(bytes32 curveId) internal view returns (QuoteView[] memory quotes) {
         CurvePayload storage payload = _payloads[curveId];
         uint256 n = payload.activeSymbols.length;
         quotes = new QuoteView[](n);
@@ -538,88 +498,4 @@ contract CurveIndications is AbstractProductIndication {
         }
     }
 
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-    /*                       STRING HELPERS                      */
-    /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
-
-    /// @dev Formats an unsigned fixed-point value like EvmXmlRenderer's
-    ///      decimal format. The fractional component is zero-padded to `scale`.
-    function _formatDecimal(uint256 value, uint256 scale) internal pure returns (string memory) {
-        if (scale == 0) {
-            return value.toString();
-        }
-
-        uint256 divisor = 10 ** scale;
-        return string.concat(
-            (value / divisor).toString(),
-            ".",
-            _leftPadWithZeros((value % divisor).toString(), scale)
-        );
-    }
-
-    /// @dev Signed variant of _formatDecimal that also handles int256.min.
-    function _formatSignedDecimal(int256 value, uint256 scale) internal pure returns (string memory) {
-        if (value >= 0) {
-            return _formatDecimal(uint256(value), scale);
-        }
-
-        uint256 magnitude;
-        unchecked {
-            magnitude = uint256(-(value + 1)) + 1;
-        }
-        return string.concat("-", _formatDecimal(magnitude, scale));
-    }
-
-    /// @dev Formats a Unix timestamp as the renderer's ISO-8601 UTC datetime.
-    function _formatIso8601DateTime(uint256 timestamp) internal pure returns (string memory) {
-        uint256 secondsInDay = timestamp % 86_400;
-        (uint256 year, uint256 month, uint256 day) = _daysToDate(timestamp / 86_400);
-
-        return string.concat(
-            _leftPadWithZeros(year.toString(), 4), "-",
-            _leftPadWithZeros(month.toString(), 2), "-",
-            _leftPadWithZeros(day.toString(), 2), "T",
-            _leftPadWithZeros((secondsInDay / 3_600).toString(), 2), ":",
-            _leftPadWithZeros(((secondsInDay % 3_600) / 60).toString(), 2), ":",
-            _leftPadWithZeros((secondsInDay % 60).toString(), 2), "Z"
-        );
-    }
-
-    /// @dev Gregorian calendar conversion for days since 1970-01-01.
-    function _daysToDate(uint256 daysSinceEpoch) internal pure returns (uint256 year, uint256 month, uint256 day) {
-        uint256 z = daysSinceEpoch + 719_468;
-        uint256 era = z / 146_097;
-        uint256 dayOfEra = z - era * 146_097;
-        uint256 yearOfEra = (
-            dayOfEra - dayOfEra / 1_460 + dayOfEra / 36_524 - dayOfEra / 146_096
-        ) / 365;
-        uint256 provisionalYear = yearOfEra + era * 400;
-        uint256 dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
-        uint256 monthPrime = (5 * dayOfYear + 2) / 153;
-
-        day = dayOfYear - (153 * monthPrime + 2) / 5 + 1;
-        month = monthPrime < 10 ? monthPrime + 3 : monthPrime - 9;
-        year = provisionalYear + (month <= 2 ? 1 : 0);
-    }
-
-    function _leftPadWithZeros(string memory value, uint256 minimumLength) internal pure returns (string memory) {
-        bytes memory source = bytes(value);
-        if (source.length >= minimumLength) {
-            return value;
-        }
-
-        bytes memory padded = new bytes(minimumLength);
-        uint256 offset = minimumLength - source.length;
-        for (uint256 i; i < offset; ++i) {
-            padded[i] = "0";
-        }
-        for (uint256 i; i < source.length; ++i) {
-            padded[offset + i] = source[i];
-        }
-        return string(padded);
-    }
-
-    function _bytes32ToHexString(bytes32 value) internal pure returns (string memory) {
-        return uint256(value).toHexString(32);
-    }
 }

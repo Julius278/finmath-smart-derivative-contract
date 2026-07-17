@@ -270,12 +270,19 @@ public class Demo04EndToEndWorkflow {
 				)
 		);
 		assertContains(indicationTemplate, "<CurveIndications");
-		assertNotContains(indicationTemplate, "evmstate:");
-		assertContains(indicationTemplate, "<Status>1</Status>");
-		assertContains(indicationTemplate, "<ActiveQuoteCount>2</ActiveQuoteCount>");
-		assertContains(indicationTemplate, "<Symbol>EUR-2Y</Symbol>");
-		assertContains(indicationTemplate, "<Coupon>2.50</Coupon>");
-		assertContains(indicationTemplate, "<Yield>2.75</Yield>");
+		assertContains(indicationTemplate, "indicationStatusByPartId(uint256)(uint8)");
+		assertContains(indicationTemplate, "activeQuotesByPartId(uint256)");
+		assertContains(indicationTemplate, "evmstate:args=\"$partId\"");
+
+		EvmXmlRenderer renderer = new EvmXmlRenderer(RPC_URL);
+		String renderedIndication = renderer.renderPart(curveIndications, indicationPartId);
+		assertNotContains(renderedIndication, "evmstate:call=");
+		assertNotContains(renderedIndication, "evmstate:args=");
+		assertContains(renderedIndication, "<Status>1</Status>");
+		assertContains(renderedIndication, "<ActiveQuoteCount>2</ActiveQuoteCount>");
+		assertContains(renderedIndication, "<Symbol>EUR-2Y</Symbol>");
+		assertContains(renderedIndication, "<Coupon>2.50</Coupon>");
+		assertContains(renderedIndication, "<Yield>2.75</Yield>");
 
 		SmartContractDeployer.transact(
 				registry,
@@ -298,7 +305,7 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("Indication part id:       " + indicationPartId);
 		System.out.println("Curve part endpoint*:     http://localhost:8080/xml/part?contract="
 				+ curveIndications + "&partid=" + indicationPartId);
-		System.out.println("* Curve XML is fully materialized on-chain; no argument-bearing renderer calls are required.");
+		System.out.println("* The renderer supplies $partId to the curve callbacks and expands the quote array.");
 		System.out.println("-".repeat(79));
 
 		/*
@@ -477,7 +484,6 @@ public class Demo04EndToEndWorkflow {
 		assertContains(productTemplate, termsResource.contractAddress());
 		assertContains(productTemplate, stylesheetResource.contractAddress());
 
-		EvmXmlRenderer renderer = new EvmXmlRenderer(RPC_URL);
 		String renderedXml = renderer.render(product);
 
 		assertNotContains(renderedXml, "evmstate:call=");
