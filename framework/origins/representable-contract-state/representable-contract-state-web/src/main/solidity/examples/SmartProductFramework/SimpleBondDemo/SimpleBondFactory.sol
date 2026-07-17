@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductSpecificFactory} from "./ProductFactory/AbstractProductSpecificFactory.sol";
-import {ProductDeploymentParams} from "./ProductFactory/ProductDeploymentTypes.sol";
+import {AbstractProductSpecificFactory} from "../ProductFactory/AbstractProductSpecificFactory.sol";
+import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {SimpleBond} from "./SimpleBond.sol";
 import {SIMPLE_BOND_TYPE} from "./BondConstants.sol";
 

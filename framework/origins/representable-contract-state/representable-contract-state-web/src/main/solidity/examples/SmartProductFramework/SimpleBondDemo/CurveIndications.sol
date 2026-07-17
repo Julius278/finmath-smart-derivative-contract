@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductIndication} from "./ProductIndication/AbstractProductIndication.sol";
+import {AbstractProductIndication} from "../ProductIndication/AbstractProductIndication.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 

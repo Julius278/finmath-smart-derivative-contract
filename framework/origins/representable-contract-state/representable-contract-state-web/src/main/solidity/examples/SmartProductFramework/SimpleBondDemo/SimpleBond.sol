@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProduct} from "./Product/AbstractProduct.sol";
-import {CommonDeploymentParams} from "./ProductFactory/ProductDeploymentTypes.sol";
+import {AbstractProduct} from "../Product/AbstractProduct.sol";
+import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /// @title SimpleBond
 /// @notice Minimal demo product: a bond with negotiable notional and maturity.

@@ -196,7 +196,7 @@ contract ProductFactoryRegistry is IProductFactory, Ownable2Step, ReentrancyGuar
     /*                    PRODUCT DEPLOYMENT                     */
     /*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*-+-*/
 
-    /// @inheritdoc IProductDeployer
+    /// @inheritdoc IProductFactory
     function deployProduct(ProductDeploymentParams calldata params) external override onlyProductRegistry nonReentrant returns (address product) {
         CommonDeploymentParams calldata common = params.common;
         bytes32 productTypeId = common.productTypeId;
