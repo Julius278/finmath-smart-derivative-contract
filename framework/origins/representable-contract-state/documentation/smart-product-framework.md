@@ -199,6 +199,10 @@ generic trade lifecycle.
 
 ## End-to-End Flow
 
+For a runnable walkthrough, including historical XML views of the product
+lifecycle, see
+[End-to-End Workflow Demo](smart-product-framework-end-to-end-workflow.md).
+
 1. Publish resources — deploy and finalize `TextResource(productTermsTemplate)` and `TextResource(productDocumentationTemplate)`.
 2. Publish product definition — `registry.publishProductDefinition(name, {productTermsTemplate, productDocumentationTemplate, productTypeId})`.
 3. Assign indication — registry.assignProductIndication(productDefinitionId, curve, indicationId).

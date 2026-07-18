@@ -59,7 +59,7 @@ ProductDocumentationTemplate --> PProvider : finalized product documentation tem
 
 note over ProductTermsTemplate, ProductDocumentationTemplate
 TextResource also supports one-shot publication by passing
-content and its expected hash to the constructor. Demo04 uses
+content and its expected hash to the constructor. DemoEndToEndWorkflow uses
 the staged appendChunk + finalize workflow shown above.
 end note
 
@@ -303,7 +303,7 @@ EvmXmlRenderer resolves XIncludes and no-argument
 evmstate bindings. During state-part rendering it also
 supports one uint256 callback argument supplied as $partId.
 It does not currently execute XSLT;
-Demo04 applies the product documentation template separately.
+DemoEndToEndWorkflow applies the product documentation template separately.
 end note
 
 @enduml

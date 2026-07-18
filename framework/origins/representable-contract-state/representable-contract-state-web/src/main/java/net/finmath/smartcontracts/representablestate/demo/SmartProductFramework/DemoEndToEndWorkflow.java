@@ -71,7 +71,7 @@ import java.util.List;
  *
  * @author Christian Fries
  */
-public class Demo04EndToEndWorkflow {
+public class DemoEndToEndWorkflow {
 
 	static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 	static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
@@ -116,7 +116,7 @@ public class Demo04EndToEndWorkflow {
 		assertAddressEquals(SmartContractDeployer.defaultSenderAddress(), productProvider,
 				"The product-provider key must match the configured transaction-signing key.");
 
-		System.out.println("Demo 04 - Smart Product Framework end-to-end workflow");
+		System.out.println("Smart Product Framework end-to-end workflow demo");
 		System.out.println("Product provider:         " + productProvider);
 		System.out.println("Client:                 " + client);
 		System.out.println("Product definition:       " + PRODUCT_DEFINITION_NAME);
@@ -544,7 +544,7 @@ public class Demo04EndToEndWorkflow {
 		System.out.println();
 
 		System.out.println("=".repeat(79));
-		System.out.println("Demo 04 completed.");
+		System.out.println("End-to-end workflow demo completed.");
 		System.out.println("ClientRegistry:         " + clientRegistry);
 		System.out.println("Product registry:         " + registry);
 		System.out.println("Generic factory:          " + genericFactory);
@@ -916,7 +916,7 @@ public class Demo04EndToEndWorkflow {
 
 	private static String callString(String contractAddress, Function function) throws Exception {
 		List<Type> decoded = SmartContractDeployer.call(contractAddress, function);
-		return ((Utf8String) decoded.get(0)).getValue();
+		return ((Utf8String) decoded.getFirst()).getValue();
 	}
 
 	private static String callAddress(String contractAddress, String functionName) throws Exception {
@@ -933,7 +933,7 @@ public class Demo04EndToEndWorkflow {
 				List.of(new TypeReference<Address>() {})
 		);
 		List<Type> decoded = SmartContractDeployer.call(contractAddress, function);
-		return ((Address) decoded.get(0)).getValue();
+		return ((Address) decoded.getFirst()).getValue();
 	}
 
 	private static byte[] callBytes32(String contractAddress, String functionName) throws Exception {
@@ -950,7 +950,7 @@ public class Demo04EndToEndWorkflow {
 				List.of(new TypeReference<Bytes32>() {})
 		);
 		List<Type> decoded = SmartContractDeployer.call(contractAddress, function);
-		return ((Bytes32) decoded.get(0)).getValue();
+		return ((Bytes32) decoded.getFirst()).getValue();
 	}
 
 	private static boolean callBool(String contractAddress, String functionName) throws Exception {
@@ -967,7 +967,7 @@ public class Demo04EndToEndWorkflow {
 				List.of(new TypeReference<Bool>() {})
 		);
 		List<Type> decoded = SmartContractDeployer.call(contractAddress, function);
-		return ((Bool) decoded.get(0)).getValue();
+		return ((Bool) decoded.getFirst()).getValue();
 	}
 
 	private static BigInteger callUint256(String contractAddress, String functionName) throws Exception {
@@ -984,7 +984,7 @@ public class Demo04EndToEndWorkflow {
 				List.of(new TypeReference<Uint256>() {})
 		);
 		List<Type> decoded = SmartContractDeployer.call(contractAddress, function);
-		return ((Uint256) decoded.get(0)).getValue();
+		return ((Uint256) decoded.getFirst()).getValue();
 	}
 
 	private static void assertTradeStatus(String product, BigInteger expectedStatus, String expectedName) throws Exception {
@@ -992,12 +992,12 @@ public class Demo04EndToEndWorkflow {
 				product,
 				new Function("tradeStatus", List.of(), List.of(new TypeReference<Uint8>() {}))
 		);
-		BigInteger actualStatus = ((Uint8) decoded.get(0)).getValue();
+		BigInteger actualStatus = ((Uint8) decoded.getFirst()).getValue();
 		assertEquals(expectedStatus, actualStatus, "Expected trade status " + expectedName + ".");
 	}
 
 	private static byte[] loadResourceBytes(String resourceName) throws Exception {
-		try (InputStream inputStream = Demo04EndToEndWorkflow.class.getClassLoader().getResourceAsStream(resourceName)) {
+		try (InputStream inputStream = DemoEndToEndWorkflow.class.getClassLoader().getResourceAsStream(resourceName)) {
 			if (inputStream == null) {
 				throw new IllegalArgumentException("Could not find resource on classpath: " + resourceName);
 			}
