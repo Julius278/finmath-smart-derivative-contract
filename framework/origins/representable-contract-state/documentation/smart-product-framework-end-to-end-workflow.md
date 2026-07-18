@@ -88,8 +88,13 @@ http://localhost:8080/xml/part?contract=<address>&partid=<part-id>&block=<receip
 
 | Checkpoint | Block label | Status | Version | Visible change |
 |---|---|---|---:|---|
-| Definition published | `R0` | `1` — Active | 1 | Definition and resource includes appear |
+| Definition published | `R0` | `1` — Active | 1 | `ProductResources`, role wrappers, and resource includes appear |
 | Curve assigned | `R1` | `1` — Active | 2 | Version advances; `updatedAt` is refreshed |
+
+The `<ProductDefinition>` view groups both inert source previews under
+`<ProductResources>`. Its `<ProductTermsTemplate>` and
+`<ProductDocumentationTemplate>` children identify the role of each included
+resource explicitly.
 
 The registry XML currently does not include the assigned indication address,
 ID, or part ID. Consequently, `R1` proves that the definition changed, while
@@ -120,6 +125,10 @@ deployment data are immutable. Inception also stores `agreedTermsHash`, but
 that value is currently not part of the product XML. Compare `TradeStatus`,
 `Amount`, and `UnadjustedDate` when inspecting the product snapshots.
 
+Every snapshot retains the `<SimpleBond>` root with sibling `<DeploymentState>`
+and `<ProductResources>` sections. The latter contains the named product terms
+and product documentation template slots.
+
 For a compact comparison, substitute the addresses, part IDs, and receipt
 blocks printed by the demo:
 
@@ -130,7 +139,7 @@ R0=...
 R1=...
 for block in "$R0" "$R1"; do
   curl -s "http://localhost:8080/xml/part?contract=$REGISTRY_ADDRESS&partid=$DEFINITION_PART_ID&block=$block" |
-    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"'
+    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"|<ProductResources>|<ProductTermsTemplate>|<ProductDocumentationTemplate>'
 done
 
 CURVE_ADDRESS=0x...
