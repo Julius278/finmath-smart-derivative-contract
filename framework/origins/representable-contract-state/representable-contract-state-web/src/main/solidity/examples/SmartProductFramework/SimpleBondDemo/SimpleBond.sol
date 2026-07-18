@@ -90,8 +90,14 @@ contract SimpleBond is AbstractProduct {
             " xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
             " xmlns:evmstate=\"urn:evm:state:1.0\">",
             _deploymentStateXml(),
-            _include(productTermsTemplate),
-            _include(productDocumentationTemplate),
+            "<ProductResources>",
+                "<ProductTermsTemplate>",
+                    _include(productTermsTemplate),
+                "</ProductTermsTemplate>",
+                "<ProductDocumentationTemplate>",
+                    _include(productDocumentationTemplate),
+                "</ProductDocumentationTemplate>",
+            "</ProductResources>",
             "</SimpleBond>"
         );
     }

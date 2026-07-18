@@ -89,9 +89,10 @@ PProvider -> Registry : computeProductDefinitionId(name)
 Registry --> PProvider : productDefinitionId\n(partId = uint256(productDefinitionId))
 
 note over PProvider, Client
-The registry's statePartXmlTemplate(partId) includes the product
-terms template and product documentation template with parse="text".
-This is a source preview:
+The registry's statePartXmlTemplate(partId) returns ProductDefinition
+with ProductResources. ProductTermsTemplate and
+ProductDocumentationTemplate each contain a parse="text" XInclude.
+This remains a source preview:
 evmstate bindings are returned as text and are not evaluated
 against the registry.
 end note
@@ -275,11 +276,11 @@ Bond -> ProductDocumentationTemplate : web3Url()
 ProductDocumentationTemplate --> Bond : canonical product documentation template URL
 Bond -> ProductDocumentationTemplate : contentHash()
 ProductDocumentationTemplate --> Bond : product documentation template integrity hash
-Bond --> Renderer : SimpleBond state template with DeploymentState\nand XIncludes using both canonical Web3 URLs
+Bond --> Renderer : SimpleBond state template with DeploymentState\nand ProductResources role wrappers containing both XIncludes
 
-Renderer -> ProductTermsTemplate : content() via product terms template XInclude
+Renderer -> ProductTermsTemplate : content() via ProductTermsTemplate XInclude
 ProductTermsTemplate --> Renderer : product terms template
-Renderer -> ProductDocumentationTemplate : content() via product documentation template XInclude
+Renderer -> ProductDocumentationTemplate : content() via ProductDocumentationTemplate XInclude
 ProductDocumentationTemplate --> Renderer : product documentation template
 
 Renderer -> Renderer : resolve no-argument evmstate:call bindings\nagainst the deployed SimpleBond

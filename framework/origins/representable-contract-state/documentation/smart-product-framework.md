@@ -184,8 +184,9 @@ generic trade lifecycle.
 | `SimpleBond` | Concrete demo: negotiable `notional` / `maturity`. |
 
 - **Self-rendering:** the product implements the `evmstate:call` getters the
-  product terms template references (e.g. `notional()`, `maturity()`); the
-  template is `xi:include`d and resolved against the live product.
+  product terms template references (e.g. `notional()`, `maturity()`). The
+  template is `xi:include`d below
+  `ProductResources/ProductTermsTemplate` and resolved against the live product.
 - **Trade lifecycle:**
   `Requested → Incepted → Active`, with `Cancelled` (pre-activation, terminal).
 - **Terms agreement:** both parties commit to
@@ -250,9 +251,14 @@ across the registry, factories, indications, and text-resource classification, e
 
 ### Rendering (ERC-8100 / evmstate)
 
-- Product definitions expose both templates as **inert text** (`parse="text"`);
+- Product definitions and products group their resources under
+  `ProductResources`, with separate `ProductTermsTemplate` and
+  `ProductDocumentationTemplate` child elements.
+- Product definitions expose both templates inside those child elements as
+  **inert text** (`parse="text"`);
   bindings remain unresolved.
-- Products include both templates as **XML** (`parse="xml"`). Bindings in the
+- Products include both templates inside those child elements as **XML**
+  (`parse="xml"`). Bindings in the
   product terms template resolve against the live product getters; the product
   documentation template remains inert as a transformation until the frontend
   applies it to the resolved product state.

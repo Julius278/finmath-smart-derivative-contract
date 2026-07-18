@@ -3,11 +3,17 @@
 <xsl:stylesheet
     version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-    xmlns:s="urn:smart-product-framework:simple-bond:1.0">
+    xmlns:s="urn:smart-product-framework:simple-bond:1.0"
+    exclude-result-prefixes="s">
 
     <xsl:output method="html" indent="yes" encoding="UTF-8"/>
 
     <xsl:template match="/">
+        <xsl:variable name="productState" select="/s:SimpleBond"/>
+        <xsl:variable name="deploymentState" select="$productState/s:DeploymentState"/>
+        <!-- Keep the direct SimpleBondTerms path for product states rendered before ProductResources was introduced. -->
+        <xsl:variable name="productTerms"
+                      select="$productState/s:ProductResources/s:ProductTermsTemplate/s:SimpleBondTerms | $productState/s:SimpleBondTerms"/>
         <html>
             <head>
                 <title>Simple Bond - Smart Product Framework Demo</title>
@@ -58,15 +64,15 @@
                 <table>
                     <tr>
                         <th>Product</th>
-                        <td><xsl:value-of select="//s:ProductName"/></td>
+                        <td><xsl:value-of select="$productTerms/s:Header/s:ProductName"/></td>
                     </tr>
                     <tr>
                         <th>Instrument Type</th>
-                        <td><xsl:value-of select="//s:InstrumentType"/></td>
+                        <td><xsl:value-of select="$productTerms/s:EconomicTerms/s:InstrumentType"/></td>
                     </tr>
                     <tr>
                         <th>Currency</th>
-                        <td><xsl:value-of select="//s:EconomicTerms/s:Currency"/></td>
+                        <td><xsl:value-of select="$productTerms/s:EconomicTerms/s:Currency"/></td>
                     </tr>
                 </table>
 
@@ -75,18 +81,18 @@
                     <tr>
                         <th>Notional</th>
                         <td>
-                            <xsl:value-of select="//s:Notional/s:Amount"/>
+                            <xsl:value-of select="$productTerms/s:EconomicTerms/s:Notional/s:Amount"/>
                             <xsl:text> </xsl:text>
-                            <xsl:value-of select="//s:Notional/s:Currency"/>
+                            <xsl:value-of select="$productTerms/s:EconomicTerms/s:Notional/s:Currency"/>
                         </td>
                     </tr>
                     <tr>
                         <th>Maturity</th>
-                        <td><xsl:value-of select="//s:MaturityDate/s:UnadjustedDate"/></td>
+                        <td><xsl:value-of select="$productTerms/s:EconomicTerms/s:MaturityDate/s:UnadjustedDate"/></td>
                     </tr>
                     <tr>
                         <th>Trade Status</th>
-                        <td><xsl:value-of select="//s:TradeStatus"/></td>
+                        <td><xsl:value-of select="$deploymentState/s:TradeStatus"/></td>
                     </tr>
                 </table>
 
@@ -94,39 +100,39 @@
                 <table>
                     <tr>
                         <th>Trade ID</th>
-                        <td class="mono"><xsl:value-of select="//s:TradeId"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:TradeId"/></td>
                     </tr>
                     <tr>
                         <th>Product Provider</th>
-                        <td class="mono"><xsl:value-of select="//s:ProductProvider"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:ProductProvider"/></td>
                     </tr>
                     <tr>
                         <th>Client</th>
-                        <td class="mono"><xsl:value-of select="//s:Client"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:Client"/></td>
                     </tr>
                     <tr>
                         <th>Product Definition ID</th>
-                        <td class="mono"><xsl:value-of select="//s:ProductDefinitionId"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:ProductDefinitionId"/></td>
                     </tr>
                     <tr>
                         <th>Product Definition Version</th>
-                        <td><xsl:value-of select="//s:ProductDefinitionVersion"/></td>
+                        <td><xsl:value-of select="$deploymentState/s:ProductDefinitionVersion"/></td>
                     </tr>
                     <tr>
                         <th>Product Type ID</th>
-                        <td class="mono"><xsl:value-of select="//s:ProductTypeId"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:ProductTypeId"/></td>
                     </tr>
                     <tr>
                         <th>Deployment State Hash</th>
-                        <td class="mono"><xsl:value-of select="//s:DeploymentStateHash"/></td>
+                        <td class="mono"><xsl:value-of select="$deploymentState/s:DeploymentStateHash"/></td>
                     </tr>
                 </table>
 
                 <h2>Lifecycle Notes</h2>
                 <ul>
-                    <li><xsl:value-of select="//s:Lifecycle/s:Requested"/></li>
-                    <li><xsl:value-of select="//s:Lifecycle/s:Incepted"/></li>
-                    <li><xsl:value-of select="//s:Lifecycle/s:Active"/></li>
+                    <li><xsl:value-of select="$productTerms/s:Lifecycle/s:Requested"/></li>
+                    <li><xsl:value-of select="$productTerms/s:Lifecycle/s:Incepted"/></li>
+                    <li><xsl:value-of select="$productTerms/s:Lifecycle/s:Active"/></li>
                 </ul>
             </body>
         </html>

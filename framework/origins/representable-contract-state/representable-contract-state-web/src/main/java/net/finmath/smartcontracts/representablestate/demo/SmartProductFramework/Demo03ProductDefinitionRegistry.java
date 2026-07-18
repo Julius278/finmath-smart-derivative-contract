@@ -103,6 +103,9 @@ public class Demo03ProductDefinitionRegistry {
 
         assertContains(statePartXmlTemplate, "<ProductDefinition");
         assertContains(statePartXmlTemplate, "productDefinitionId=\"" + Numeric.toHexString(productDefinitionId) + "\"");
+        assertContains(statePartXmlTemplate, "<ProductResources><ProductTermsTemplate><xi:include");
+        assertContains(statePartXmlTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate><xi:include");
+        assertContains(statePartXmlTemplate, "</ProductDocumentationTemplate></ProductResources>");
         assertContains(statePartXmlTemplate, "xi:include");
         assertContains(statePartXmlTemplate, "parse=\"text\"");
         assertContains(statePartXmlTemplate, productTermsTemplate.web3Url());
@@ -118,7 +121,8 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("Expected rendering behavior:");
         System.out.println("- The renderer calls statePartXmlTemplate(partId) on the registry.");
         System.out.println("- The registry returns a ProductDefinition XML wrapper.");
-        System.out.println("- The wrapper includes the product terms template and product documentation template via xi:include.");
+        System.out.println("- ProductResources labels the ProductTermsTemplate and ProductDocumentationTemplate slots.");
+        System.out.println("- Each resource slot contains its corresponding xi:include.");
         System.out.println("- Because the includes use parse=\"text\", product-specific evmstate:call bindings are not resolved here.");
         System.out.println("- Those bindings resolve later against the deployed SimpleBond product.");
         System.out.println();

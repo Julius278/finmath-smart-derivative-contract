@@ -211,8 +211,9 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     }
 
     /**
-     * @dev Concrete product renders its root element, economic bindings live in
-     *      the included product terms template; product only adds wrapper + includes.
+     * @dev Concrete product renders its root element and places the deployment
+     *      state plus role-labelled product resource includes beneath it. Economic
+     *      bindings live in the included product terms template.
      */
     function _productSpecificStateXml() internal view virtual returns (string memory);
 

@@ -60,6 +60,9 @@ infrastructure rather than a domain role:
 - `ProductDefinitionResources`, `resources`, `updateProductDefinitionResources`
 - `IXMLRepresentableState`, `stateXmlTemplate`, `statePartXmlTemplate`
 
+`ProductResources` is the XML container that labels the two rendered resource
+slots; it does not rename the Solidity `ProductDefinitionResources` struct.
+
 Economic agreement names also remain unchanged: `updateTerms`, `TermsUpdated`,
 `currentTermsHash`, `agreedTermsHash` and `_economicTermsHash` refer to live
 negotiated terms, not to a stored template.

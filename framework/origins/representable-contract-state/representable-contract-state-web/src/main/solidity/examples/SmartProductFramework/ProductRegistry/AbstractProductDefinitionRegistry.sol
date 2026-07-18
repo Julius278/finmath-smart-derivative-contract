@@ -167,10 +167,10 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
 
 
     /**
-     * @dev The registry only anchors the product terms template and product
-     *      documentation template; it does not resolve
-     *      the `evmstate:call` bindings itself (those are served by the deployed
-     *      product implementing the declared product type interface).
+     * @dev The registry exposes the product terms template and product
+     *      documentation template under role-labelled resource wrappers. It does
+     *      not resolve the `evmstate:call` bindings itself (those are served by the
+     *      deployed product implementing the declared product type interface).
      */
     function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definition) internal view returns (string memory) {
         return string.concat(
@@ -182,8 +182,14 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
             " productDefinitionVersion=\"", definition.version.toString(), "\"",
             " updatedAt=\"", uint256(definition.updatedAt).toString(), "\"",
             ">",
-            _include(definition.resources.productTermsTemplate),
-            _include(definition.resources.productDocumentationTemplate),
+            "<ProductResources>",
+                "<ProductTermsTemplate>",
+                    _include(definition.resources.productTermsTemplate),
+                "</ProductTermsTemplate>",
+                "<ProductDocumentationTemplate>",
+                    _include(definition.resources.productDocumentationTemplate),
+                "</ProductDocumentationTemplate>",
+            "</ProductResources>",
             "</ProductDefinition>"
         );
     }

@@ -507,6 +507,9 @@ public class DemoEndToEndWorkflow {
 				"Definition published",
 				productDefinitionPublicationReceipt,
 				"<ProductDefinition",
+				"<ProductResources>",
+				"<ProductTermsTemplate>",
+				"<ProductDocumentationTemplate>",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
 				"productDefinitionVersion=\"1\""
@@ -518,6 +521,9 @@ public class DemoEndToEndWorkflow {
 				"Curve indication assigned",
 				indicationAssignmentReceipt,
 				"<ProductDefinition",
+				"<ProductResources>",
+				"<ProductTermsTemplate>",
+				"<ProductDocumentationTemplate>",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
 				"productDefinitionVersion=\"2\""
@@ -573,6 +579,9 @@ public class DemoEndToEndWorkflow {
 		 */
 		String productStateTemplate = callString(product, "stateXmlTemplate");
 		assertContains(productStateTemplate, "<SimpleBond");
+		assertContains(productStateTemplate, "<ProductResources><ProductTermsTemplate><xi:include");
+		assertContains(productStateTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate><xi:include");
+		assertContains(productStateTemplate, "</ProductDocumentationTemplate></ProductResources>");
 		assertContains(productStateTemplate, "parse=\"xml\"");
 		assertContains(productStateTemplate, productTermsTemplate.web3Url());
 		assertContains(productStateTemplate, productDocumentationTemplate.web3Url());
@@ -966,6 +975,11 @@ public class DemoEndToEndWorkflow {
 		assertNotContains(renderedState, "evmstate:call=");
 		assertNotContains(renderedState, "evmstate:args=");
 		assertContains(renderedState, "evmstate:block-number=\"" + blockNumber + "\"");
+		assertContains(renderedState, "<ProductResources>");
+		assertContains(renderedState, "<ProductTermsTemplate>");
+		assertContains(renderedState, "<SimpleBondTerms");
+		assertContains(renderedState, "<ProductDocumentationTemplate>");
+		assertContains(renderedState, "<xsl:stylesheet");
 		assertContains(renderedState, "<TradeStatus>" + expectedStatus + "</TradeStatus>");
 		assertContains(renderedState, new BigDecimal(expectedNotional, 2).toPlainString());
 		assertContains(renderedState, isoDate(expectedMaturity));
