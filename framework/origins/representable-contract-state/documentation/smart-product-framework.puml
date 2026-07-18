@@ -9,8 +9,8 @@ participant "TextResource\n(product documentation template)\n----\nITextResource
 participant "ClientRegistry\n\n----\nIClientRegistry" as ClientRegistry
 participant "TradableBondDataRegistry\n\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
-participant "ProductFactoryRegistry\n(generic)" as Factory
-participant "SimpleBondFactory\n(product-specific)" as Deployer
+participant "ProductFactoryRegistry\n(generic)" as GenericFactory
+participant "SimpleBondFactory\n(product-specific)" as ProductSpecificFactory
 participant "SimpleBond\n(deployed product)" as Bond
 participant "EvmXmlRenderer" as Renderer
 
@@ -18,23 +18,23 @@ participant "EvmXmlRenderer" as Renderer
 
 PProvider -> ClientRegistry : deploy ClientRegistry(owner)
 PProvider -> Registry : deploy TradableBondDataRegistry(owner, clientRegistry)
-PProvider -> Factory : deploy ProductFactoryRegistry(owner, registry)
+PProvider -> GenericFactory : deploy ProductFactoryRegistry(owner, registry)
 PProvider -> Registry : setProductFactory(factory)
-Registry -> Factory : productRegistryAddress()
-Factory --> Registry : registry (back-reference check)
+Registry -> GenericFactory : productRegistryAddress()
+GenericFactory --> Registry : registry (back-reference check)
 
 == Register a Product Factory (here: SimpleBondFactory) ==
 
-PProvider -> Deployer : deploy SimpleBondFactory(genericFactory)
-PProvider -> Factory : registerProductFactory(SIMPLE_BOND_TYPE, deployer)
-Factory -> Deployer : supportsInterface(IProductSpecificFactory)
-Deployer --> Factory : true
-Factory -> Deployer : productTypeId()
-Deployer --> Factory : SIMPLE_BOND_TYPE (type match)
-Factory -> Factory : store Active factory configuration
-Factory --> PProvider : ProductFactoryRegistered
+PProvider -> ProductSpecificFactory : deploy SimpleBondFactory(genericFactory)
+PProvider -> GenericFactory : registerProductFactory(SIMPLE_BOND_TYPE, productSpecificFactory)
+GenericFactory -> ProductSpecificFactory : supportsInterface(IProductSpecificFactory)
+ProductSpecificFactory --> GenericFactory : true
+GenericFactory -> ProductSpecificFactory : productTypeId()
+ProductSpecificFactory --> GenericFactory : SIMPLE_BOND_TYPE (type match)
+GenericFactory -> GenericFactory : store Active factory configuration
+GenericFactory --> PProvider : ProductFactoryRegistered
 
-note right of Factory
+note right of GenericFactory
 The generic factory is the source of truth for:
 productTypeId -> active product-specific factory.
 end note
@@ -156,13 +156,13 @@ Renderer --> Frontend : curve indication XML
 Frontend -> Registry : productTypeByDefinitionId(productDefinitionId)
 Registry --> Frontend : productTypeId
 
-Frontend -> Factory : productFactoryOf(productTypeId)
-Factory --> Frontend : specific factory address
+Frontend -> GenericFactory : productFactoryOf(productTypeId)
+GenericFactory --> Frontend : specific factory address
 
-Frontend -> Deployer : productSpecificPayloadSchema()
-Deployer --> Frontend : schema string
-Frontend -> Deployer : productSpecificSchemaHash()
-Deployer --> Frontend : schema hash
+Frontend -> ProductSpecificFactory : productSpecificPayloadSchema()
+ProductSpecificFactory --> Frontend : schema string
+Frontend -> ProductSpecificFactory : productSpecificSchemaHash()
+ProductSpecificFactory --> Frontend : schema hash
 
 note right of Frontend
 productSpecificPayloadSchema() is a concrete-factory helper;
@@ -188,8 +188,8 @@ Registry -> Registry : require product definition Active
 Registry -> ClientRegistry : isEligibleClient(client, productDefinitionId)
 ClientRegistry --> Registry : true
 
-Registry -> Factory : canDeployProduct(productTypeId)
-Factory --> Registry : true
+Registry -> GenericFactory : canDeployProduct(productTypeId)
+GenericFactory --> Registry : true
 
 Registry -> Registry : tradeId = keccak256(abi.encode(\nregistry, chainId, nonce, client, productDefinitionId))
 Registry -> ProductTermsTemplate : contentHash()
@@ -198,33 +198,33 @@ Registry -> ProductDocumentationTemplate : contentHash()
 ProductDocumentationTemplate --> Registry : productDocumentationTemplateContentHash
 Registry -> Registry : deploymentStateHash = keccak256(abi.encode(\ncommon state, resource addresses + hashes,\nschemaHash, keccak256(payload)))
 
-Registry -> Factory : deployProduct({common, schemaHash, payload})
+Registry -> GenericFactory : deployProduct({common, schemaHash, payload})
 
-Factory -> Factory : require msg.sender == productRegistryAddress
-Factory -> Factory : load factory configuration for productTypeId
-Factory -> Factory : require configuration Active
-Factory -> Factory : require tradeId unused
+GenericFactory -> GenericFactory : require msg.sender == productRegistryAddress
+GenericFactory -> GenericFactory : load factory configuration for productTypeId
+GenericFactory -> GenericFactory : require configuration Active
+GenericFactory -> GenericFactory : require tradeId unused
 
-Factory -> Deployer : deployProduct({common, schemaHash, payload})
+GenericFactory -> ProductSpecificFactory : deployProduct({common, schemaHash, payload})
 
-Deployer -> Deployer : require msg.sender == genericFactory
-Deployer -> Deployer : require schemaHash == productSpecificSchemaHash()
-Deployer -> Deployer : require common.productTypeId == productTypeId()
+ProductSpecificFactory -> ProductSpecificFactory : require msg.sender == genericFactory
+ProductSpecificFactory -> ProductSpecificFactory : require schemaHash == productSpecificSchemaHash()
+ProductSpecificFactory -> ProductSpecificFactory : require common.productTypeId == productTypeId()
 
-Deployer -> Bond : new SimpleBond(common, payload)
+ProductSpecificFactory -> Bond : new SimpleBond(common, payload)
 Bond -> Bond : store immutable common state
-Bond -> Bond : productSpecificFactory = msg.sender (deployer)
+Bond -> Bond : productSpecificFactory = msg.sender (product-specific factory)
 Bond -> Bond : status = Requested\n emit TradeStatusChanged(Requested, Requested)
 Bond -> Bond : _applyTerms(payload) -> decode + validate
 Bond -> Bond : emit StateUpdated
-Bond --> Deployer : product address
+Bond --> ProductSpecificFactory : product address
 
-Deployer -> Deployer : isFactoryDeployedProduct[product] = true
-Deployer --> Factory : product
+ProductSpecificFactory -> ProductSpecificFactory : isFactoryDeployedProduct[product] = true
+ProductSpecificFactory --> GenericFactory : product
 
-Factory -> Factory : productByTradeId[tradeId] = product
-Factory -> Factory : emit ProductDeployed
-Factory --> Registry : product
+GenericFactory -> GenericFactory : productByTradeId[tradeId] = product
+GenericFactory -> GenericFactory : emit ProductDeployed
+GenericFactory --> Registry : product
 
 Registry -> Registry : _productByTradeId[tradeId] = product
 Registry -> Registry : emit TradeRequestCreated

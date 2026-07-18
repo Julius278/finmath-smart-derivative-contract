@@ -142,9 +142,9 @@ public class SmartContractDeployer {
 		RawTransactionManager txMgr = new RawTransactionManager(web3, creds, chainId);
 		TransactionReceiptProcessor receiptProcessor = new PollingTransactionReceiptProcessor(web3, 2_000, 120);
 
-		String deployerAddress = creds.getAddress();
+		String deploymentAccountAddress = creds.getAddress();
 
-		System.out.println("Deployer address: " + deployerAddress);
+		System.out.println("Deployment account address: " + deploymentAccountAddress);
 		System.out.println("Constructor args: " + constructorArgs.size());
 
 		// 3) Deploy contract with constructor(...)
@@ -192,7 +192,7 @@ public class SmartContractDeployer {
 		}
 
 		// 5) Persist addresses to JSON
-		writeDeploymentJson(chainId, contractName, contractAddress, txHashContractDeployment, deployerAddress, compilerConfig);
+		writeDeploymentJson(chainId, contractName, contractAddress, txHashContractDeployment, deploymentAccountAddress, compilerConfig);
 
 		printLocalApplicationProperties(chainId, contractName, contractAddress);
 
@@ -331,7 +331,7 @@ public class SmartContractDeployer {
 		}
 	}
 
-	private static void writeDeploymentJson(long chainId, String contractName, String contractAddress, String txHash, String deployerAddress, CompilerConfig compilerConfig) throws IOException {
+	private static void writeDeploymentJson(long chainId, String contractName, String contractAddress, String txHash, String deploymentAccountAddress, CompilerConfig compilerConfig) throws IOException {
 
 		Path deployJson = Paths.get("deployments", "besu-" + chainId + ".json");
 
@@ -344,7 +344,7 @@ public class SmartContractDeployer {
 		root.put("contractName", contractName);
 		root.put("contractAddress", contractAddress);
 		root.put("contractTx", txHash);
-		root.put("deployer", deployerAddress);
+		root.put("deploymentAccount", deploymentAccountAddress);
 		root.put("evmVersion", compilerConfig.evmVersion());
 		root.put("viaIr", compilerConfig.viaIr());
 		root.put("optimize", compilerConfig.optimize());

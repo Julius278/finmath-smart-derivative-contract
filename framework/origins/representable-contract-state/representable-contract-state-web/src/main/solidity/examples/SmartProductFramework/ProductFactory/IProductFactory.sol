@@ -137,7 +137,7 @@ interface IProductSpecificFactory is IERC165 {
      * @notice Returns the schema hash of the productSpecificPayload this
      *         factory expects.
      * @dev Authoritative source of the schema hash: a product exposes its
-     *      deploying factory via IProduct.productFactory(), and consumers read
+     *      deploying factory via IProduct.productSpecificFactory(), and consumers read
      *      the schema from here rather than from a copy stored in the product.
      *      Compared against params.productSpecificSchemaHash in deployProduct.
      */
@@ -145,7 +145,7 @@ interface IProductSpecificFactory is IERC165 {
 
     /**
      * @notice Returns whether the given product was deployed by this factory.
-     * @dev Authenticity check: combined with IProduct.productFactory(), forms a
+     * @dev Authenticity check: combined with IProduct.productSpecificFactory(), forms a
      *      bidirectional proof (product points to factory; factory confirms it
      *      built the product). Returns false for any address this factory did
      *      not deploy.

@@ -113,7 +113,7 @@ public class Demo04EndToEndWorkflow {
 		String client = Credentials.create(CLIENT_PRIVATE_KEY).getAddress();
 
 		assertAddressEquals(SmartContractDeployer.defaultSenderAddress(), productProvider,
-				"The product-provider key must match SmartContractDeployer's deployment key.");
+				"The product-provider key must match the configured transaction-signing key.");
 
 		System.out.println("Demo 04 - Smart Product Framework end-to-end workflow");
 		System.out.println("Product provider:         " + productProvider);
@@ -523,8 +523,8 @@ public class Demo04EndToEndWorkflow {
 
 	private static void printChainInstructions() {
 		System.out.println("This demo requires a locally running Cancun-capable chain. If not already running, start one with:");
-		System.out.println("DEPLOYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-		System.out.println("docker run --rm -it --name besu -p 8545:8545 -p 8546:8546 hyperledger/besu:latest --network=dev --miner-enabled=true --miner-coinbase $DEPLOYER --rpc-http-enabled=true --rpc-http-host=0.0.0.0 --rpc-http-port=8545 --rpc-http-api=ETH,NET,WEB3,TXPOOL,TRACE,DEBUG --host-allowlist=\"*\" --logging=INFO");
+		System.out.println("DEPLOYMENT_ACCOUNT=0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+		System.out.println("docker run --rm -it --name besu -p 8545:8545 -p 8546:8546 hyperledger/besu:latest --network=dev --miner-enabled=true --miner-coinbase $DEPLOYMENT_ACCOUNT --rpc-http-enabled=true --rpc-http-host=0.0.0.0 --rpc-http-port=8545 --rpc-http-api=ETH,NET,WEB3,TXPOOL,TRACE,DEBUG --host-allowlist=\"*\" --logging=INFO");
 		System.out.println("-".repeat(79));
 	}
 

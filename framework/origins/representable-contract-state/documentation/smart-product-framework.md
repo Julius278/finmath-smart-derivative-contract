@@ -191,7 +191,7 @@ generic trade lifecycle.
 - **Terms agreement:** both parties commit to
   `currentTermsHash()` (economic terms bound to the instance and its
   `deploymentStateHash`); terms frozen at inception.
-- **Authenticity:** `productFactory()` (constructor `msg.sender`) +
+- **Authenticity:** `productSpecificFactory()` (constructor `msg.sender`) +
   `IProductSpecificFactory.isFactoryDeployedProduct(product)` form a
   bidirectional proof.
 

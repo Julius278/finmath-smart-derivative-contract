@@ -18,7 +18,7 @@ import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
  *      was minted against the agreed terms.
  *
  * @dev AUTHENTICITY
- *      productFactory() returns the product-specific factory that deployed this
+ *      productSpecificFactory() returns the product-specific factory that deployed this
  *      product (its constructor's msg.sender). Combined with
  *      IProductSpecificFactory.isFactoryDeployedProduct(this), it forms a
  *      bidirectional authenticity proof, and lets consumers read the product's
@@ -53,7 +53,7 @@ interface IProduct is IXMLRepresentableState {
      * @notice Returns the product-specific factory that deployed this product.
      * @dev Captured as the constructor's msg.sender. Enables authenticity
      *      verification via
-     *      IProductSpecificFactory(productFactory()).isFactoryDeployedProduct(this).
+     *      IProductSpecificFactory(productSpecificFactory()).isFactoryDeployedProduct(this).
      */
     function productSpecificFactory() external view returns (address);
 
