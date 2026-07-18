@@ -105,8 +105,8 @@ public class Demo03ProductDefinitionRegistry {
         assertContains(statePartXmlTemplate, "productDefinitionId=\"" + Numeric.toHexString(productDefinitionId) + "\"");
         assertContains(statePartXmlTemplate, "xi:include");
         assertContains(statePartXmlTemplate, "parse=\"text\"");
-        assertContains(statePartXmlTemplate, productTermsTemplate.contractAddress().toLowerCase());
-        assertContains(statePartXmlTemplate, productDocumentationTemplate.contractAddress().toLowerCase());
+        assertContains(statePartXmlTemplate, productTermsTemplate.web3Url());
+        assertContains(statePartXmlTemplate, productDocumentationTemplate.web3Url());
 
         System.out.println("ProductDefinition XML wrapper checks passed.");
         System.out.println();
@@ -129,7 +129,9 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("ProductDefinitionId:     " + Numeric.toHexString(productDefinitionId));
         System.out.println("PartId:                  " + partId);
         System.out.println("Product terms template:         " + productTermsTemplate.contractAddress());
+        System.out.println("Product terms template URL:     " + productTermsTemplate.web3Url());
         System.out.println("Product documentation template: " + productDocumentationTemplate.contractAddress());
+        System.out.println("Product documentation URL:      " + productDocumentationTemplate.web3Url());
     }
 
     private static PublishedTextResource publishStagedTextResource(String resourceTypeName, String mediaType, String classpathResource) throws Exception {
@@ -177,6 +179,7 @@ public class Demo03ProductDefinitionRegistry {
 
         String onChainHash = callStringOrBytes32Hash(contractAddress, "contentHash");
         String text = callString(contractAddress, new Function("text", List.of(), List.of(new TypeReference<Utf8String>() {})));
+        String web3Url = callString(contractAddress, new Function("web3Url", List.of(), List.of(new TypeReference<Utf8String>() {})));
 
         assertBytesEqual(content, text.getBytes(StandardCharsets.UTF_8));
 
@@ -184,8 +187,9 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("Address:                 " + contractAddress);
         System.out.println("contentHash():           " + onChainHash);
         System.out.println("text() equals resource:  true");
+        System.out.println("web3Url():               " + web3Url);
 
-        return new PublishedTextResource(contractAddress, Numeric.toHexString(resourceType), Numeric.toHexString(expectedContentHash));
+        return new PublishedTextResource(contractAddress, Numeric.toHexString(resourceType), Numeric.toHexString(expectedContentHash), web3Url);
     }
 
     private static byte[] computeProductDefinitionId(String registry, String productDefinitionName) throws Exception {
@@ -262,6 +266,7 @@ public class Demo03ProductDefinitionRegistry {
     private record PublishedTextResource(
             String contractAddress,
             String resourceTypeHashHex,
-            String contentHashHex
+            String contentHashHex,
+            String web3Url
     ) {}
 }

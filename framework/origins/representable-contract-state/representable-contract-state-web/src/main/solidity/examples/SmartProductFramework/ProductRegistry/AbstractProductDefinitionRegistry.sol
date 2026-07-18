@@ -27,7 +27,6 @@ import {IProductDefinitionRegistry} from "./IProductDefinitionRegistry.sol";
  */
 abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step {
     using Strings for uint256;
-    using Strings for address;
 
     // ------------------------------ Enums ------------------------------ */
 
@@ -191,9 +190,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
 
     function _include(address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
-        string memory href = string.concat(
-            "web3://", resource.toHexString(), ":", block.chainid.toString(), "/text"
-        );
+        string memory href = textResource.web3Url();
         string memory integrity = string.concat(
             "keccak256-", _bytes32ToHexString(textResource.contentHash())
         );

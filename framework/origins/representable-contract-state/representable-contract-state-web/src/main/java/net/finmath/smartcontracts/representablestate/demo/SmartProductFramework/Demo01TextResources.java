@@ -50,12 +50,14 @@ public class Demo01TextResources {
         System.out.println("  address:      " + productTermsTemplate.contractAddress());
         System.out.println("  resourceType: " + productTermsTemplate.resourceTypeHashHex());
         System.out.println("  contentHash:  " + productTermsTemplate.contentHashHex());
+        System.out.println("  web3Url:      " + productTermsTemplate.web3Url());
         System.out.println();
 
         System.out.println("Product documentation template:");
         System.out.println("  address:      " + productDocumentationTemplate.contractAddress());
         System.out.println("  resourceType: " + productDocumentationTemplate.resourceTypeHashHex());
         System.out.println("  contentHash:  " + productDocumentationTemplate.contentHashHex());
+        System.out.println("  web3Url:      " + productDocumentationTemplate.web3Url());
         System.out.println();
 
         System.out.println("Use these addresses in Demo 03 when publishing the ProductDefinition.");
@@ -113,6 +115,7 @@ public class Demo01TextResources {
         boolean finalized = callBool(contractAddress, "isFinalized");
         String onChainHash = callBytes32(contractAddress, "contentHash");
         String text = callString(contractAddress, "text");
+        String web3Url = callString(contractAddress, "web3Url");
 
         System.out.println();
         System.out.println("Read-back:");
@@ -120,11 +123,12 @@ public class Demo01TextResources {
         System.out.println("contentHash():         " + onChainHash);
         System.out.println("hash matches:          " + onChainHash.equalsIgnoreCase(Numeric.toHexString(expectedContentHash)));
         System.out.println("text length:           " + text.getBytes(StandardCharsets.UTF_8).length + " bytes");
+        System.out.println("web3Url():             " + web3Url);
 
         assertTextEqualsResource(content, text);
         printTextPreview(text, 200);
 
-        return new PublishedTextResource(contractAddress, Numeric.toHexString(resourceType), Numeric.toHexString(expectedContentHash));
+        return new PublishedTextResource(contractAddress, Numeric.toHexString(resourceType), Numeric.toHexString(expectedContentHash), web3Url);
     }
 
     private static byte[] loadResourceBytes(String resourceName) throws Exception {
@@ -188,6 +192,7 @@ public class Demo01TextResources {
     private record PublishedTextResource(
             String contractAddress,
             String resourceTypeHashHex,
-            String contentHashHex
+            String contentHashHex,
+            String web3Url
     ) {}
 }

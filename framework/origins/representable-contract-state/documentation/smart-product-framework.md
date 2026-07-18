@@ -86,7 +86,7 @@ and product documentation templates, stored as SSTORE2-chunked bytecode.
 
 | Contract | Role                                                 |
 |---|------------------------------------------------------|
-| `ITextResource` | Read/lifecycle interface (ERC-165).                  |
+| `ITextResource` | Read/lifecycle interface (ERC-165), including the canonical finalized-content Web3 URL. |
 | `TextResource` | Chunked storage, hash verification, reconstruction. One-shot **or** staged publishing. |
 
 - **One-shot:** full content in the constructor (small resources, ≤ EIP-3860
@@ -96,6 +96,8 @@ and product documentation templates, stored as SSTORE2-chunked bytecode.
 - **Integrity:** `contentHash() == keccak256(content())`, verified on-chain at
   finalization and reproducible off-chain
   (`keccak256(fetchedBytes) === contentHash()`).
+- **Canonical URL:** after finalization, `web3Url()` returns
+  `web3://<resource-address>:<chain-id>/content`.
 - Chunk size bounded by `MAX_CHUNK_SIZE = 20_000` (< SSTORE2's 24 KB limit).
 - Uses `mcopy` (EIP-5656) — **requires Cancun EVM**.
 
@@ -250,6 +252,8 @@ across the registry, factories, indications, and text-resource classification, e
   product terms template resolve against the live product getters; the product
   documentation template remains inert as a transformation until the frontend
   applies it to the resolved product state.
+- Product-definition and product XIncludes obtain their resource URLs directly
+  from `ITextResource.web3Url()`.
 - Dynamic collections (e.g. curve quotes) use the array-of-struct profile:
   `evmstate:call="...(tuple(...)[])"`, `evmstate:item-element`,
   `evmstate:item-field`.

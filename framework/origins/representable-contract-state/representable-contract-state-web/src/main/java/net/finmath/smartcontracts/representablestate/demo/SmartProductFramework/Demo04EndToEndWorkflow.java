@@ -481,8 +481,8 @@ public class Demo04EndToEndWorkflow {
 		String productStateTemplate = callString(product, "stateXmlTemplate");
 		assertContains(productStateTemplate, "<SimpleBond");
 		assertContains(productStateTemplate, "parse=\"xml\"");
-		assertContains(productStateTemplate, productTermsTemplate.contractAddress());
-		assertContains(productStateTemplate, productDocumentationTemplate.contractAddress());
+		assertContains(productStateTemplate, productTermsTemplate.web3Url());
+		assertContains(productStateTemplate, productDocumentationTemplate.web3Url());
 
 		String renderedProductState = renderer.render(product);
 
@@ -609,12 +609,14 @@ public class Demo04EndToEndWorkflow {
 				callString(contractAddress, "text").getBytes(StandardCharsets.UTF_8),
 				"TextResource read-back mismatch."
 		);
+		String web3Url = callString(contractAddress, "web3Url");
 
 		System.out.println("TextResource:             " + contractAddress);
 		System.out.println("Content hash:             " + Numeric.toHexString(expectedContentHash));
+		System.out.println("Web3 URL:                 " + web3Url);
 		System.out.println("-".repeat(79));
 
-		return new PublishedTextResource(contractAddress, expectedContentHash);
+		return new PublishedTextResource(contractAddress, expectedContentHash, web3Url);
 	}
 
 	private static void ensureClientFunded(String productProvider, String client) throws Exception {
@@ -1071,7 +1073,7 @@ public class Demo04EndToEndWorkflow {
 		}
 	}
 
-	private record PublishedTextResource(String contractAddress, byte[] contentHash) {}
+	private record PublishedTextResource(String contractAddress, byte[] contentHash, String web3Url) {}
 
 	private record ProductIndicationAssignment(
 			String contractAddress,

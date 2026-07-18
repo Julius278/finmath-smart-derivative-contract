@@ -5,15 +5,19 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title ITextResource
- * @notice On-chain storage for immutable text resources, such as product terms
- *         templates and product documentation templates, that can be referenced
- *         and reused by multiple products via a registry.
+ * @notice On-chain storage for immutable text resources, such as the ERC-8100 xml templates
+ *      returned by IXMLRepresentableState.stateXmlTemplate().
+ *      In XML the individual text resources can be references (and thus composed)
+ *      via xinclude using web3 url.
+ *      Implementation of this interface have to return a web3 url to the corresponding
+ *      text resource, once it is finalized.
  *
  * @dev LIFECYCLE
  *      A resource is published in two phases:
  *        1. Content is written (in one or more chunks).
  *        2. The resource is finalized and becomes immutable.
- *      Read functions (`content`, `text`) are only valid after finalization.
+ *      Read functions (`content`, `text`, `web3Url`) are only valid after
+ *      finalization.
  *
  * @dev CONTENT HASH SCHEME (canonical, reproducible off-chain)
  *      ----------------------------------------------------------------
@@ -44,6 +48,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      templates, or metadata.
  *      Implementations MAY enforce their own maximum total content size.
  *
+ * @author Christian Fries
  * @author Raphael Prandtl
  **/
 interface ITextResource is IERC165 {
@@ -161,4 +166,12 @@ interface ITextResource is IERC165 {
      * @notice Returns the full content decoded as a UTF-8 string.
      **/
     function text() external view returns (string memory);
+
+    /**
+     * @notice Returns the canonical ERC-4804/6860 Web3 URL for the finalized
+     *         resource content.
+     * @dev The URL resolves to `content()` and reverts with `NotFinalized` until
+     *      the resource has been finalized.
+     **/
+    function web3Url() external view returns (string memory);
 }

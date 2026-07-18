@@ -4,12 +4,16 @@ pragma solidity ^0.8.24;
 import "./ITextResource.sol";
 import {SSTORE2} from "solady/utils/SSTORE2.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title TextResource.sol
- * @notice Immutable on-chain storage for a text resource, such as a product
- *         terms template or product documentation template, that can be
- *         referenced and reused by multiple products via a registry.
+ * @notice Immutable on-chain storage for a text resource, such as the ERC-8100 xml templates
+ *      returned by IXMLRepresentableState.stateXmlTemplate().
+ *      In XML the individual text resources can be references (and thus composed)
+ *      via xinclude using web3 url.
+ *      Implementation of this interface have to return a web3 url to the corresponding
+ *      text resource, once it is finalized.
  *
  * @dev PUBLISHING MODES
  *      1. One-shot  – pass the full content to the constructor. It is chunked,
@@ -37,8 +41,13 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      compatibility, compile explicitly for the Paris EVM target.
  *
  * @author Raphael Prandtl
+ * @author Christian Fries
  **/
 contract TextResource is ITextResource {
+
+    using Strings for address;
+    using Strings for uint256;
+
     /*
      * Constants
      */
@@ -198,6 +207,18 @@ contract TextResource is ITextResource {
     function text() external view virtual override returns (string memory) {
         _requireFinalized();
         return string(_readContent());
+    }
+
+    /// @inheritdoc ITextResource
+    function web3Url() external view virtual override returns (string memory) {
+        _requireFinalized();
+        return string.concat(
+            "web3://",
+            address(this).toHexString(),
+            ":",
+            block.chainid.toString(),
+            "/content"
+        );
     }
 
     /*

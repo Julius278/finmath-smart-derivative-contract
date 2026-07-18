@@ -33,7 +33,6 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  */
 abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     using Strings for uint256;
-    using Strings for address;
 
     // ------------------------------ Immutable State ------------------------------ */
 
@@ -245,9 +244,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
      */
     function _include(address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
-        string memory href = string.concat(
-            "web3://", resource.toHexString(), ":", block.chainid.toString(), "/text"
-        );
+        string memory href = textResource.web3Url();
         string memory integrity = string.concat(
             "keccak256-", uint256(textResource.contentHash()).toHexString(32)
         );
