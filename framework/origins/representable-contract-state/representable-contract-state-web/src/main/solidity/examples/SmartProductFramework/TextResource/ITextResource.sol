@@ -5,8 +5,9 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title ITextResource
- * @notice On-chain storage for immutable text resources (e.g. XML / XSLT) that
- *         can be referenced and reused by multiple products via a registry.
+ * @notice On-chain storage for immutable text resources, such as product terms
+ *         templates and product documentation templates, that can be referenced
+ *         and reused by multiple products via a registry.
  *
  * @dev LIFECYCLE
  *      A resource is published in two phases:
@@ -39,7 +40,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      chunks.
  *
  *      Consumers SHOULD treat ITextResource as suitable for bounded-size text
- *      artifacts such as product terms, stylesheets, templates, or metadata.
+ *      artifacts such as product terms templates, product documentation
+ *      templates, or metadata.
  *      Implementations MAY enforce their own maximum total content size.
  *
  * @author Raphael Prandtl

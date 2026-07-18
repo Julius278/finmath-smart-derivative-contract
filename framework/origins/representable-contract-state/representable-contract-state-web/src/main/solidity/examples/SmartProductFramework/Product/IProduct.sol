@@ -25,10 +25,11 @@ import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
  *      schema/type from the authoritative factory.
  *
  * @dev STATE RENDERING
- *      The product definition registry anchors the terms/stylesheet as inert text; the
- *      deployed product is the concrete instance that RESOLVES the terms'
+ *      The product definition registry anchors the product terms template and
+ *      product documentation template as inert text; the deployed product is
+ *      the concrete instance that RESOLVES the product terms template's
  *      evmstate:call bindings against its own getters (e.g. notional()). The
- *      getter surface MUST match the bindings referenced by the product terms
+ *      getter surface MUST match the bindings referenced by the product terms template
  *      for the product's productTypeId.
  *
  * @author Raphael Prandtl
@@ -78,11 +79,11 @@ interface IProduct is IXMLRepresentableState {
      */
     function productDefinitionVersion() external view returns (uint256);
 
-    /// @notice Returns the ITextResource holding the product terms.
-    function termsResource() external view returns (address);
+    /// @notice Returns the ITextResource holding the product terms template.
+    function productTermsTemplate() external view returns (address);
 
-    /// @notice Returns the ITextResource holding the (XSLT) stylesheet.
-    function stylesheetResource() external view returns (address);
+    /// @notice Returns the ITextResource holding the product documentation template.
+    function productDocumentationTemplate() external view returns (address);
 
     /**
      * @notice Returns the product type identifier.

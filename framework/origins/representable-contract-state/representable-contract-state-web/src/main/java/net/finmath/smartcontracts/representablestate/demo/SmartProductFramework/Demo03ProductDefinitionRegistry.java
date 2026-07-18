@@ -23,12 +23,12 @@ public class Demo03ProductDefinitionRegistry {
 
     static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
 
-    private static final String TERMS_RESOURCE = "text-resources/simple-bond-terms.xml";
+    private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/simple-bond-product-terms-template.xml";
 
-    private static final String STYLESHEET_RESOURCE = "text-resources/simple-bond-stylesheet.xslt";
+    private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH = "text-resources/simple-bond-product-documentation-template.xslt";
 
-    private static final String TERMS_RESOURCE_TYPE = "BOND_TERMS";
-    private static final String STYLESHEET_RESOURCE_TYPE = "BOND_STYLESHEET";
+    private static final String PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_TERMS_TEMPLATE";
+    private static final String PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_DOCUMENTATION_TEMPLATE";
 
     private static final String PRODUCT_DEFINITION_NAME = "Simple Bond Demo Product Definition";
 
@@ -61,9 +61,11 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("TradableBondDataRegistry deployed at " + registry);
         System.out.println("-".repeat(79));
 
-        PublishedTextResource termsResource = publishStagedTextResource(TERMS_RESOURCE_TYPE, "application/xml", TERMS_RESOURCE);
+        PublishedTextResource productTermsTemplate = publishStagedTextResource(
+                PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE, "application/xml", PRODUCT_TERMS_TEMPLATE_PATH);
 
-        PublishedTextResource stylesheetResource = publishStagedTextResource(STYLESHEET_RESOURCE_TYPE, "application/xslt+xml", STYLESHEET_RESOURCE);
+        PublishedTextResource productDocumentationTemplate = publishStagedTextResource(
+                PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE, "application/xslt+xml", PRODUCT_DOCUMENTATION_TEMPLATE_PATH);
 
         byte[] productTypeId = bytes32FromKeccak256String(PRODUCT_TYPE_NAME);
 
@@ -71,15 +73,15 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("=".repeat(79));
         System.out.println("Publishing ProductDefinition.");
         System.out.println("Registry:                " + registry);
-        System.out.println("Terms resource:          " + termsResource.contractAddress());
-        System.out.println("Stylesheet resource:     " + stylesheetResource.contractAddress());
+        System.out.println("Product terms template:         " + productTermsTemplate.contractAddress());
+        System.out.println("Product documentation template: " + productDocumentationTemplate.contractAddress());
         System.out.println("Product type id:         " + Numeric.toHexString(productTypeId));
         System.out.println("-".repeat(79));
 
         SmartContractDeployer.transact(registry, new Function("publishProductDefinition",
                         List.of(new ProductDefinitionPublicationParams(
                                 new Utf8String(PRODUCT_DEFINITION_NAME),
-                                new ProductDefinitionResources(new Address(termsResource.contractAddress()), new Address(stylesheetResource.contractAddress()), new Bytes32(productTypeId)))),
+                                new ProductDefinitionResources(new Address(productTermsTemplate.contractAddress()), new Address(productDocumentationTemplate.contractAddress()), new Bytes32(productTypeId)))),
                         List.of())
         );
 
@@ -103,8 +105,8 @@ public class Demo03ProductDefinitionRegistry {
         assertContains(statePartXmlTemplate, "productDefinitionId=\"" + Numeric.toHexString(productDefinitionId) + "\"");
         assertContains(statePartXmlTemplate, "xi:include");
         assertContains(statePartXmlTemplate, "parse=\"text\"");
-        assertContains(statePartXmlTemplate, termsResource.contractAddress().toLowerCase());
-        assertContains(statePartXmlTemplate, stylesheetResource.contractAddress().toLowerCase());
+        assertContains(statePartXmlTemplate, productTermsTemplate.contractAddress().toLowerCase());
+        assertContains(statePartXmlTemplate, productDocumentationTemplate.contractAddress().toLowerCase());
 
         System.out.println("ProductDefinition XML wrapper checks passed.");
         System.out.println();
@@ -116,7 +118,7 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("Expected rendering behavior:");
         System.out.println("- The renderer calls statePartXmlTemplate(partId) on the registry.");
         System.out.println("- The registry returns a ProductDefinition XML wrapper.");
-        System.out.println("- The wrapper includes terms XML and stylesheet XSLT via xi:include.");
+        System.out.println("- The wrapper includes the product terms template and product documentation template via xi:include.");
         System.out.println("- Because the includes use parse=\"text\", product-specific evmstate:call bindings are not resolved here.");
         System.out.println("- Those bindings resolve later against the deployed SimpleBond product.");
         System.out.println();
@@ -126,8 +128,8 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("Registry:                " + registry);
         System.out.println("ProductDefinitionId:     " + Numeric.toHexString(productDefinitionId));
         System.out.println("PartId:                  " + partId);
-        System.out.println("Terms resource:          " + termsResource.contractAddress());
-        System.out.println("Stylesheet resource:     " + stylesheetResource.contractAddress());
+        System.out.println("Product terms template:         " + productTermsTemplate.contractAddress());
+        System.out.println("Product documentation template: " + productDocumentationTemplate.contractAddress());
     }
 
     private static PublishedTextResource publishStagedTextResource(String resourceTypeName, String mediaType, String classpathResource) throws Exception {
@@ -240,14 +242,14 @@ public class Demo03ProductDefinitionRegistry {
 
     public static class ProductDefinitionResources extends StaticStruct {
 
-        public final Address termsResource;
-        public final Address stylesheetResource;
+        public final Address productTermsTemplate;
+        public final Address productDocumentationTemplate;
         public final Bytes32 productTypeId;
 
-        public ProductDefinitionResources(Address termsResource, Address stylesheetResource, Bytes32 productTypeId) {
-            super(termsResource, stylesheetResource, productTypeId);
-            this.termsResource = termsResource;
-            this.stylesheetResource = stylesheetResource;
+        public ProductDefinitionResources(Address productTermsTemplate, Address productDocumentationTemplate, Bytes32 productTypeId) {
+            super(productTermsTemplate, productDocumentationTemplate, productTypeId);
+            this.productTermsTemplate = productTermsTemplate;
+            this.productDocumentationTemplate = productDocumentationTemplate;
             this.productTypeId = productTypeId;
         }
     }

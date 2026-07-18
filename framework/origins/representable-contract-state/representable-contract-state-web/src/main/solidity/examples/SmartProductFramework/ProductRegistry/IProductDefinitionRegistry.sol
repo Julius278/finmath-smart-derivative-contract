@@ -5,7 +5,8 @@ pragma solidity ^0.8.24;
  * @title IProductDefinitionRegistry.sol
  * @notice Base layer for publishing financial product definitions and managing
  *         their lifecycle. A product definition is a reusable, published
- *         product specification consisting of terms, stylesheet and product type,
+ *         product specification consisting of a product terms template,
+ *         product documentation template and product type,
  *         under which concrete product contracts can later be deployed.
  *
  * @dev LAYERING
@@ -45,23 +46,24 @@ interface IProductDefinitionRegistry {
 
     /**
      * @notice Essential resources defining a product definition.
-     * @param termsResource      ITextResource holding the product terms.
-     * @param stylesheetResource ITextResource holding the XSLT stylesheet.
-     * @param productTypeId      Identifies the deployable product type that
-     *        matches these terms and stylesheet. Obtained from the
+     * @param productTermsTemplate         ITextResource holding the product terms template.
+     * @param productDocumentationTemplate ITextResource holding the product documentation template.
+     * @param productTypeId                Identifies the deployable product type that
+     *        matches these templates. Obtained from the
      *        product-type-specific factory's productTypeId(); (see IProductTypeFactory's
      *        PRODUCT TYPE ID SCHEME); must equal a type registered in the product factory.
      */
     struct ProductDefinitionResources {
-        address termsResource;
-        address stylesheetResource;
+        address productTermsTemplate;
+        address productDocumentationTemplate;
         bytes32 productTypeId;
     }
 
     /**
      * @notice Parameters for publishing a new product definition.
      * @param name      Human-readable name, also the uniqueness key.
-     * @param resources Anchored resource set: terms, stylesheet, product type.
+     * @param resources Anchored resource set: product terms template,
+     *                  product documentation template and product type.
      */
     struct ProductDefinitionPublicationParams {
         string name;
@@ -76,7 +78,8 @@ interface IProductDefinitionRegistry {
      * @param name           Human-readable name (also the uniqueness key).
      * @param partId         ERC-8100 partId used to render this product definition's state.
      * @param version        Monotonic version, bumped on resource updates.
-     * @param resources      Anchored resource set (terms, stylesheet, type).
+     * @param resources      Anchored resource set (product terms template,
+     *                       product documentation template and product type).
      */
     struct ProductDefinitionView {
         ProductDefinitionStatus status;
@@ -120,10 +123,10 @@ interface IProductDefinitionRegistry {
     // ------------------------------ Events ------------------------------ */
 
     /// @notice Emitted when a new product definition is published (initial status Active).
-    event ProductDefinitionPublished(bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address termsResource, address stylesheetResource);
+    event ProductDefinitionPublished(bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address productTermsTemplate, address productDocumentationTemplate);
 
     /// @notice Emitted when a product definition's resources are updated.
-    event ProductDefinitionResourcesUpdated(bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address termsResource, address stylesheetResource, uint256 version);
+    event ProductDefinitionResourcesUpdated(bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address productTermsTemplate, address productDocumentationTemplate, uint256 version);
 
     /// @notice Emitted on every status change, including initial publication.
     event ProductDefinitionStatusChanged(bytes32 indexed productDefinitionId, ProductDefinitionStatus oldStatus, ProductDefinitionStatus newStatus);

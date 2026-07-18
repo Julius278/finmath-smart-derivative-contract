@@ -90,10 +90,10 @@ public class Demo04EndToEndWorkflow {
 	private static final String CLIENT_PRIVATE_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 
 	private static final String CLIENT_LEI = "529900T8BM49AURSDO55";
-	private static final String TERMS_RESOURCE = "text-resources/simple-bond-terms.xml";
-	private static final String STYLESHEET_RESOURCE = "text-resources/simple-bond-stylesheet.xslt";
-	private static final String TERMS_RESOURCE_TYPE = "BOND_TERMS";
-	private static final String STYLESHEET_RESOURCE_TYPE = "BOND_STYLESHEET";
+	private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/simple-bond-product-terms-template.xml";
+	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH = "text-resources/simple-bond-product-documentation-template.xslt";
+	private static final String PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_TERMS_TEMPLATE";
+	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_DOCUMENTATION_TEMPLATE";
 	private static final String PRODUCT_DEFINITION_NAME = "Simple Bond Demo Product Definition";
 	private static final String CURVE_NAME = "EUR Demo Curve";
 	private static final int DEMO_CHUNK_SIZE = 10_000;
@@ -191,15 +191,15 @@ public class Demo04EndToEndWorkflow {
 		/*
 		 * Resource and product-definition publication (the Demo 03 portion).
 		 */
-		PublishedTextResource termsResource = publishStagedTextResource(
-				TERMS_RESOURCE_TYPE,
+		PublishedTextResource productTermsTemplate = publishStagedTextResource(
+				PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,
 				"application/xml",
-				TERMS_RESOURCE
+				PRODUCT_TERMS_TEMPLATE_PATH
 		);
-		PublishedTextResource stylesheetResource = publishStagedTextResource(
-				STYLESHEET_RESOURCE_TYPE,
+		PublishedTextResource productDocumentationTemplate = publishStagedTextResource(
+				PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE,
 				"application/xslt+xml",
-				STYLESHEET_RESOURCE
+				PRODUCT_DOCUMENTATION_TEMPLATE_PATH
 		);
 
 		SmartContractDeployer.transact(
@@ -209,8 +209,8 @@ public class Demo04EndToEndWorkflow {
 						new ProductDefinitionPublicationParams(
 								new Utf8String(PRODUCT_DEFINITION_NAME),
 								new ProductDefinitionResources(
-										new Address(termsResource.contractAddress()),
-										new Address(stylesheetResource.contractAddress()),
+										new Address(productTermsTemplate.contractAddress()),
+										new Address(productDocumentationTemplate.contractAddress()),
 										new Bytes32(productTypeId)
 								)
 						)
@@ -400,8 +400,8 @@ public class Demo04EndToEndWorkflow {
 		assertAddressEquals(registry, callAddress(product, "productRegistry"), "Product registry mismatch.");
 		assertAddressEquals(productProvider, callAddress(product, "productProvider"), "Product provider mismatch.");
 		assertAddressEquals(client, callAddress(product, "client"), "Product client mismatch.");
-		assertAddressEquals(termsResource.contractAddress(), callAddress(product, "termsResource"), "Terms resource mismatch.");
-		assertAddressEquals(stylesheetResource.contractAddress(), callAddress(product, "stylesheetResource"), "Stylesheet resource mismatch.");
+		assertAddressEquals(productTermsTemplate.contractAddress(), callAddress(product, "productTermsTemplate"), "Product terms template mismatch.");
+		assertAddressEquals(productDocumentationTemplate.contractAddress(), callAddress(product, "productDocumentationTemplate"), "Product documentation template mismatch.");
 		assertBytesEqual(tradeId, callBytes32(product, "tradeId"), "Product trade id mismatch.");
 		assertBytesEqual(productDefinitionId, callBytes32(product, "productDefinitionId"), "Product definition id mismatch.");
 		assertBytesEqual(productTypeId, callBytes32(product, "productTypeId"), "Product type id mismatch.");
@@ -476,36 +476,36 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Live state rendering and final XSLT presentation.
+		 * Live state and product-documentation rendering.
 		 */
-		String productTemplate = callString(product, "stateXmlTemplate");
-		assertContains(productTemplate, "<SimpleBond");
-		assertContains(productTemplate, "parse=\"xml\"");
-		assertContains(productTemplate, termsResource.contractAddress());
-		assertContains(productTemplate, stylesheetResource.contractAddress());
+		String productStateTemplate = callString(product, "stateXmlTemplate");
+		assertContains(productStateTemplate, "<SimpleBond");
+		assertContains(productStateTemplate, "parse=\"xml\"");
+		assertContains(productStateTemplate, productTermsTemplate.contractAddress());
+		assertContains(productStateTemplate, productDocumentationTemplate.contractAddress());
 
-		String renderedXml = renderer.render(product);
+		String renderedProductState = renderer.render(product);
 
-		assertNotContains(renderedXml, "evmstate:call=");
-		assertContains(renderedXml, new BigDecimal(amendedNotional, 2).toPlainString());
+		assertNotContains(renderedProductState, "evmstate:call=");
+		assertContains(renderedProductState, new BigDecimal(amendedNotional, 2).toPlainString());
 		assertContains(
-				renderedXml,
+				renderedProductState,
 				Instant.ofEpochSecond(amendedMaturity.longValueExact())
 						.atZone(ZoneOffset.UTC)
 						.toLocalDate()
 						.toString()
 		);
 
-		String stylesheet = callString(stylesheetResource.contractAddress(), "text");
-		String renderedHtml = applyXslt(renderedXml, stylesheet);
-		assertContains(renderedHtml, new BigDecimal(amendedNotional, 2).toPlainString());
-		assertContains(renderedHtml, client);
+		String productDocumentationTemplateText = callString(productDocumentationTemplate.contractAddress(), "text");
+		String renderedProductDocumentation = renderProductDocumentation(renderedProductState, productDocumentationTemplateText);
+		assertContains(renderedProductDocumentation, new BigDecimal(amendedNotional, 2).toPlainString());
+		assertContains(renderedProductDocumentation, client);
 
-		System.out.println("Rendered product XML:");
-		System.out.println(renderedXml);
+		System.out.println("Rendered product state:");
+		System.out.println(renderedProductState);
 		System.out.println();
-		System.out.println("XSLT result:");
-		System.out.println(renderedHtml);
+		System.out.println("Rendered product documentation:");
+		System.out.println(renderedProductDocumentation);
 		System.out.println();
 
 		System.out.println("=".repeat(79));
@@ -791,17 +791,17 @@ public class Demo04EndToEndWorkflow {
 		return Hash.sha3(Numeric.hexStringToByteArray(encoded));
 	}
 
-	private static String applyXslt(String xml, String stylesheet) throws Exception {
+	private static String renderProductDocumentation(String renderedProductState, String productDocumentationTemplateText) throws Exception {
 		TransformerFactory factory = TransformerFactory.newInstance();
 		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
 		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
 
 		Transformer transformer = factory.newTransformer(
-				new StreamSource(new StringReader(stylesheet))
+				new StreamSource(new StringReader(productDocumentationTemplateText))
 		);
 		StringWriter writer = new StringWriter();
 		transformer.transform(
-				new StreamSource(new StringReader(xml)),
+				new StreamSource(new StringReader(renderedProductState)),
 				new StreamResult(writer)
 		);
 		return writer.toString();
@@ -971,14 +971,14 @@ public class Demo04EndToEndWorkflow {
 
 	public static class ProductDefinitionResources extends StaticStruct {
 
-		public final Address termsResource;
-		public final Address stylesheetResource;
+		public final Address productTermsTemplate;
+		public final Address productDocumentationTemplate;
 		public final Bytes32 productTypeId;
 
-		public ProductDefinitionResources(Address termsResource, Address stylesheetResource, Bytes32 productTypeId) {
-			super(termsResource, stylesheetResource, productTypeId);
-			this.termsResource = termsResource;
-			this.stylesheetResource = stylesheetResource;
+		public ProductDefinitionResources(Address productTermsTemplate, Address productDocumentationTemplate, Bytes32 productTypeId) {
+			super(productTermsTemplate, productDocumentationTemplate, productTypeId);
+			this.productTermsTemplate = productTermsTemplate;
+			this.productDocumentationTemplate = productDocumentationTemplate;
 			this.productTypeId = productTypeId;
 		}
 	}

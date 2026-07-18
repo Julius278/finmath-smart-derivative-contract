@@ -7,8 +7,9 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title TextResource.sol
- * @notice Immutable on-chain storage for a text resource (e.g. XML / XSLT)
- *         that can be referenced and reused by multiple products via a registry.
+ * @notice Immutable on-chain storage for a text resource, such as a product
+ *         terms template or product documentation template, that can be
+ *         referenced and reused by multiple products via a registry.
  *
  * @dev PUBLISHING MODES
  *      1. One-shot  – pass the full content to the constructor. It is chunked,

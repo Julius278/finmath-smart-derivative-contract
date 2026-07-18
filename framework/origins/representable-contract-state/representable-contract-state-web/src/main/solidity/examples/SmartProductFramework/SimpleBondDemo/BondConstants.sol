@@ -37,13 +37,13 @@ bytes32 constant CURVE_INDICATION_CATEGORY = keccak256("CURVE");
 // ------------------------------ Resource Types ------------------------------ */
 
 /**
- * @dev resourceType() a text resource must declare to back the product-terms
- *      slot of a bond product.
+ * @dev resourceType() a text resource must declare to back the product terms
+ *      template slot of a bond product.
  */
-bytes32 constant BOND_TERMS_RESOURCE_TYPE = keccak256("BOND_TERMS");
+bytes32 constant BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = keccak256("BOND_PRODUCT_TERMS_TEMPLATE");
 
 /**
- * @dev resourceType() a text resource must declare to back the stylesheet slot
- *      of a bond product.
+ * @dev resourceType() a text resource must declare to back the product
+ *      documentation template slot of a bond product.
  */
-bytes32 constant BOND_STYLESHEET_RESOURCE_TYPE = keccak256("BOND_STYLESHEET");
+bytes32 constant BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = keccak256("BOND_PRODUCT_DOCUMENTATION_TEMPLATE");

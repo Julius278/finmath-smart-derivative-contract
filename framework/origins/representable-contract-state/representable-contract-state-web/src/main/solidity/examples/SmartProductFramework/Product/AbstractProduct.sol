@@ -52,9 +52,9 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @inheritdoc IProduct
     uint256 public immutable override productDefinitionVersion;
     /// @inheritdoc IProduct
-    address public immutable override termsResource;
+    address public immutable override productTermsTemplate;
     /// @inheritdoc IProduct
-    address public immutable override stylesheetResource;
+    address public immutable override productDocumentationTemplate;
     /// @inheritdoc IProduct
     bytes32 public immutable override productTypeId;
     /// @inheritdoc IProduct
@@ -88,8 +88,8 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         if (c.productProvider  == address(0)) revert ZeroAddress("productProvider ");
         if (c.client == address(0)) revert ZeroAddress("client");
         if (c.productDefinitionId  == bytes32(0)) revert ZeroHash("productDefinitionId ");
-        if (c.termsResource == address(0)) revert ZeroAddress("termsResource");
-        if (c.stylesheetResource == address(0)) revert ZeroAddress("stylesheetResource");
+        if (c.productTermsTemplate == address(0)) revert ZeroAddress("productTermsTemplate");
+        if (c.productDocumentationTemplate == address(0)) revert ZeroAddress("productDocumentationTemplate");
         if (c.productTypeId == bytes32(0)) revert ZeroHash("productTypeId");
         if (c.deploymentStateHash == bytes32(0)) revert ZeroHash("deploymentStateHash");
 
@@ -100,8 +100,8 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         client = c.client;
         productDefinitionId = c.productDefinitionId;
         productDefinitionVersion  = c.productDefinitionVersion ;
-        termsResource = c.termsResource;
-        stylesheetResource = c.stylesheetResource;
+        productTermsTemplate = c.productTermsTemplate;
+        productDocumentationTemplate = c.productDocumentationTemplate;
         productTypeId = c.productTypeId;
         deploymentStateHash = c.deploymentStateHash;
 
@@ -213,7 +213,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
 
     /**
      * @dev Concrete product renders its root element, economic bindings live in
-     *      the included terms resource; product only adds wrapper + includes.
+     *      the included product terms template; product only adds wrapper + includes.
      */
     function _productSpecificStateXml() internal view virtual returns (string memory);
 

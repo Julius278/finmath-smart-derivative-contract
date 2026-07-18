@@ -149,8 +149,8 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
                 client: client,
                 productDefinitionId: productDefinitionId,
                 productDefinitionVersion: definition.version,
-                termsResource: resources.termsResource,
-                stylesheetResource: resources.stylesheetResource,
+                productTermsTemplate: resources.productTermsTemplate,
+                productDocumentationTemplate: resources.productDocumentationTemplate,
                 productTypeId: resources.productTypeId,
                 deploymentStateHash: deploymentStateHash
             }),
@@ -213,10 +213,11 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
      *      independently recomputed and verified later.
      */
     function _deploymentStateHash(bytes32 tradeId, address productProvider, address client, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinitionResources memory resources, bytes32 productSpecificSchemaHash, bytes calldata productSpecificPayload) internal view returns (bytes32) {
-        bytes32 termsContentHash = ITextResource(resources.termsResource).contentHash();
-        bytes32 stylesheetContentHash = ITextResource(resources.stylesheetResource).contentHash();
+        bytes32 productTermsTemplateContentHash = ITextResource(resources.productTermsTemplate).contentHash();
+        bytes32 productDocumentationTemplateContentHash = ITextResource(resources.productDocumentationTemplate).contentHash();
 
         return keccak256(abi.encode(address(this), block.chainid, tradeId, productProvider, client, productDefinitionId, productDefinitionVersion, resources.productTypeId,
-                resources.termsResource, termsContentHash, resources.stylesheetResource, stylesheetContentHash, productSpecificSchemaHash,keccak256(productSpecificPayload)));
+                resources.productTermsTemplate, productTermsTemplateContentHash, resources.productDocumentationTemplate, productDocumentationTemplateContentHash,
+                productSpecificSchemaHash, keccak256(productSpecificPayload)));
     }
 }

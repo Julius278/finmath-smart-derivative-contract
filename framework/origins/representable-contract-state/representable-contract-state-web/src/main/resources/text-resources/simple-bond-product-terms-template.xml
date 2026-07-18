@@ -8,7 +8,7 @@
         <DocumentType>Simple Bond Terms</DocumentType>
         <ProductName>Simple Demo Bond</ProductName>
         <Description>
-            Minimal renderer-ready product terms XML for the Smart Product Framework demo.
+            Product terms template for the Smart Product Framework demo.
             The negotiated economic values are resolved from the deployed SimpleBond contract.
         </Description>
     </Header>

@@ -10,14 +10,14 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
  * @dev The product owns its payload format: it decodes the raw
  *      productSpecificPayload once (in _applyTerms), used both at construction
  *      and on client updates. Economic bindings (Notional, Maturity) live in
- *      the product terms XML resource and resolve against notional()/maturity().
+ *      the product terms template and resolve against notional()/maturity().
  *
  * @author Raphael Prandtl
  */
 contract SimpleBond is AbstractProduct {
     // ------------------------------ Mutable State ------------------------------ */
 
-    /// @notice Requested/negotiated notional. Resolves the terms' Notional binding.
+    /// @notice Requested/negotiated notional. Resolves the product terms template's Notional binding.
     uint256 public notional;
     /// @notice Requested/negotiated maturity (unix timestamp).
     uint256 public maturity;
@@ -90,8 +90,8 @@ contract SimpleBond is AbstractProduct {
             " xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
             " xmlns:evmstate=\"urn:evm:state:1.0\">",
             _deploymentStateXml(),
-            _include(termsResource),
-            _include(stylesheetResource),
+            _include(productTermsTemplate),
+            _include(productDocumentationTemplate),
             "</SimpleBond>"
         );
     }

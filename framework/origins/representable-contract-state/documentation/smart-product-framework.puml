@@ -4,8 +4,8 @@ title Smart Product Framework - End-to-End Sequence Flow
 actor "Product Provider" as PProvider
 actor Client
 participant "Frontend / dApp" as Frontend
-participant "TextResource\n(terms XML)\n----\nITextResource" as XmlResource
-participant "TextResource\n(documentation XSLT)\n----\nITextResource" as XsltResource
+participant "TextResource\n(product terms template)\n----\nITextResource" as ProductTermsTemplate
+participant "TextResource\n(product documentation template)\n----\nITextResource" as ProductDocumentationTemplate
 participant "ClientRegistry\n\n----\nIClientRegistry" as ClientRegistry
 participant "TradableBondDataRegistry\n\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
@@ -41,23 +41,23 @@ end note
 
 == Resource Publication ==
 
-PProvider -> XmlResource : deploy TextResource(owner, BOND_TERMS,\n"application/xml", bytes(""), bytes32(0))
-loop for every terms chunk
-	PProvider -> XmlResource : appendChunk(chunk)
+PProvider -> ProductTermsTemplate : deploy TextResource(owner, BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,\n"application/xml", bytes(""), bytes32(0))
+loop for every product terms template chunk
+	PProvider -> ProductTermsTemplate : appendChunk(chunk)
 end
-PProvider -> XmlResource : finalize(keccak256(content))
-XmlResource -> XmlResource : read chunks + verify hash + lock resource
-XmlResource --> PProvider : finalized terms resource
+PProvider -> ProductTermsTemplate : finalize(keccak256(content))
+ProductTermsTemplate -> ProductTermsTemplate : read chunks + verify hash + lock resource
+ProductTermsTemplate --> PProvider : finalized product terms template
 
-PProvider -> XsltResource : deploy TextResource(owner, BOND_STYLESHEET,\n"application/xslt+xml", bytes(""), bytes32(0))
-loop for every stylesheet chunk
-	PProvider -> XsltResource : appendChunk(chunk)
+PProvider -> ProductDocumentationTemplate : deploy TextResource(owner, BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE,\n"application/xslt+xml", bytes(""), bytes32(0))
+loop for every product documentation template chunk
+	PProvider -> ProductDocumentationTemplate : appendChunk(chunk)
 end
-PProvider -> XsltResource : finalize(keccak256(content))
-XsltResource -> XsltResource : read chunks + verify hash + lock resource
-XsltResource --> PProvider : finalized stylesheet resource
+PProvider -> ProductDocumentationTemplate : finalize(keccak256(content))
+ProductDocumentationTemplate -> ProductDocumentationTemplate : read chunks + verify hash + lock resource
+ProductDocumentationTemplate --> PProvider : finalized product documentation template
 
-note over XmlResource, XsltResource
+note over ProductTermsTemplate, ProductDocumentationTemplate
 TextResource also supports one-shot publication by passing
 content and its expected hash to the constructor. Demo04 uses
 the staged appendChunk + finalize workflow shown above.
@@ -65,21 +65,21 @@ end note
 
 == Product Definition Publication ==
 
-PProvider -> Registry : publishProductDefinition({name, {terms, stylesheet, productTypeId}})
+PProvider -> Registry : publishProductDefinition({name, {productTermsTemplate, productDocumentationTemplate, productTypeId}})
 
-Registry -> XmlResource : supportsInterface(ITextResource)
-XmlResource --> Registry : true
-Registry -> XmlResource : isFinalized()
-XmlResource --> Registry : true
-Registry -> XmlResource : resourceType()
-XmlResource --> Registry : BOND_TERMS
+Registry -> ProductTermsTemplate : supportsInterface(ITextResource)
+ProductTermsTemplate --> Registry : true
+Registry -> ProductTermsTemplate : isFinalized()
+ProductTermsTemplate --> Registry : true
+Registry -> ProductTermsTemplate : resourceType()
+ProductTermsTemplate --> Registry : BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE
 
-Registry -> XsltResource : supportsInterface(ITextResource)
-XsltResource --> Registry : true
-Registry -> XsltResource : isFinalized()
-XsltResource --> Registry : true
-Registry -> XsltResource : resourceType()
-XsltResource --> Registry : BOND_STYLESHEET
+Registry -> ProductDocumentationTemplate : supportsInterface(ITextResource)
+ProductDocumentationTemplate --> Registry : true
+Registry -> ProductDocumentationTemplate : isFinalized()
+ProductDocumentationTemplate --> Registry : true
+Registry -> ProductDocumentationTemplate : resourceType()
+ProductDocumentationTemplate --> Registry : BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE
 
 Registry -> Registry : productDefinitionId = keccak256(abi.encode(name, address(this)))
 Registry -> Registry : store ProductDefinitionStorage\n(status = Active, version = 1)
@@ -89,8 +89,9 @@ PProvider -> Registry : computeProductDefinitionId(name)
 Registry --> PProvider : productDefinitionId\n(partId = uint256(productDefinitionId))
 
 note over PProvider, Client
-The registry's statePartXmlTemplate(partId) includes the terms
-and stylesheet with parse="text". This is a source preview:
+The registry's statePartXmlTemplate(partId) includes the product
+terms template and product documentation template with parse="text".
+This is a source preview:
 evmstate bindings are returned as text and are not evaluated
 against the registry.
 end note
@@ -119,7 +120,7 @@ Registry --> PProvider : ProductIndicationAssigned + StatePartUpdated
 
 note right of Registry
 Registry stores per productDefinitionId:
-- terms + stylesheet resources
+- productTermsTemplate + productDocumentationTemplate
 - productTypeId
 - (productIndication, indicationId, partId)
 
@@ -191,10 +192,10 @@ Registry -> Factory : canDeployProduct(productTypeId)
 Factory --> Registry : true
 
 Registry -> Registry : tradeId = keccak256(abi.encode(\nregistry, chainId, nonce, client, productDefinitionId))
-Registry -> XmlResource : contentHash()
-XmlResource --> Registry : termsContentHash
-Registry -> XsltResource : contentHash()
-XsltResource --> Registry : stylesheetContentHash
+Registry -> ProductTermsTemplate : contentHash()
+ProductTermsTemplate --> Registry : productTermsTemplateContentHash
+Registry -> ProductDocumentationTemplate : contentHash()
+ProductDocumentationTemplate --> Registry : productDocumentationTemplateContentHash
 Registry -> Registry : deploymentStateHash = keccak256(abi.encode(\ncommon state, resource addresses + hashes,\nschemaHash, keccak256(payload)))
 
 Registry -> Factory : deployProduct({common, schemaHash, payload})
@@ -260,22 +261,22 @@ Bond -> Bond : emit TradeStatusChanged + TradeConfirmed + TradeActivated
 Bond -> Bond : _onActivated() (product-specific hook)
 Bond --> Client : trade Active
 
-== Product XML Rendering and Presentation ==
+== Product State Rendering and Documentation Generation ==
 
 Client -> Frontend : open product
 Frontend -> Renderer : render(product)
 
 Renderer -> Bond : stateXmlTemplate()
-Bond -> XmlResource : contentHash()
-XmlResource --> Bond : terms integrity hash
-Bond -> XsltResource : contentHash()
-XsltResource --> Bond : stylesheet integrity hash
-Bond --> Renderer : SimpleBond XML with DeploymentState\nand web3:// XIncludes for terms and stylesheet
+Bond -> ProductTermsTemplate : contentHash()
+ProductTermsTemplate --> Bond : product terms template integrity hash
+Bond -> ProductDocumentationTemplate : contentHash()
+ProductDocumentationTemplate --> Bond : product documentation template integrity hash
+Bond --> Renderer : SimpleBond state template with DeploymentState\nand web3:// XIncludes for both product templates
 
-Renderer -> XmlResource : text() via terms XInclude
-XmlResource --> Renderer : terms XML
-Renderer -> XsltResource : text() via stylesheet XInclude
-XsltResource --> Renderer : XSLT XML
+Renderer -> ProductTermsTemplate : text() via product terms template XInclude
+ProductTermsTemplate --> Renderer : product terms template
+Renderer -> ProductDocumentationTemplate : text() via product documentation template XInclude
+ProductDocumentationTemplate --> Renderer : product documentation template
 
 Renderer -> Renderer : resolve no-argument evmstate:call bindings\nagainst the deployed SimpleBond
 Renderer -> Bond : productRegistry(), productSpecificFactory(),\ntradeId(), parties, definition data, tradeStatus(), ...
@@ -285,20 +286,20 @@ Bond --> Renderer : value
 Renderer -> Bond : maturity()
 Bond --> Renderer : value
 
-Renderer -> Renderer : identity-transform / serialize resolved XML
-Renderer --> Frontend : resolved product XML
+Renderer -> Renderer : identity-transform / serialize resolved product state
+Renderer --> Frontend : resolved product state
 
-Frontend -> XsltResource : text()
-XsltResource --> Frontend : stylesheet
-Frontend -> Frontend : apply XSLT to resolved XML\n(Demo04 presentation step)
-Frontend --> Client : display rendered product document
+Frontend -> ProductDocumentationTemplate : text()
+ProductDocumentationTemplate --> Frontend : product documentation template
+Frontend -> Frontend : apply product documentation template\nto resolved product state
+Frontend --> Client : display rendered product documentation
 
 note right of Renderer
 EvmXmlRenderer resolves XIncludes and no-argument
 evmstate bindings. During state-part rendering it also
 supports one uint256 callback argument supplied as $partId.
 It does not currently execute XSLT;
-Demo04 applies the stylesheet separately.
+Demo04 applies the product documentation template separately.
 end note
 
 @enduml

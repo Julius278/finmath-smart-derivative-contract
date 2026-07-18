@@ -1,10 +1,12 @@
 # On-Chain Tokenized Product Framework
 
 A modular Solidity framework for issuing, referencing, and trading tokenized
-financial products (e.g. bonds) with **on-chain, self-rendering terms**.
+financial products (e.g. bonds) with **self-rendering products backed by
+on-chain product terms templates**.
 
-Product terms (XML) and stylesheets (XSLT) are stored immutably on-chain and
-referenced by reusable *product definitions*. Clients request trades against a product definition;
+Product terms templates (XML) and product documentation templates (XSLT) are
+stored immutably on-chain and referenced by reusable *product definitions*.
+Clients request trades against a product definition;
 each trade deploys a concrete *product* instance that resolves its own live
 state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 
@@ -31,11 +33,13 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 
 ## Design Principles
 
-- **Separation of structure and state.** Terms/stylesheets are stored once as
-  immutable text; concrete products resolve the dynamic `evmstate:call`
-  bindings at render time. Nothing large is duplicated per trade.
+- **Separation of structure and state.** Product terms templates and product
+  documentation templates are stored once as immutable text; concrete products
+  resolve the dynamic `evmstate:call` bindings at render time. Nothing large is
+  duplicated per trade.
 - **Reusability via product definitions.** A *product definition* is a published
-  terms + stylesheet + product type under which many products are deployed.
+  product terms template + product documentation template + product type under
+  which many products are deployed.
 - **Integrity by construction.** Content is anchored by `keccak256`, verified
   on-chain at finalization, and reproducible off-chain.
 - **Layered abstraction.** Each concern is an `abstract` base with a single,
@@ -54,12 +58,12 @@ skinparam componentStyle rectangle
 top to bottom direction
 
 rectangle "ClientRegistry\nidentity + eligibility" as IR
-rectangle "TradableBondDataRegistry concrete\n------\nAbstractTradableProductDataRegistry\nAbstractIndicatedProductDataRegistry\nAbstractProductDataRegistry" as REG
-rectangle "TextResource\nterms / xslt" as TR
+rectangle "TradableBondDataRegistry concrete\n------\nAbstractTradableProductRegistry\nAbstractIndicatedProductRegistry\nAbstractProductDefinitionRegistry" as REG
+rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
 rectangle "CurveIndications\nper product definition" as CI
 rectangle "ProductFactoryRegistry\ngeneric router" as GF
-rectangle "SimpleDemoBondFactory\nproduct-specific" as SF
-rectangle "SimpleDemoBond\ndeployed product\nself-rendering + lifecycle" as P
+rectangle "SimpleBondFactory\nproduct-specific" as SF
+rectangle "SimpleBond\ndeployed product\nself-rendering + lifecycle" as P
 
 REG --> IR : isEligibleClient
 REG --> TR : references / anchors
@@ -68,7 +72,7 @@ CI  --> TR : anchors
 REG --> GF : deployProduct
 GF  --> SF : routes by productTypeId
 SF  --> P  : new
-P   --> TR : resolves terms
+P   --> TR : includes templates
 @enduml
 ```
 ---
@@ -77,8 +81,8 @@ P   --> TR : resolves terms
 
 ### 1. Text Resources
 
-Immutable on-chain storage for large text (XML terms, XSLT stylesheets), stored
-as SSTORE2-chunked bytecode.
+Immutable on-chain storage for large text, including product terms templates
+and product documentation templates, stored as SSTORE2-chunked bytecode.
 
 | Contract | Role                                                 |
 |---|------------------------------------------------------|
@@ -111,14 +115,15 @@ Source of truth for client identity, lifecycle, and eligibility.
 
 ### 3. Product Definition Registry (3 layers)
 
-A *product definition* anchors reusable product terms and manages their lifecycle. Built as
-three abstract layers plus one concrete bond specialization.
+A *product definition* anchors a reusable product terms template and product
+documentation template and manages their lifecycle. It is built as three
+abstract layers plus one concrete bond specialization.
 
 | Layer | Contract | Adds                                                                                    |
 |---|---|-----------------------------------------------------------------------------------------|
-| 1 | `AbstractProductDataRegistry` | Product definition publication, lifecycle, ERC-8100 XML rendering, resource validation. |
-| 2 | `AbstractIndicatedProductDataRegistry` | One replaceable *indication* per product definition.                                               |
-| 3 | `AbstractTradableProductDataRegistry` | Eligibility-gated trade requests + product deployment.                                  |
+| 1 | `AbstractProductDefinitionRegistry` | Product definition publication, lifecycle, ERC-8100 XML rendering, resource validation. |
+| 2 | `AbstractIndicatedProductRegistry` | One replaceable *indication* per product definition.                                               |
+| 3 | `AbstractTradableProductRegistry` | Eligibility-gated trade requests + product deployment.                                  |
 | — | `TradableBondDataRegistry` | Concrete: bond resource/indication acceptance rules.                                    |
 
 - `productDefinitionId = keccak256(abi.encode(name, address(this)))` (name is the
@@ -174,11 +179,11 @@ generic trade lifecycle.
 | `IProduct` | Deployed-state getter surface + `StateUpdated`. |
 | `ITradeLifecycle` | ERC-6123-inspired incept/confirm/cancel lifecycle. |
 | `AbstractProduct` | Immutable deployment state, lifecycle state machine, XML scaffolding. |
-| `SimpleDemoBond` | Concrete demo: negotiable `notional` / `maturity`. |
+| `SimpleBond` | Concrete demo: negotiable `notional` / `maturity`. |
 
 - **Self-rendering:** the product implements the `evmstate:call` getters the
-  product definition's terms reference (e.g. `notional()`, `maturity()`); the terms XML is
-  `xi:include`d and resolved against the live product.
+  product terms template references (e.g. `notional()`, `maturity()`); the
+  template is `xi:include`d and resolved against the live product.
 - **Trade lifecycle:**
   `Requested → Incepted → Active`, with `Cancelled` (pre-activation, terminal).
 - **Terms agreement:** both parties commit to
@@ -192,8 +197,8 @@ generic trade lifecycle.
 
 ## End-to-End Flow
 
-1. Publish resources — deploy and finalize TextResource(terms) and TextResource(stylesheet).
-2. Publish product definition — registry.publishProductDefinition(name, {terms, xslt, productTypeId}).
+1. Publish resources — deploy and finalize `TextResource(productTermsTemplate)` and `TextResource(productDocumentationTemplate)`.
+2. Publish product definition — `registry.publishProductDefinition(name, {productTermsTemplate, productDocumentationTemplate, productTypeId})`.
 3. Assign indication — registry.assignProductIndication(productDefinitionId, curve, indicationId).
 4. Register client — clientRegistry.registerClient({client, lei}).
 5. Request trade — registry.createTradeRequest({productDefinitionId, schemaHash, payload}):
@@ -203,7 +208,8 @@ generic trade lifecycle.
 6. (optional) Amend — product.updateTerms(payload) (client, while Requested).
 7. Incept — product.inceptTrade(agreedTermsHash) (product provider) -> Incepted.
 8. Confirm — product.confirmTrade(agreedTermsHash) (client) -> Active.
-9. Render — the renderer calls product.stateXmlTemplate(), resolves the evmstate bindings, and the frontend applies the stylesheet.
+9. Render — the renderer calls `product.stateXmlTemplate()`, resolves the
+   `evmstate` bindings, and the frontend applies the product documentation template.
 
 ---
 
@@ -219,7 +225,7 @@ generic trade lifecycle.
 | `indicationId` | implementation-defined; obtain `partId` via `partIdForIndication` (do **not** assume `uint256(id)`)                                                                                                                                                       |
 | `productTypeId` | address-independent semantic constant (e.g. `keccak256("SIMPLE_BOND")`)                                                                                                                                                                                   |
 | `tradeId` | `keccak256(abi.encode(registry, chainId, nonce, client, productDefinitionId))`                                                                                                                                                                          |
-| `deploymentStateHash` | `keccak256(abi.encode(registry, chainId, tradeId, product provider, client, productDefinitionId, productDefinitionVersion, productTypeId, termsResource, termsContentHash, stylesheetResource, stylesheetContentHash, schemaHash, keccak256(payload)))` |
+| `deploymentStateHash` | `keccak256(abi.encode(registry, chainId, tradeId, product provider, client, productDefinitionId, productDefinitionVersion, productTypeId, productTermsTemplate, productTermsTemplateContentHash, productDocumentationTemplate, productDocumentationTemplateContentHash, schemaHash, keccak256(payload)))` |
 | `currentTermsHash` | `keccak256(abi.encode(product, deploymentStateHash, economicTermsHash))`                                                                                                                                                                                  |
 
 ### Shared constants
@@ -229,7 +235,8 @@ across the registry, factories, indications, and text-resource classification, e
 
 - `SIMPLE_DEMO_BOND_TYPE`, `COMMERCIAL_PAPER_TYPE`
 - `CURVE_INDICATION_CATEGORY`
-- `BOND_TERMS_RESOURCE_TYPE`, `BOND_STYLESHEET_RESOURCE_TYPE`
+- `BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE`
+- `BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE`
 
 > ⚠️ Off-chain deploy scripts must set each `TextResource`'s `resourceType`
 > using the same values, and product providers must publish product definitions with a
@@ -237,9 +244,12 @@ across the registry, factories, indications, and text-resource classification, e
 
 ### Rendering (ERC-8100 / evmstate)
 
-- Product definitions render terms as **inert text** (`parse="text"`); bindings unresolved.
-- Products render terms as **XML** (`parse="xml"`); bindings resolved against
-  the live product getters.
+- Product definitions expose both templates as **inert text** (`parse="text"`);
+  bindings remain unresolved.
+- Products include both templates as **XML** (`parse="xml"`). Bindings in the
+  product terms template resolve against the live product getters; the product
+  documentation template remains inert as a transformation until the frontend
+  applies it to the resolved product state.
 - Dynamic collections (e.g. curve quotes) use the array-of-struct profile:
   `evmstate:call="...(tuple(...)[])"`, `evmstate:item-element`,
   `evmstate:item-field`.
@@ -255,11 +265,11 @@ across the registry, factories, indications, and text-resource classification, e
 1. ClientRegistry(owner)
 2. TradableBondDataRegistry(owner, clientRegistry)
 3. ProductFactoryRegistry(owner, registry)
-4. registry.setProductFactory(productFactoryRegistry) # back-ref check 
-5. SimpleDemoBondFactory(productFactoryRegistry) # generic addr 
-6. productFactoryRegistry.registerProductFactory( SIMPLE_BOND_TYPE, simpleBondFactory) # ERC-165 + type match 
-7. Deploy & finalize TextResource(terms), TextResource(stylesheet)
-8. CurveIndications(owner) + publish curve indications 
+4. registry.setProductFactory(productFactoryRegistry) # back-ref check
+5. SimpleBondFactory(productFactoryRegistry) # generic addr
+6. productFactoryRegistry.registerProductFactory(SIMPLE_BOND_TYPE, simpleBondFactory) # ERC-165 + type match
+7. Deploy and finalize `TextResource(productTermsTemplate)` and `TextResource(productDocumentationTemplate)`
+8. CurveIndications(owner) + publish curve indications
 9. registry.publishProductDefinition(...)
 10. registry.assignProductIndication(...)
 11. clientRegistry.registerClient(...)

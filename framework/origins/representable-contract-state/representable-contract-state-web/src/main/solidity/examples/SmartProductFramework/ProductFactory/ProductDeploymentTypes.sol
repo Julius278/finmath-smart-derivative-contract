@@ -22,8 +22,8 @@ pragma solidity ^0.8.24;
  *                                  created under.
  * @param productDefinitionVersion  The version of the product definition at
  *                                  deployment time.
- * @param termsResource             ITextResource holding the product terms.
- * @param stylesheetResource        ITextResource holding the stylesheet.
+ * @param productTermsTemplate         ITextResource holding the product terms template.
+ * @param productDocumentationTemplate ITextResource holding the product documentation template.
  * @param productTypeId             Identifies the deployable product type.
  * @param deploymentStateHash       Integrity anchor of the product definition
  *                                  state and agreed payload at trade time.
@@ -35,8 +35,8 @@ struct CommonDeploymentParams {
     address client;
     bytes32 productDefinitionId;
     uint256 productDefinitionVersion;
-    address termsResource;
-    address stylesheetResource;
+    address productTermsTemplate;
+    address productDocumentationTemplate;
     bytes32 productTypeId;
     bytes32 deploymentStateHash;
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AbstractTradableProductRegistry} from "../ProductRegistry/AbstractTradableProductRegistry.sol";
-import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_TERMS_RESOURCE_TYPE, BOND_STYLESHEET_RESOURCE_TYPE} from "./BondConstants.sol";
+import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE, BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE} from "./BondConstants.sol";
 
 
 /**
@@ -34,11 +34,11 @@ contract TradableBondDataRegistry is AbstractTradableProductRegistry {
 
     /// @dev Each slot accepts exactly its designated bond resource type.
     function _isAcceptedResourceType(ResourceSlot slot, bytes32 resourceType) internal pure override returns (bool) {
-        if (slot == ResourceSlot.ProductTerms) {
-            return resourceType == BOND_TERMS_RESOURCE_TYPE;
+        if (slot == ResourceSlot.ProductTermsTemplate) {
+            return resourceType == BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE;
         }
-        if (slot == ResourceSlot.StyleSheet) {
-            return resourceType == BOND_STYLESHEET_RESOURCE_TYPE;
+        if (slot == ResourceSlot.ProductDocumentationTemplate) {
+            return resourceType == BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE;
         }
         return false;
     }

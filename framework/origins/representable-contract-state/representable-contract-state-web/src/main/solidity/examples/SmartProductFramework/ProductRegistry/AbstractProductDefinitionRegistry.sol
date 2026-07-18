@@ -33,8 +33,8 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
     /// @notice Logical slot a resource occupies within a product definition.
     enum ResourceSlot {
         Unknown,
-        ProductTerms,
-        StyleSheet
+        ProductTermsTemplate,
+        ProductDocumentationTemplate
     }
 
     // ------------------------------ Custom Errors ------------------------------ */
@@ -97,7 +97,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
 
         _touchProductDefinition(definition);
 
-        emit ProductDefinitionPublished(productDefinitionId, params.resources.productTypeId, params.resources.termsResource, params.resources.stylesheetResource);
+        emit ProductDefinitionPublished(productDefinitionId, params.resources.productTypeId, params.resources.productTermsTemplate, params.resources.productDocumentationTemplate);
         emit ProductDefinitionStatusChanged(productDefinitionId, ProductDefinitionStatus.Unknown, ProductDefinitionStatus.Active);
         emit StatePartUpdated(msg.sender, address(this),             _partIdFromProductDefinitionId(productDefinitionId), definition.version);
     }
@@ -111,7 +111,7 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
         definition.resources = resources;
         _touchProductDefinition(definition);
 
-        emit ProductDefinitionResourcesUpdated(productDefinitionId, resources.productTypeId, resources.termsResource, resources.stylesheetResource, definition.version);
+        emit ProductDefinitionResourcesUpdated(productDefinitionId, resources.productTypeId, resources.productTermsTemplate, resources.productDocumentationTemplate, definition.version);
         emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
     }
 
@@ -167,7 +167,8 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
 
 
     /**
-     * @dev The registry only anchors the XML/XSLT documents; it does not resolve
+     * @dev The registry only anchors the product terms template and product
+     *      documentation template; it does not resolve
      *      the `evmstate:call` bindings itself (those are served by the deployed
      *      product implementing the declared product type interface).
      */
@@ -181,8 +182,8 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
             " productDefinitionVersion=\"", definition.version.toString(), "\"",
             " updatedAt=\"", uint256(definition.updatedAt).toString(), "\"",
             ">",
-            _include(definition.resources.termsResource),
-            _include(definition.resources.stylesheetResource),
+            _include(definition.resources.productTermsTemplate),
+            _include(definition.resources.productDocumentationTemplate),
             "</ProductDefinition>"
         );
     }
@@ -266,8 +267,8 @@ abstract contract AbstractProductDefinitionRegistry is IProductDefinitionRegistr
     }
 
     function _validateProductDefinitionResources(ProductDefinitionResources calldata resources) internal view {
-        _validateTextResource(resources.termsResource, ResourceSlot.ProductTerms);
-        _validateTextResource(resources.stylesheetResource, ResourceSlot.StyleSheet);
+        _validateTextResource(resources.productTermsTemplate, ResourceSlot.ProductTermsTemplate);
+        _validateTextResource(resources.productDocumentationTemplate, ResourceSlot.ProductDocumentationTemplate);
 
         if (resources.productTypeId == bytes32(0)) {
             revert ZeroHash("productTypeId");

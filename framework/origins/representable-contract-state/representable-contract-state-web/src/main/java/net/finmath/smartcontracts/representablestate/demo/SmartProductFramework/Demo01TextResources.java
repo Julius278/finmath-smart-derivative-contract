@@ -22,9 +22,9 @@ public class Demo01TextResources {
 
     static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
 
-    private static final String TERMS_RESOURCE = "text-resources/simple-bond-terms.xml";
+    private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/simple-bond-product-terms-template.xml";
 
-    private static final String STYLESHEET_RESOURCE = "text-resources/simple-bond-stylesheet.xslt";
+    private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH = "text-resources/simple-bond-product-documentation-template.xslt";
 
     private static final int DEMO_CHUNK_SIZE = 16_000;
 
@@ -35,25 +35,27 @@ public class Demo01TextResources {
         System.out.println("docker run --rm -it --name besu -p 8545:8545 -p 8546:8546 hyperledger/besu:latest --network=dev --miner-enabled=true --miner-coinbase $DEPLOYER --rpc-http-enabled=true --rpc-http-host=0.0.0.0 --rpc-http-port=8545 --rpc-http-api=ETH,NET,WEB3,TXPOOL,TRACE,DEBUG --host-allowlist=\"*\" --logging=INFO");
         System.out.println("-".repeat(79));
 
-        PublishedTextResource terms = publishStagedTextResource("BOND_TERMS", "application/xml", TERMS_RESOURCE);
+        PublishedTextResource productTermsTemplate = publishStagedTextResource(
+                "BOND_PRODUCT_TERMS_TEMPLATE", "application/xml", PRODUCT_TERMS_TEMPLATE_PATH);
 
-        PublishedTextResource stylesheet = publishStagedTextResource("BOND_STYLESHEET", "application/xslt+xml", STYLESHEET_RESOURCE);
+        PublishedTextResource productDocumentationTemplate = publishStagedTextResource(
+                "BOND_PRODUCT_DOCUMENTATION_TEMPLATE", "application/xslt+xml", PRODUCT_DOCUMENTATION_TEMPLATE_PATH);
 
         System.out.println();
         System.out.println("=".repeat(79));
         System.out.println("Demo 01 completed.");
         System.out.println();
 
-        System.out.println("Terms resource:");
-        System.out.println("  address:      " + terms.contractAddress());
-        System.out.println("  resourceType: " + terms.resourceTypeHashHex());
-        System.out.println("  contentHash:  " + terms.contentHashHex());
+        System.out.println("Product terms template:");
+        System.out.println("  address:      " + productTermsTemplate.contractAddress());
+        System.out.println("  resourceType: " + productTermsTemplate.resourceTypeHashHex());
+        System.out.println("  contentHash:  " + productTermsTemplate.contentHashHex());
         System.out.println();
 
-        System.out.println("Stylesheet resource:");
-        System.out.println("  address:      " + stylesheet.contractAddress());
-        System.out.println("  resourceType: " + stylesheet.resourceTypeHashHex());
-        System.out.println("  contentHash:  " + stylesheet.contentHashHex());
+        System.out.println("Product documentation template:");
+        System.out.println("  address:      " + productDocumentationTemplate.contractAddress());
+        System.out.println("  resourceType: " + productDocumentationTemplate.resourceTypeHashHex());
+        System.out.println("  contentHash:  " + productDocumentationTemplate.contentHashHex());
         System.out.println();
 
         System.out.println("Use these addresses in Demo 03 when publishing the ProductDefinition.");
