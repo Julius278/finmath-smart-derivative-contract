@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractTradableProductRegistry} from "../ProductRegistry/AbstractTradableProductRegistry.sol";
+import {AbstractProductTradeRequestRegistry} from "../ProductRegistry/AbstractProductTradeRequestRegistry.sol";
 import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE, BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE} from "./BondConstants.sol";
 
 
 /**
- * @title TradableBondDataRegistry
+ * @title BondProductRegistry
  * @notice Concrete, deployable registry for bond products. Specializes the
- *         generic tradable product data stack with bond-specific acceptance
+ *         generic product trade-request stack with bond-specific acceptance
  *         rules: which resource types may back a product definition, and which indication
  *         categories may be attached to which bond product types.
  * @dev Completes the layer chain:
- *      ProductDataRegistry (product definition + resources)
- *        -> IndicatedProductDataRegistry (product definition indications)
- *          -> TradableProductDataRegistry (trade requests + deployment)
- *            -> TradableBondDataRegistry (bond acceptance rules).
+ *      AbstractProductDefinitionRegistry (product definition + resources)
+ *        -> AbstractProductIndicationRegistry (product definition indications)
+ *          -> AbstractProductTradeRequestRegistry (trade requests + deployment)
+ *            -> BondProductRegistry (bond acceptance rules).
  *
  * @author Raphael Prandtl
  */
-contract TradableBondDataRegistry is AbstractTradableProductRegistry {
+contract BondProductRegistry is AbstractProductTradeRequestRegistry {
     // ------------------------------ Constructor ------------------------------ */
 
     /**
@@ -27,7 +27,7 @@ contract TradableBondDataRegistry is AbstractTradableProductRegistry {
      * @param clientRegistryAddress_ Client registry for eligibility checks.
      */
     constructor(address owner_, address clientRegistryAddress_)
-    AbstractTradableProductRegistry(owner_, clientRegistryAddress_)
+    AbstractProductTradeRequestRegistry(owner_, clientRegistryAddress_)
     {}
 
     // ------------------------------ Business-Rule Hooks ------------------------------ */

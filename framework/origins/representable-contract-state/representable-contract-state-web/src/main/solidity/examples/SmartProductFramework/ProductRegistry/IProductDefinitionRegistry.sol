@@ -12,9 +12,9 @@ pragma solidity ^0.8.24;
  * @dev LAYERING
  *      This is the base publication layer. Higher layers build on top:
  *        1. lifecycle completion (abstract base contract),
- *        2. inclusion of product definition indications
+ *        2. product indication assignment
  *           (e.g. curve indications for bonds),
- *        3. tradable product data (trade requests, client entry).
+ *        3. trade requests, client eligibility, and product deployment.
  *
  * @dev PRODUCT DEFINITION ID SCHEME (canonical)
  *      productDefinitionId == keccak256(abi.encode(name, address(registry)))

@@ -19,7 +19,7 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 - [Modules](#modules)
     - [1. Text Resources](#1-text-resources)
     - [2. Client Registry](#2-client-registry)
-    - [3. Product Definition Registry (3 layers)](#3-product-definition-registry-3-layers)
+    - [3. Product Registry (3 layers)](#3-product-registry-3-layers)
     - [4. Product Indications](#4-product-indications)
     - [5. Product Factories](#5-product-factories)
     - [6. Products](#6-products)
@@ -58,7 +58,7 @@ skinparam componentStyle rectangle
 top to bottom direction
 
 rectangle "ClientRegistry\nidentity + eligibility" as IR
-rectangle "TradableBondDataRegistry concrete\n------\nAbstractTradableProductRegistry\nAbstractIndicatedProductRegistry\nAbstractProductDefinitionRegistry" as REG
+rectangle "BondProductRegistry concrete\n------\nAbstractProductTradeRequestRegistry\nAbstractProductIndicationRegistry\nAbstractProductDefinitionRegistry" as REG
 rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
 rectangle "CurveIndications\nper product definition" as CI
 rectangle "ProductFactoryRegistry\ngeneric router" as GF
@@ -115,7 +115,7 @@ Source of truth for client identity, lifecycle, and eligibility.
 - **Eligible** = `Active` + derived per-product-definition rules (Option B / derived model;
   `productDefinitionId` reserved for future per-product-definition criteria).
 
-### 3. Product Definition Registry (3 layers)
+### 3. Product Registry (3 layers)
 
 A *product definition* anchors a reusable product terms template and product
 documentation template and manages their lifecycle. It is built as three
@@ -124,9 +124,9 @@ abstract layers plus one concrete bond specialization.
 | Layer | Contract | Adds                                                                                    |
 |---|---|-----------------------------------------------------------------------------------------|
 | 1 | `AbstractProductDefinitionRegistry` | Product definition publication, lifecycle, ERC-8100 XML rendering, resource validation. |
-| 2 | `AbstractIndicatedProductRegistry` | One replaceable *indication* per product definition.                                               |
-| 3 | `AbstractTradableProductRegistry` | Eligibility-gated trade requests + product deployment.                                  |
-| — | `TradableBondDataRegistry` | Concrete: bond resource/indication acceptance rules.                                    |
+| 2 | `AbstractProductIndicationRegistry` | Product-indication assignment and lookup per product definition.                        |
+| 3 | `AbstractProductTradeRequestRegistry` | Eligibility-gated trade-request creation, product deployment, and trade-to-product lookup. |
+| — | `BondProductRegistry` | Concrete: bond resource/indication acceptance rules.                                    |
 
 - `productDefinitionId = keccak256(abi.encode(name, address(this)))` (name is the
   unique key; no duplicates, no renaming).
@@ -277,7 +277,7 @@ across the registry, factories, indications, and text-resource classification, e
 ## Deployment Order
 
 1. ClientRegistry(owner)
-2. TradableBondDataRegistry(owner, clientRegistry)
+2. BondProductRegistry(owner, clientRegistry)
 3. ProductFactoryRegistry(owner, registry)
 4. registry.setProductFactory(productFactoryRegistry) # back-ref check
 5. SimpleBondFactory(productFactoryRegistry) # generic addr

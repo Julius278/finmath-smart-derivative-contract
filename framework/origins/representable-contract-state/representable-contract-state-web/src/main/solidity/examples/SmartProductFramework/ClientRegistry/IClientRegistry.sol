@@ -12,7 +12,7 @@ pragma solidity ^0.8.24;
  *      not redeclared here.
  *
  * @dev RELATIONSHIP TO PRODUCT REGISTRY
- *      A tradable product registry consumes this contract's read API:
+ *      A product trade-request registry consumes this contract's read API:
  *        - isEligibleClient(client, productDefinitionId) to check whether
  *          the client may use a specific product definition.
  *

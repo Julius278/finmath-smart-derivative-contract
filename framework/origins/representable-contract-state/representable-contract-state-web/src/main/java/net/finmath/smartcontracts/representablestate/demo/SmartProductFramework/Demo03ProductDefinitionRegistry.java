@@ -21,7 +21,7 @@ public class Demo03ProductDefinitionRegistry {
 
     static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 
-    static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
+    static final Path BOND_PRODUCT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "BondProductRegistry.sol");
 
     private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/simple-bond-product-terms-template.xml";
 
@@ -56,9 +56,9 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("ClientRegistry deployed at " + clientRegistry);
         System.out.println("-".repeat(79));
 
-        System.out.println("Deploying TradableBondDataRegistry.");
-        String registry = SmartContractDeployer.deploy(TRADABLE_BOND_DATA_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner), new Address(clientRegistry));
-        System.out.println("TradableBondDataRegistry deployed at " + registry);
+        System.out.println("Deploying BondProductRegistry.");
+        String registry = SmartContractDeployer.deploy(BOND_PRODUCT_REGISTRY_CONTRACT, SmartContractDeployer.PARIS, new Address(owner), new Address(clientRegistry));
+        System.out.println("BondProductRegistry deployed at " + registry);
         System.out.println("-".repeat(79));
 
         PublishedTextResource productTermsTemplate = publishStagedTextResource(

@@ -10,8 +10,8 @@ import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
  *         rendering (IXMLRepresentableState).
  *
  * @dev DEPLOYMENT ANCHOR & VERIFICATION
- *      deploymentStateHash() is an integrity anchor computed by the tradable
- *      product registry at trade time over the exact product definition state
+ *      deploymentStateHash() is an integrity anchor computed by the product
+ *      registry at trade time over the exact product definition state
  *      (version + immutable resource contents) and the agreed product-specific
  *      payload. It is stored immutably here and can be recomputed off-chain from
  *      this product's getters (plus the original payload) to verify the product
@@ -46,7 +46,7 @@ interface IProduct is IXMLRepresentableState {
 
     // ------------------------------ Deployment State ------------------------------ */
 
-    /// @notice Returns the tradable product registry that initiated deployment.
+    /// @notice Returns the product registry that initiated deployment.
     function productRegistry() external view returns (address);
 
     /**

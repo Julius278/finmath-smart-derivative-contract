@@ -6,7 +6,7 @@ import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
- * @title AbstractIndicatedProductRegistry.sol
+ * @title AbstractProductIndicationRegistry.sol
  * @notice Layer 2: extends the product definition registry so each product
  *         definition can carry a single, replaceable reference to a product indication
  *         (IProductIndication) — e.g. a curve indication for a bond definition.
@@ -16,13 +16,13 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *      target via ERC-165, the specific indication's status, and a
  *      product-specific compatibility hook (_isAcceptedIndication).
  *
- *      Liveness at consumption time is NOT guaranteed here. A consuming or
- *      trading layer should re-check the current indication status before
+ *      Liveness at consumption time is NOT guaranteed here. The trade-request
+ *      layer and other consumers should re-check the current indication status before
  *      presenting or trading against an indication.
  *
  * @author Raphael Prandtl
  */
-abstract contract AbstractIndicatedProductRegistry is AbstractProductDefinitionRegistry {
+abstract contract AbstractProductIndicationRegistry is AbstractProductDefinitionRegistry {
     // ------------------------------ Storage ------------------------------ */
 
     /// @notice Per-product-definition indication reference.

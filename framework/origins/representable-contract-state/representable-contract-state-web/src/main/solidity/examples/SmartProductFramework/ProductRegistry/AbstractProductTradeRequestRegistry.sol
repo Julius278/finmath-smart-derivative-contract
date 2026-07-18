@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import {ITextResource} from "../../../resources/ITextResource.sol";
 
-import {AbstractIndicatedProductRegistry} from "./AbstractIndicatedProductRegistry.sol";
+import {AbstractProductIndicationRegistry} from "./AbstractProductIndicationRegistry.sol";
 import {IProductFactory} from "../ProductFactory/IProductFactory.sol";
 import {IClientRegistry} from "../ClientRegistry/IClientRegistry.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**
- * @title AbstractTradableProductRegistry.sol
+ * @title AbstractProductTradeRequestRegistry.sol
  * @notice Layer 3: on top of product definitions and product indications,
  *         lets eligible clients create trade requests that deploy concrete
  *         product instances via the product factory.
@@ -21,7 +21,7 @@ import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory
  *
  * @author Raphael Prandtl
  */
-abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductRegistry {
+abstract contract AbstractProductTradeRequestRegistry is AbstractProductIndicationRegistry {
     // ------------------------------ Immutable State ------------------------------ */
 
     /// @notice Client registry consulted for eligibility.
@@ -94,7 +94,7 @@ abstract contract AbstractTradableProductRegistry is AbstractIndicatedProductReg
      * @param clientRegistryAddress_ Client registry for eligibility checks.
      */
     constructor(address owner_, address clientRegistryAddress_)
-    AbstractIndicatedProductRegistry(owner_) {
+    AbstractProductIndicationRegistry(owner_) {
         if (clientRegistryAddress_ == address(0) || clientRegistryAddress_.code.length == 0) {
             revert MissingClientRegistry();
         }

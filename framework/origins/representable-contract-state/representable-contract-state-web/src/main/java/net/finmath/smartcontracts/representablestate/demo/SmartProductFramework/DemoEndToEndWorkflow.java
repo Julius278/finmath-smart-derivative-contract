@@ -75,7 +75,7 @@ public class DemoEndToEndWorkflow {
 
 	static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 	static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
-	static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
+	static final Path BOND_PRODUCT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "BondProductRegistry.sol");
 	static final Path PRODUCT_FACTORY_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductFactory", "ProductFactoryRegistry.sol");
 	static final Path SIMPLE_BOND_FACTORY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "SimpleBondFactory.sol");
 	static final Path CURVE_INDICATIONS_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "CurveIndications.sol");
@@ -137,9 +137,9 @@ public class DemoEndToEndWorkflow {
 				new Address(productProvider)
 		);
 
-		System.out.println("Deploying TradableBondDataRegistry.");
+		System.out.println("Deploying BondProductRegistry.");
 		String registry = SmartContractDeployer.deploy(
-				TRADABLE_BOND_DATA_REGISTRY_CONTRACT,
+				BOND_PRODUCT_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider),
 				new Address(clientRegistry)

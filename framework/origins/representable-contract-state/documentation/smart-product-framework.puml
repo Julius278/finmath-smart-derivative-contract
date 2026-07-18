@@ -7,7 +7,7 @@ participant "Frontend / dApp" as Frontend
 participant "TextResource\n(product terms template)\n----\nITextResource" as ProductTermsTemplate
 participant "TextResource\n(product documentation template)\n----\nITextResource" as ProductDocumentationTemplate
 participant "ClientRegistry\n\n----\nIClientRegistry" as ClientRegistry
-participant "TradableBondDataRegistry\n\n----\nIProductDefinitionRegistry" as Registry
+participant "BondProductRegistry\n----\nAbstractProductTradeRequestRegistry\nAbstractProductIndicationRegistry\nAbstractProductDefinitionRegistry\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
 participant "ProductFactoryRegistry\n(generic)" as GenericFactory
 participant "SimpleBondFactory\n(product-specific)" as ProductSpecificFactory
@@ -17,7 +17,7 @@ participant "EvmXmlRenderer" as Renderer
 == Initial Setup ==
 
 PProvider -> ClientRegistry : deploy ClientRegistry(owner)
-PProvider -> Registry : deploy TradableBondDataRegistry(owner, clientRegistry)
+PProvider -> Registry : deploy BondProductRegistry(owner, clientRegistry)
 PProvider -> GenericFactory : deploy ProductFactoryRegistry(owner, registry)
 PProvider -> Registry : setProductFactory(factory)
 Registry -> GenericFactory : productRegistryAddress()
