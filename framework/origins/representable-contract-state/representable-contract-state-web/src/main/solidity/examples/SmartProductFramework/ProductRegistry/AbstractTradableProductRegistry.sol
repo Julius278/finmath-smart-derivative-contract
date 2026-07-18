@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {ITextResource} from "../../../resources/ITextResource.sol";
+
 import {AbstractIndicatedProductRegistry} from "./AbstractIndicatedProductRegistry.sol";
 import {IProductFactory} from "../ProductFactory/IProductFactory.sol";
 import {IClientRegistry} from "../ClientRegistry/IClientRegistry.sol";
-import {ITextResource} from "../TextResource/ITextResource.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**

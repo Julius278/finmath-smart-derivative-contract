@@ -73,7 +73,7 @@ import java.util.List;
  */
 public class Demo04EndToEndWorkflow {
 
-	static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
+	static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 	static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 	static final Path TRADABLE_BOND_DATA_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "TradableBondDataRegistry.sol");
 	static final Path PRODUCT_FACTORY_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductFactory", "ProductFactoryRegistry.sol");

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IProductDefinitionRegistry} from "./IProductDefinitionRegistry.sol";
-import {ITextResource} from "../TextResource/ITextResource.sol";
+import {ITextResource} from "../../../resources/ITextResource.sol";
 import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
+
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+import {IProductDefinitionRegistry} from "./IProductDefinitionRegistry.sol";
 
 /**
  * @title AbstractProductDefinitionRegistry.sol

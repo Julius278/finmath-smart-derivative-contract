@@ -17,7 +17,7 @@ import java.util.List;
 
 public class Demo03ProductDefinitionRegistry {
 
-    static final Path TEXT_RESOURCE_CONTRACT = Path.of("examples", "SmartProductFramework", "TextResource", "TextResource.sol");
+    static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 
     static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 

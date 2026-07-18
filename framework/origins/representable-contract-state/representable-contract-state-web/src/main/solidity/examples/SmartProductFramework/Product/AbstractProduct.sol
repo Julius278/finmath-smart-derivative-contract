@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
+import {ITextResource} from "../../../resources/ITextResource.sol";
 
 import {IProduct} from "./IProduct.sol";
 import {ITradeLifecycle} from "./ITradeLifecycle.sol";
-import {ITextResource} from "../TextResource/ITextResource.sol";
 import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
