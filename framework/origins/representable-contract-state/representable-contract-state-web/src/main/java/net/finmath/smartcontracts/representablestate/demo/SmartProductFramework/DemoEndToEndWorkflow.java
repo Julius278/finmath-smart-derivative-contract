@@ -648,7 +648,7 @@ public class DemoEndToEndWorkflow {
 
 		System.out.println("=".repeat(79));
 		System.out.println("End-to-end workflow demo completed.");
-		System.out.println("ClientRegistry:         " + clientRegistry);
+		System.out.println("ClientRegistry:           " + clientRegistry);
 		System.out.println("Product registry:         " + registry);
 		System.out.println("Generic factory:          " + genericFactory);
 		System.out.println("SimpleBond factory:       " + simpleBondFactory);
@@ -657,7 +657,8 @@ public class DemoEndToEndWorkflow {
 		System.out.println("Trade id:                 " + Numeric.toHexString(tradeId));
 		System.out.println("Product:                  " + product);
 		System.out.println("Latest product XML:       " + rendererUrl(product, null));
-		System.out.println("Renderer checkpoints grouped by contract:");
+		System.out.println("-".repeat(79));
+		System.out.println("Contract state checkpoint renderings grouped by contract:");
 		printCheckpointGroup("Product-definition registry", registry, productDefinitionCheckpoints);
 		printCheckpointGroup("Curve indication", curveIndications, curveStateCheckpoints);
 		printCheckpointGroup("Product lifecycle", product, productStateCheckpoints);
