@@ -63,7 +63,7 @@ import java.util.List;
  *     <li>perform the frontend discovery steps and ABI-encode a payload,</li>
  *     <li>create and optionally amend a trade request as the client,</li>
  *     <li>incept as product provider and confirm as client, and</li>
- *     <li>verify provenance and render the live product state.</li>
+ *     <li>verify provenance and render block-pinned product lifecycle states.</li>
  * </ol>
  *
  * <p>The embedded private keys are public development keys. Never use them on
@@ -81,6 +81,7 @@ public class Demo04EndToEndWorkflow {
 	static final Path CURVE_INDICATIONS_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "CurveIndications.sol");
 
 	private static final String RPC_URL = "http://127.0.0.1:8545";
+	private static final String RENDERER_XML_URL = "http://localhost:8080/xml";
 	private static final BigInteger GAS_PRICE = BigInteger.valueOf(1_000_000_000L);
 	private static final BigInteger GAS_LIMIT = BigInteger.valueOf(20_000_000L);
 	private static final BigInteger CLIENT_TARGET_BALANCE = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
@@ -420,7 +421,7 @@ public class Demo04EndToEndWorkflow {
 		BigInteger amendedMaturity = BigInteger.valueOf(now + 4L * 365 * 24 * 60 * 60);
 		byte[] amendedPayload = encodeSimpleBondPayload(amendedNotional, amendedMaturity);
 
-		transactAs(
+		TransactionReceipt amendmentReceipt = transactAs(
 				CLIENT_PRIVATE_KEY,
 				product,
 				function("updateTerms", new DynamicBytes(amendedPayload))
@@ -441,14 +442,14 @@ public class Demo04EndToEndWorkflow {
 		/*
 		 * Product-provider inception and client confirmation.
 		 */
-		SmartContractDeployer.transact(
+		TransactionReceipt inceptionReceipt = SmartContractDeployer.transact(
 				product,
 				function("inceptTrade", new Bytes32(agreedTermsHash))
 		);
 		assertTradeStatus(product, STATUS_INCEPTED, "Incepted");
 		assertBytesEqual(agreedTermsHash, callBytes32(product, "agreedTermsHash"), "Stored agreed terms hash mismatch.");
 
-		transactAs(
+		TransactionReceipt confirmationReceipt = transactAs(
 				CLIENT_PRIVATE_KEY,
 				product,
 				function("confirmTrade", new Bytes32(agreedTermsHash))
@@ -476,7 +477,7 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Live state and product-documentation rendering.
+		 * Block-pinned lifecycle checkpoints and product-documentation rendering.
 		 */
 		String productStateTemplate = callString(product, "stateXmlTemplate");
 		assertContains(productStateTemplate, "<SimpleBond");
@@ -484,17 +485,51 @@ public class Demo04EndToEndWorkflow {
 		assertContains(productStateTemplate, productTermsTemplate.web3Url());
 		assertContains(productStateTemplate, productDocumentationTemplate.web3Url());
 
-		String renderedProductState = renderer.render(product);
-
-		assertNotContains(renderedProductState, "evmstate:call=");
-		assertContains(renderedProductState, new BigDecimal(amendedNotional, 2).toPlainString());
-		assertContains(
-				renderedProductState,
-				Instant.ofEpochSecond(amendedMaturity.longValueExact())
-						.atZone(ZoneOffset.UTC)
-						.toLocalDate()
-						.toString()
+		ProductStateCheckpoint requestedInitialCheckpoint = renderProductCheckpoint(
+				renderer,
+				product,
+				"Requested / initial terms",
+				tradeRequestReceipt,
+				STATUS_REQUESTED,
+				initialNotional,
+				initialMaturity
 		);
+		ProductStateCheckpoint requestedAmendedCheckpoint = renderProductCheckpoint(
+				renderer,
+				product,
+				"Requested / amended terms",
+				amendmentReceipt,
+				STATUS_REQUESTED,
+				amendedNotional,
+				amendedMaturity
+		);
+		ProductStateCheckpoint inceptedCheckpoint = renderProductCheckpoint(
+				renderer,
+				product,
+				"Incepted / agreed terms",
+				inceptionReceipt,
+				STATUS_INCEPTED,
+				amendedNotional,
+				amendedMaturity
+		);
+		ProductStateCheckpoint activeCheckpoint = renderProductCheckpoint(
+				renderer,
+				product,
+				"Active / confirmed terms",
+				confirmationReceipt,
+				STATUS_ACTIVE,
+				amendedNotional,
+				amendedMaturity
+		);
+		List<ProductStateCheckpoint> productStateCheckpoints = List.of(
+				requestedInitialCheckpoint,
+				requestedAmendedCheckpoint,
+				inceptedCheckpoint,
+				activeCheckpoint
+		);
+
+		assertCheckpointOrder(productStateCheckpoints);
+		String renderedProductState = activeCheckpoint.renderedState();
 
 		String productDocumentationTemplateText = callString(productDocumentationTemplate.contractAddress(), "text");
 		String renderedProductDocumentation = renderProductDocumentation(renderedProductState, productDocumentationTemplateText);
@@ -518,7 +553,12 @@ public class Demo04EndToEndWorkflow {
 		System.out.println("Product definition id:    " + Numeric.toHexString(productDefinitionId));
 		System.out.println("Trade id:                 " + Numeric.toHexString(tradeId));
 		System.out.println("Product:                  " + product);
-		System.out.println("Rendered XML endpoint:    http://localhost:8080/xml?contract=" + product);
+		System.out.println("Latest XML endpoint:      " + rendererUrl(product, null));
+		System.out.println("Historical checkpoints:");
+		for (ProductStateCheckpoint checkpoint : productStateCheckpoints) {
+			System.out.println("- " + checkpoint.name() + " (block " + checkpoint.blockNumber() + "):");
+			System.out.println("  " + checkpoint.rendererUrl());
+		}
 	}
 
 	private static void printChainInstructions() {
@@ -791,6 +831,60 @@ public class Demo04EndToEndWorkflow {
 				List.of(new Utf8String(name), new Address(contractAddress))
 		);
 		return Hash.sha3(Numeric.hexStringToByteArray(encoded));
+	}
+
+	private static ProductStateCheckpoint renderProductCheckpoint(
+			EvmXmlRenderer renderer,
+			String product,
+			String name,
+			TransactionReceipt receipt,
+			BigInteger expectedStatus,
+			BigInteger expectedNotional,
+			BigInteger expectedMaturity
+	) throws Exception {
+		BigInteger blockNumber = receipt.getBlockNumber();
+		if (blockNumber == null) {
+			throw new IllegalStateException("Checkpoint transaction has no block number: " + name);
+		}
+
+		String renderedState = renderer.render(product, blockNumber);
+		assertNotContains(renderedState, "evmstate:call=");
+		assertNotContains(renderedState, "evmstate:args=");
+		assertContains(renderedState, "evmstate:block-number=\"" + blockNumber + "\"");
+		assertContains(renderedState, "<TradeStatus>" + expectedStatus + "</TradeStatus>");
+		assertContains(renderedState, new BigDecimal(expectedNotional, 2).toPlainString());
+		assertContains(renderedState, isoDate(expectedMaturity));
+
+		String rendererUrl = rendererUrl(product, blockNumber);
+		System.out.println("Rendered checkpoint:       " + name);
+		System.out.println("Checkpoint block:          " + blockNumber);
+		System.out.println("Checkpoint XML endpoint:   " + rendererUrl);
+		System.out.println("-".repeat(79));
+
+		return new ProductStateCheckpoint(name, blockNumber, renderedState, rendererUrl);
+	}
+
+	private static void assertCheckpointOrder(List<ProductStateCheckpoint> checkpoints) {
+		for (int index = 1; index < checkpoints.size(); index++) {
+			ProductStateCheckpoint previous = checkpoints.get(index - 1);
+			ProductStateCheckpoint current = checkpoints.get(index);
+			assertTrue(
+					previous.blockNumber().compareTo(current.blockNumber()) < 0,
+					"Checkpoint block for " + current.name() + " must be later than " + previous.name() + "."
+			);
+		}
+	}
+
+	private static String rendererUrl(String contractAddress, BigInteger blockNumber) {
+		String url = RENDERER_XML_URL + "?contract=" + contractAddress;
+		return blockNumber == null ? url : url + "&block=" + blockNumber;
+	}
+
+	private static String isoDate(BigInteger epochSeconds) {
+		return Instant.ofEpochSecond(epochSeconds.longValueExact())
+				.atZone(ZoneOffset.UTC)
+				.toLocalDate()
+				.toString();
 	}
 
 	private static String renderProductDocumentation(String renderedProductState, String productDocumentationTemplateText) throws Exception {
@@ -1079,6 +1173,13 @@ public class Demo04EndToEndWorkflow {
 			String contractAddress,
 			byte[] indicationId,
 			BigInteger partId
+	) {}
+
+	private record ProductStateCheckpoint(
+			String name,
+			BigInteger blockNumber,
+			String renderedState,
+			String rendererUrl
 	) {}
 
 	private record DeployedTrade(byte[] tradeId, String productAddress) {}
