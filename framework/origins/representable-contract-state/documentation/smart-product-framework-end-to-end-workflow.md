@@ -3,7 +3,8 @@
 [`DemoEndToEndWorkflow`](../representable-contract-state-web/src/main/java/net/finmath/smartcontracts/representablestate/demo/SmartProductFramework/DemoEndToEndWorkflow.java)
 runs the complete Simple Bond workflow on a local development chain. It deploys
 the framework, publishes the product resources and definition, creates a trade,
-and renders the product at each lifecycle checkpoint.
+and renders the registry, curve indication, and product at their state-change
+checkpoints.
 
 ## Before Running
 
@@ -58,52 +59,102 @@ The demo performs these steps:
    Simple Bond factory, then wires their references.
 3. Publishes and finalizes the XML product terms template and XSLT product
    documentation template as on-chain `TextResource` contracts.
-4. Publishes the Simple Bond product definition.
-5. Publishes a curve indication and assigns it to the product definition.
-6. Registers the client and verifies eligibility.
-7. Discovers the product type, factory, payload schema, and schema hash.
-8. Creates the trade request, which deploys the `SimpleBond` in `Requested`.
-9. Amends the requested notional and maturity.
-10. Incepts the agreed terms as product provider and confirms them as client.
-11. Verifies product provenance and renders every lifecycle checkpoint.
+4. Publishes the Simple Bond product definition and captures registry view
+   `R0`.
+5. Publishes the curve indication and captures curve view `C0`.
+6. Assigns the curve to the product definition and captures registry view
+   `R1`.
+7. Updates the EUR-2Y yield from 2.75 to 2.85 and captures curve view `C1`.
+8. Registers the client and verifies eligibility.
+9. Discovers the product type, factory, payload schema, and schema hash.
+10. Creates and amends the trade request, then incepts and confirms it.
+11. Verifies product provenance and captures product views `P0` through `P3`.
+12. Prints every renderer URL, grouped by contract.
 
-## Historical Product Views
+## Historical Contract Views
 
-Each lifecycle transaction receipt supplies the exact block used by the
-renderer. If the request, amendment, inception, and confirmation are mined in
-blocks `B0` through `B3`, the expected differences are:
+Every checkpoint uses the block from the transaction receipt that caused its
+state change. The labels below are relative to one demo run; actual block
+numbers can have gaps and are printed by the demo.
 
-| Checkpoint | Example block | Trade status | Notional | Maturity | Change |
-|---|---:|---|---:|---|---|
-| Initial request | 550 (`B0`) | `0` — Requested | `1000000.00` | Initial date (`now + 3 years`) | Product deployed |
-| Amended request | 551 (`B1`) | `0` — Requested | `1250000.00` | Amended date (`now + 4 years`) | Economic terms changed |
-| Inception | 552 (`B2`) | `1` — Incepted | `1250000.00` | Amended date | Status changed |
-| Confirmation | 553 (`B3`) | `2` — Active | `1250000.00` | Amended date | Status changed |
-
-Actual block numbers depend on the chain. The demo prints URLs of this form:
+Full-state and state-part views use different endpoints:
 
 ```text
 http://localhost:8080/xml?contract=<product-address>&block=<receipt-block>
+http://localhost:8080/xml/part?contract=<address>&partid=<part-id>&block=<receipt-block>
 ```
 
-Most XML fields remain unchanged because the product identity and deployment
-data are immutable. Inception also stores `agreedTermsHash`, but that value is
-currently not part of the product XML. The documentation template always lists
-all lifecycle notes and does not display the block number, so compare
-`TradeStatus`, `Amount`, and `UnadjustedDate` when inspecting snapshots.
+### Product-Definition Registry
 
-For a compact comparison, substitute the product address and receipt blocks
-printed by the demo:
+| Checkpoint | Block label | Status | Version | Visible change |
+|---|---|---|---:|---|
+| Definition published | `R0` | `1` — Active | 1 | Definition and resource includes appear |
+| Curve assigned | `R1` | `1` — Active | 2 | Version advances; `updatedAt` is refreshed |
+
+The registry XML currently does not include the assigned indication address,
+ID, or part ID. Consequently, `R1` proves that the definition changed, while
+the assignment identity remains available only through the registry read API.
+
+### Curve Indication
+
+| Checkpoint | Block label | Status | Active quotes | EUR-2Y yield | EUR-5Y yield |
+|---|---|---|---:|---:|---:|
+| Initial publication | `C0` | `1` — Active | 2 | 2.75 | 3.10 |
+| EUR-2Y update | `C1` | `1` — Active | 2 | 2.85 | 3.10 |
+
+All other rendered EUR-2Y fields remain unchanged. Rendering `C0` after the
+update has been mined demonstrates that the renderer is reading historical
+state rather than the latest quote.
+
+### Product Lifecycle
+
+| Checkpoint | Block label | Trade status | Notional | Maturity | Change |
+|---|---|---|---:|---|---|
+| Initial request | `P0` | `0` — Requested | `1000000.00` | Initial date (`now + 3 years`) | Product deployed |
+| Amended request | `P1` | `0` — Requested | `1250000.00` | Amended date (`now + 4 years`) | Economic terms changed |
+| Inception | `P2` | `1` — Incepted | `1250000.00` | Amended date | Status changed |
+| Confirmation | `P3` | `2` — Active | `1250000.00` | Amended date | Status changed |
+
+Most product XML fields remain unchanged because the product identity and
+deployment data are immutable. Inception also stores `agreedTermsHash`, but
+that value is currently not part of the product XML. Compare `TradeStatus`,
+`Amount`, and `UnadjustedDate` when inspecting the product snapshots.
+
+For a compact comparison, substitute the addresses, part IDs, and receipt
+blocks printed by the demo:
 
 ```bash
+REGISTRY_ADDRESS=0x...
+DEFINITION_PART_ID=...
+R0=...
+R1=...
+for block in "$R0" "$R1"; do
+  curl -s "http://localhost:8080/xml/part?contract=$REGISTRY_ADDRESS&partid=$DEFINITION_PART_ID&block=$block" |
+    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"'
+done
+
+CURVE_ADDRESS=0x...
+INDICATION_PART_ID=...
+C0=...
+C1=...
+for block in "$C0" "$C1"; do
+  curl -s "http://localhost:8080/xml/part?contract=$CURVE_ADDRESS&partid=$INDICATION_PART_ID&block=$block" |
+    grep -Eo 'evmstate:block-number="[0-9]+"|<Status>[^<]+|<ActiveQuoteCount>[^<]+|<Symbol>[^<]+|<Yield>[^<]+'
+done
+
 PRODUCT_ADDRESS=0x...
-for block in 550 551 552 553; do
-  echo "BLOCK $block"
+P0=...
+P1=...
+P2=...
+P3=...
+for block in "$P0" "$P1" "$P2" "$P3"; do
   curl -s "http://localhost:8080/xml?contract=$PRODUCT_ADDRESS&block=$block" |
     grep -Eo 'evmstate:block-number="[0-9]+"|<TradeStatus>[^<]+|<Amount>[^<]+|<UnadjustedDate>[^<]+'
 done
 ```
 
 Quote URLs containing `&` when using them directly in a shell. The demo also
-checks the expected status and economic values programmatically and fails if a
-checkpoint resolves against the wrong state.
+checks the expected block metadata and state values programmatically. The
+`TextResource`, client registry, and factory contracts do not currently expose
+renderer-compatible XML state; the finalized text resources remain available
+through their immutable `web3Url()` values.

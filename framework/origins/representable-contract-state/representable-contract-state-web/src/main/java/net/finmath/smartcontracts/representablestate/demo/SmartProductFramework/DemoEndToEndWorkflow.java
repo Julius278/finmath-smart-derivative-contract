@@ -58,12 +58,12 @@ import java.util.List;
  *
  * <ol>
  *     <li>wire and register the generic and product-specific factories,</li>
- *     <li>publish and assign a curve indication,</li>
+ *     <li>publish, assign, and update a curve indication,</li>
  *     <li>register and fund a client dev account,</li>
  *     <li>perform the frontend discovery steps and ABI-encode a payload,</li>
  *     <li>create and optionally amend a trade request as the client,</li>
  *     <li>incept as product provider and confirm as client, and</li>
- *     <li>verify provenance and render block-pinned product lifecycle states.</li>
+ *     <li>verify provenance and render block-pinned framework and product states.</li>
  * </ol>
  *
  * <p>The embedded private keys are public development keys. Never use them on
@@ -102,6 +102,8 @@ public class DemoEndToEndWorkflow {
 	private static final BigInteger STATUS_REQUESTED = BigInteger.ZERO;
 	private static final BigInteger STATUS_INCEPTED = BigInteger.ONE;
 	private static final BigInteger STATUS_ACTIVE = BigInteger.valueOf(2);
+	private static final BigInteger INITIAL_TWO_YEAR_YIELD_BPS = BigInteger.valueOf(275);
+	private static final BigInteger UPDATED_TWO_YEAR_YIELD_BPS = BigInteger.valueOf(285);
 
 	private static final String TRADE_REQUEST_CREATED_EVENT_SIGNATURE =
 			Hash.sha3String("TradeRequestCreated(bytes32,address,address,bytes32,bytes32,address)");
@@ -203,7 +205,7 @@ public class DemoEndToEndWorkflow {
 				PRODUCT_DOCUMENTATION_TEMPLATE_PATH
 		);
 
-		SmartContractDeployer.transact(
+		TransactionReceipt productDefinitionPublicationReceipt = SmartContractDeployer.transact(
 				registry,
 				function(
 						"publishProductDefinition",
@@ -242,7 +244,7 @@ public class DemoEndToEndWorkflow {
 		long now = Instant.now().getEpochSecond();
 		List<QuoteParams> quotes = createCurveQuotes(now);
 
-		SmartContractDeployer.transact(
+		TransactionReceipt curvePublicationReceipt = SmartContractDeployer.transact(
 				curveIndications,
 				function(
 						"publishCurveIndications",
@@ -275,17 +277,7 @@ public class DemoEndToEndWorkflow {
 		assertContains(indicationTemplate, "activeQuotesByPartId(uint256)");
 		assertContains(indicationTemplate, "evmstate:args=\"$partId\"");
 
-		EvmXmlRenderer renderer = new EvmXmlRenderer(RPC_URL);
-		String renderedIndication = renderer.renderPart(curveIndications, indicationPartId);
-		assertNotContains(renderedIndication, "evmstate:call=");
-		assertNotContains(renderedIndication, "evmstate:args=");
-		assertContains(renderedIndication, "<Status>1</Status>");
-		assertContains(renderedIndication, "<ActiveQuoteCount>2</ActiveQuoteCount>");
-		assertContains(renderedIndication, "<Symbol>EUR-2Y</Symbol>");
-		assertContains(renderedIndication, "<Coupon>2.50</Coupon>");
-		assertContains(renderedIndication, "<Yield>2.75</Yield>");
-
-		SmartContractDeployer.transact(
+		TransactionReceipt indicationAssignmentReceipt = SmartContractDeployer.transact(
 				registry,
 				function(
 						"assignProductIndication",
@@ -304,9 +296,35 @@ public class DemoEndToEndWorkflow {
 		System.out.println("Curve contract:           " + curveIndications);
 		System.out.println("Indication id:            " + Numeric.toHexString(indicationId));
 		System.out.println("Indication part id:       " + indicationPartId);
-		System.out.println("Curve part endpoint*:     http://localhost:8080/xml/part?contract="
-				+ curveIndications + "&partid=" + indicationPartId);
-		System.out.println("* The renderer supplies $partId to the curve callbacks and expands the quote array.");
+		System.out.println("-".repeat(79));
+
+		QuoteParams initialTwoYearQuote = quotes.getFirst();
+		QuoteParams updatedTwoYearQuote = new QuoteParams(
+				initialTwoYearQuote.symbol,
+				initialTwoYearQuote.durationInDays,
+				initialTwoYearQuote.settlementDate,
+				initialTwoYearQuote.maturityDate,
+				initialTwoYearQuote.dayCountConvention,
+				initialTwoYearQuote.couponRateBps,
+				initialTwoYearQuote.currency,
+				new Int256(UPDATED_TWO_YEAR_YIELD_BPS),
+				initialTwoYearQuote.issuePriceE8,
+				initialTwoYearQuote.redemptionValueE8,
+				initialTwoYearQuote.minNotionalE8,
+				initialTwoYearQuote.maxNotionalE8
+		);
+		TransactionReceipt curveUpdateReceipt = SmartContractDeployer.transact(
+				curveIndications,
+				function("updateCurveQuote", new Bytes32(indicationId), updatedTwoYearQuote)
+		);
+		assertEquals(BigInteger.valueOf(quotes.size()), callUint256(
+				curveIndications,
+				function("activeQuoteCount", new Bytes32(indicationId))
+		), "Curve quote update changed the active quote count.");
+
+		System.out.println("Updated the assigned EUR-2Y curve quote.");
+		System.out.println("Initial yield:            " + new BigDecimal(INITIAL_TWO_YEAR_YIELD_BPS, 2).toPlainString());
+		System.out.println("Updated yield:            " + new BigDecimal(UPDATED_TWO_YEAR_YIELD_BPS, 2).toPlainString());
 		System.out.println("-".repeat(79));
 
 		/*
@@ -477,7 +495,81 @@ public class DemoEndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Block-pinned lifecycle checkpoints and product-documentation rendering.
+		 * Block-pinned framework and product checkpoints.
+		 */
+		EvmXmlRenderer renderer = new EvmXmlRenderer(RPC_URL);
+		String productDefinitionIdHex = Numeric.toHexString(productDefinitionId);
+
+		StatePartCheckpoint definitionPublishedCheckpoint = renderStatePartCheckpoint(
+				renderer,
+				registry,
+				productDefinitionPartId,
+				"Definition published",
+				productDefinitionPublicationReceipt,
+				"<ProductDefinition",
+				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
+				"status=\"1\"",
+				"productDefinitionVersion=\"1\""
+		);
+		StatePartCheckpoint indicationAssignedCheckpoint = renderStatePartCheckpoint(
+				renderer,
+				registry,
+				productDefinitionPartId,
+				"Curve indication assigned",
+				indicationAssignmentReceipt,
+				"<ProductDefinition",
+				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
+				"status=\"1\"",
+				"productDefinitionVersion=\"2\""
+		);
+		List<StatePartCheckpoint> productDefinitionCheckpoints = List.of(
+				definitionPublishedCheckpoint,
+				indicationAssignedCheckpoint
+		);
+
+		StatePartCheckpoint curvePublishedCheckpoint = renderStatePartCheckpoint(
+				renderer,
+				curveIndications,
+				indicationPartId,
+				"Curve published",
+				curvePublicationReceipt,
+				"<CurveIndications",
+				"<Status>1</Status>",
+				"<ActiveQuoteCount>2</ActiveQuoteCount>",
+				"<Symbol>EUR-2Y</Symbol>",
+				"<Coupon>2.50</Coupon>",
+				"<Yield>2.75</Yield>",
+				"<Symbol>EUR-5Y</Symbol>",
+				"<Yield>3.10</Yield>"
+		);
+		StatePartCheckpoint curveUpdatedCheckpoint = renderStatePartCheckpoint(
+				renderer,
+				curveIndications,
+				indicationPartId,
+				"EUR-2Y yield updated",
+				curveUpdateReceipt,
+				"<CurveIndications",
+				"<Status>1</Status>",
+				"<ActiveQuoteCount>2</ActiveQuoteCount>",
+				"<Symbol>EUR-2Y</Symbol>",
+				"<Coupon>2.50</Coupon>",
+				"<Yield>2.85</Yield>",
+				"<Symbol>EUR-5Y</Symbol>",
+				"<Yield>3.10</Yield>"
+		);
+		assertNotContains(curvePublishedCheckpoint.renderedState(), "evmstate:call=");
+		assertNotContains(curvePublishedCheckpoint.renderedState(), "evmstate:args=");
+		assertNotContains(curveUpdatedCheckpoint.renderedState(), "evmstate:call=");
+		assertNotContains(curveUpdatedCheckpoint.renderedState(), "evmstate:args=");
+		assertNotContains(curvePublishedCheckpoint.renderedState(), "<Yield>2.85</Yield>");
+		assertNotContains(curveUpdatedCheckpoint.renderedState(), "<Yield>2.75</Yield>");
+		List<StatePartCheckpoint> curveStateCheckpoints = List.of(
+				curvePublishedCheckpoint,
+				curveUpdatedCheckpoint
+		);
+
+		/*
+		 * Block-pinned product lifecycle and product-documentation rendering.
 		 */
 		String productStateTemplate = callString(product, "stateXmlTemplate");
 		assertContains(productStateTemplate, "<SimpleBond");
@@ -528,7 +620,9 @@ public class DemoEndToEndWorkflow {
 				activeCheckpoint
 		);
 
-		assertCheckpointOrder(productStateCheckpoints);
+		assertCheckpointOrder("Product-definition registry", productDefinitionCheckpoints);
+		assertCheckpointOrder("Curve indication", curveStateCheckpoints);
+		assertCheckpointOrder("Product lifecycle", productStateCheckpoints);
 		String renderedProductState = activeCheckpoint.renderedState();
 
 		String productDocumentationTemplateText = callString(productDocumentationTemplate.contractAddress(), "text");
@@ -553,12 +647,11 @@ public class DemoEndToEndWorkflow {
 		System.out.println("Product definition id:    " + Numeric.toHexString(productDefinitionId));
 		System.out.println("Trade id:                 " + Numeric.toHexString(tradeId));
 		System.out.println("Product:                  " + product);
-		System.out.println("Latest XML endpoint:      " + rendererUrl(product, null));
-		System.out.println("Historical checkpoints:");
-		for (ProductStateCheckpoint checkpoint : productStateCheckpoints) {
-			System.out.println("- " + checkpoint.name() + " (block " + checkpoint.blockNumber() + "):");
-			System.out.println("  " + checkpoint.rendererUrl());
-		}
+		System.out.println("Latest product XML:       " + rendererUrl(product, null));
+		System.out.println("Renderer checkpoints grouped by contract:");
+		printCheckpointGroup("Product-definition registry", registry, productDefinitionCheckpoints);
+		printCheckpointGroup("Curve indication", curveIndications, curveStateCheckpoints);
+		printCheckpointGroup("Product lifecycle", product, productStateCheckpoints);
 	}
 
 	private static void printChainInstructions() {
@@ -580,7 +673,7 @@ public class DemoEndToEndWorkflow {
 						new Utf8String("ACT/ACT"),
 						new Uint256(BigInteger.valueOf(250)),
 						new Utf8String("EUR"),
-						new Int256(BigInteger.valueOf(275)),
+						new Int256(INITIAL_TWO_YEAR_YIELD_BPS),
 						new Uint256(BigInteger.valueOf(99_500_000L)),
 						new Uint256(BigInteger.valueOf(100_000_000L)),
 						new Uint256(BigInteger.valueOf(100_000_000_000L)),
@@ -833,6 +926,31 @@ public class DemoEndToEndWorkflow {
 		return Hash.sha3(Numeric.hexStringToByteArray(encoded));
 	}
 
+	private static StatePartCheckpoint renderStatePartCheckpoint(
+			EvmXmlRenderer renderer,
+			String contractAddress,
+			BigInteger partId,
+			String name,
+			TransactionReceipt receipt,
+			String... expectedSubstrings
+	) throws Exception {
+		BigInteger blockNumber = checkpointBlock(receipt, name);
+		String renderedState = renderer.renderPart(contractAddress, blockNumber, partId);
+
+		assertContains(renderedState, "evmstate:block-number=\"" + blockNumber + "\"");
+		for (String expectedSubstring : expectedSubstrings) {
+			assertContains(renderedState, expectedSubstring);
+		}
+
+		String rendererUrl = rendererPartUrl(contractAddress, partId, blockNumber);
+		System.out.println("Rendered state part:       " + name);
+		System.out.println("Checkpoint block:          " + blockNumber);
+		System.out.println("Checkpoint XML endpoint:   " + rendererUrl);
+		System.out.println("-".repeat(79));
+
+		return new StatePartCheckpoint(name, blockNumber, renderedState, rendererUrl);
+	}
+
 	private static ProductStateCheckpoint renderProductCheckpoint(
 			EvmXmlRenderer renderer,
 			String product,
@@ -842,10 +960,7 @@ public class DemoEndToEndWorkflow {
 			BigInteger expectedNotional,
 			BigInteger expectedMaturity
 	) throws Exception {
-		BigInteger blockNumber = receipt.getBlockNumber();
-		if (blockNumber == null) {
-			throw new IllegalStateException("Checkpoint transaction has no block number: " + name);
-		}
+		BigInteger blockNumber = checkpointBlock(receipt, name);
 
 		String renderedState = renderer.render(product, blockNumber);
 		assertNotContains(renderedState, "evmstate:call=");
@@ -864,20 +979,47 @@ public class DemoEndToEndWorkflow {
 		return new ProductStateCheckpoint(name, blockNumber, renderedState, rendererUrl);
 	}
 
-	private static void assertCheckpointOrder(List<ProductStateCheckpoint> checkpoints) {
+	private static BigInteger checkpointBlock(TransactionReceipt receipt, String checkpointName) {
+		BigInteger blockNumber = receipt.getBlockNumber();
+		if (blockNumber == null) {
+			throw new IllegalStateException("Checkpoint transaction has no block number: " + checkpointName);
+		}
+		return blockNumber;
+	}
+
+	private static void assertCheckpointOrder(String groupName, List<? extends StateCheckpoint> checkpoints) {
 		for (int index = 1; index < checkpoints.size(); index++) {
-			ProductStateCheckpoint previous = checkpoints.get(index - 1);
-			ProductStateCheckpoint current = checkpoints.get(index);
+			StateCheckpoint previous = checkpoints.get(index - 1);
+			StateCheckpoint current = checkpoints.get(index);
 			assertTrue(
 					previous.blockNumber().compareTo(current.blockNumber()) < 0,
-					"Checkpoint block for " + current.name() + " must be later than " + previous.name() + "."
+					"Checkpoint block for " + current.name() + " in " + groupName
+							+ " must be later than " + previous.name() + "."
 			);
+		}
+	}
+
+	private static void printCheckpointGroup(
+			String groupName,
+			String contractAddress,
+			List<? extends StateCheckpoint> checkpoints
+	) {
+		System.out.println(groupName + " (" + contractAddress + "):");
+		for (StateCheckpoint checkpoint : checkpoints) {
+			System.out.println("- " + checkpoint.name() + " (block " + checkpoint.blockNumber() + "):");
+			System.out.println("  " + checkpoint.rendererUrl());
 		}
 	}
 
 	private static String rendererUrl(String contractAddress, BigInteger blockNumber) {
 		String url = RENDERER_XML_URL + "?contract=" + contractAddress;
 		return blockNumber == null ? url : url + "&block=" + blockNumber;
+	}
+
+	private static String rendererPartUrl(String contractAddress, BigInteger partId, BigInteger blockNumber) {
+		return RENDERER_XML_URL + "/part?contract=" + contractAddress
+				+ "&partid=" + partId
+				+ "&block=" + blockNumber;
 	}
 
 	private static String isoDate(BigInteger epochSeconds) {
@@ -1175,12 +1317,28 @@ public class DemoEndToEndWorkflow {
 			BigInteger partId
 	) {}
 
+	private interface StateCheckpoint {
+
+		String name();
+
+		BigInteger blockNumber();
+
+		String rendererUrl();
+	}
+
+	private record StatePartCheckpoint(
+			String name,
+			BigInteger blockNumber,
+			String renderedState,
+			String rendererUrl
+	) implements StateCheckpoint {}
+
 	private record ProductStateCheckpoint(
 			String name,
 			BigInteger blockNumber,
 			String renderedState,
 			String rendererUrl
-	) {}
+	) implements StateCheckpoint {}
 
 	private record DeployedTrade(byte[] tradeId, String productAddress) {}
 }
