@@ -106,6 +106,7 @@ public class Demo03ProductDefinitionRegistry {
         assertContains(statePartXmlTemplate, "<ProductResources><ProductTermsTemplate><xi:include");
         assertContains(statePartXmlTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate><xi:include");
         assertContains(statePartXmlTemplate, "</ProductDocumentationTemplate></ProductResources>");
+        assertContains(statePartXmlTemplate, "<ProductIndicationAssignment assigned=\"false\"/>");
         assertContains(statePartXmlTemplate, "xi:include");
         assertContains(statePartXmlTemplate, "parse=\"text\"");
         assertContains(statePartXmlTemplate, productTermsTemplate.web3Url());
@@ -123,6 +124,7 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println("- The registry returns a ProductDefinition XML wrapper.");
         System.out.println("- ProductResources labels the ProductTermsTemplate and ProductDocumentationTemplate slots.");
         System.out.println("- Each resource slot contains its corresponding xi:include.");
+        System.out.println("- ProductIndicationAssignment is explicitly unassigned until an indication is attached.");
         System.out.println("- Because the includes use parse=\"text\", product-specific evmstate:call bindings are not resolved here.");
         System.out.println("- Those bindings resolve later against the deployed SimpleBond product.");
         System.out.println();

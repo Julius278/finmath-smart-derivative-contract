@@ -257,6 +257,10 @@ across the registry, factories, indications, and text-resource classification, e
 - Product definitions expose both templates inside those child elements as
   **inert text** (`parse="text"`);
   bindings remain unresolved.
+- Product-definition views always include a `ProductIndicationAssignment`:
+  initially `assigned="false"`, then `assigned="true"` with the indication
+  contract address, indication ID, and state-part ID. Live indication content
+  remains in the separately rendered indication contract.
 - Products include both templates inside those child elements as **XML**
   (`parse="xml"`). Bindings in the
   product terms template resolve against the live product getters; the product

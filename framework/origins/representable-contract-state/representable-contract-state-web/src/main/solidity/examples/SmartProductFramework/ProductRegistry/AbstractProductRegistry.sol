@@ -392,6 +392,8 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
      *      documentation template under role-labelled resource wrappers. It does
      *      not resolve the `evmstate:call` bindings itself (those are served by the
      *      deployed product implementing the declared product type interface).
+     *      The product indication assignment is represented as a reference to
+     *      the separately rendered indication contract and state part.
      */
     function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definition) internal view returns (string memory) {
         return string.concat(
@@ -411,7 +413,23 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
                     _include(definition.resources.productDocumentationTemplate),
                 "</ProductDocumentationTemplate>",
             "</ProductResources>",
+            _productIndicationAssignmentXml(productDefinitionId),
             "</ProductDefinition>"
+        );
+    }
+
+    function _productIndicationAssignmentXml(bytes32 productDefinitionId) internal view returns (string memory) {
+        ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
+        if (assignment.productIndication == address(0)) {
+            return "<ProductIndicationAssignment assigned=\"false\"/>";
+        }
+
+        return string.concat(
+            "<ProductIndicationAssignment assigned=\"true\"",
+            " contractAddress=\"", Strings.toHexString(assignment.productIndication), "\"",
+            " indicationId=\"", _bytes32ToHexString(assignment.indicationId), "\"",
+            " partId=\"", assignment.partId.toString(), "\"",
+            "/>"
         );
     }
 

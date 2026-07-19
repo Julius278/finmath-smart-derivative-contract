@@ -510,6 +510,7 @@ public class DemoEndToEndWorkflow {
 				"<ProductResources>",
 				"<ProductTermsTemplate>",
 				"<ProductDocumentationTemplate>",
+				"<ProductIndicationAssignment assigned=\"false\"/>",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
 				"productDefinitionVersion=\"1\""
@@ -524,10 +525,16 @@ public class DemoEndToEndWorkflow {
 				"<ProductResources>",
 				"<ProductTermsTemplate>",
 				"<ProductDocumentationTemplate>",
+				"<ProductIndicationAssignment assigned=\"true\"",
+				"contractAddress=\"" + curveIndications + "\"",
+				"indicationId=\"" + Numeric.toHexString(indicationId) + "\"",
+				"partId=\"" + indicationPartId + "\"",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
 				"productDefinitionVersion=\"2\""
 		);
+		assertNotContains(definitionPublishedCheckpoint.renderedState(), "assigned=\"true\"");
+		assertNotContains(indicationAssignedCheckpoint.renderedState(), "assigned=\"false\"");
 		List<StatePartCheckpoint> productDefinitionCheckpoints = List.of(
 				definitionPublishedCheckpoint,
 				indicationAssignedCheckpoint

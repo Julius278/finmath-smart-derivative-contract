@@ -92,6 +92,7 @@ note over PProvider, Client
 The registry's statePartXmlTemplate(partId) returns ProductDefinition
 with ProductResources. ProductTermsTemplate and
 ProductDocumentationTemplate each contain a parse="text" XInclude.
+ProductIndicationAssignment is present with assigned="false".
 This remains a source preview:
 evmstate bindings are returned as text and are not evaluated
 against the registry.
@@ -124,6 +125,11 @@ Registry stores per productDefinitionId:
 - productTermsTemplate + productDocumentationTemplate
 - productTypeId
 - (productIndication, indicationId, partId)
+
+The ProductDefinition XML now contains
+ProductIndicationAssignment with assigned="true"
+and the stored contract address, indication ID, and part ID.
+Live curve state remains a separate CurveRegistry view.
 
 Assignment accepts Active or Suspended indications.
 Current trade creation does not re-check indication liveness.

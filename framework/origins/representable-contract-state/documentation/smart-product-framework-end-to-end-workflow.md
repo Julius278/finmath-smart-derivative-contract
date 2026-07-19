@@ -88,17 +88,19 @@ http://localhost:8080/xml/part?contract=<address>&partid=<part-id>&block=<receip
 
 | Checkpoint | Block label | Status | Version | Visible change |
 |---|---|---|---:|---|
-| Definition published | `R0` | `1` — Active | 1 | `ProductResources`, role wrappers, and resource includes appear |
-| Curve assigned | `R1` | `1` — Active | 2 | Version advances; `updatedAt` is refreshed |
+| Definition published | `R0` | `1` — Active | 1 | Resources appear; `ProductIndicationAssignment` has `assigned="false"` |
+| Curve assigned | `R1` | `1` — Active | 2 | Assignment changes to `assigned="true"` and exposes its contract, indication ID, and part ID |
 
 The `<ProductDefinition>` view groups both inert source previews under
 `<ProductResources>`. Its `<ProductTermsTemplate>` and
 `<ProductDocumentationTemplate>` children identify the role of each included
 resource explicitly.
 
-The registry XML currently does not include the assigned indication address,
-ID, or part ID. Consequently, `R1` proves that the definition changed, while
-the assignment identity remains available only through the registry read API.
+`<ProductIndicationAssignment>` represents the registry's own reference state.
+It is explicitly unassigned at `R0`; at `R1` it contains `contractAddress`,
+`indicationId`, and `partId`. The live indication state remains a separate
+partial view on the indication contract and is rendered at the same block when
+needed.
 
 ### Curve Indication
 
@@ -139,7 +141,7 @@ R0=...
 R1=...
 for block in "$R0" "$R1"; do
   curl -s "http://localhost:8080/xml/part?contract=$REGISTRY_ADDRESS&partid=$DEFINITION_PART_ID&block=$block" |
-    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"|<ProductResources>|<ProductTermsTemplate>|<ProductDocumentationTemplate>'
+    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"|<ProductResources>|<ProductTermsTemplate>|<ProductDocumentationTemplate>|<ProductIndicationAssignment[^>]*/>'
 done
 
 CURVE_ADDRESS=0x...
