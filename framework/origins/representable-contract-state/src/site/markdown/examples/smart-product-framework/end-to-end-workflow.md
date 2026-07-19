@@ -1,10 +1,18 @@
+<script src="../../js/copy-code.js" defer="defer"></script>
+
 # Smart Product Framework: End-to-End Workflow
 
-[`DemoEndToEndWorkflow`](../representable-contract-state-web/src/main/java/net/finmath/smartcontracts/representablestate/demo/SmartProductFramework/DemoEndToEndWorkflow.java)
+[`DemoEndToEndWorkflow`](https://gitlab.com/finmath/representable-contract-state/-/blob/main/representable-contract-state-web/src/main/java/net/finmath/smartcontracts/representablestate/demo/SmartProductFramework/DemoEndToEndWorkflow.java)
 runs the complete Simple Bond workflow on a local development chain. It deploys
 the framework, publishes the product resources and definition, creates a trade,
 and renders the registry, curve indication, and product at their state-change
 checkpoints.
+
+## Sequence Overview
+
+<a href="../../images/smart-product-framework.svg">
+    <img alt="Smart Product Framework end-to-end sequence" src="../../images/smart-product-framework.svg" style="display:block;width:90%;height:auto;margin-left:5%;margin-right:5%;"/>
+</a>
 
 ## Before Running
 
@@ -131,41 +139,11 @@ Every snapshot retains the `<SimpleBond>` root with sibling `<DeploymentState>`
 and `<ProductResources>` sections. The latter contains the named product terms
 and product documentation template slots.
 
-For a compact comparison, substitute the addresses, part IDs, and receipt
-blocks printed by the demo:
-
-```bash
-REGISTRY_ADDRESS=0x...
-DEFINITION_PART_ID=...
-R0=...
-R1=...
-for block in "$R0" "$R1"; do
-  curl -s "http://localhost:8080/xml/part?contract=$REGISTRY_ADDRESS&partid=$DEFINITION_PART_ID&block=$block" |
-    grep -Eo 'evmstate:block-number="[0-9]+"|status="[0-9]+"|productDefinitionVersion="[0-9]+"|<ProductResources>|<ProductTermsTemplate>|<ProductDocumentationTemplate>|<ProductIndicationAssignment[^>]*/>'
-done
-
-CURVE_ADDRESS=0x...
-INDICATION_PART_ID=...
-C0=...
-C1=...
-for block in "$C0" "$C1"; do
-  curl -s "http://localhost:8080/xml/part?contract=$CURVE_ADDRESS&partid=$INDICATION_PART_ID&block=$block" |
-    grep -Eo 'evmstate:block-number="[0-9]+"|<Status>[^<]+|<ActiveQuoteCount>[^<]+|<Symbol>[^<]+|<Yield>[^<]+'
-done
-
-PRODUCT_ADDRESS=0x...
-P0=...
-P1=...
-P2=...
-P3=...
-for block in "$P0" "$P1" "$P2" "$P3"; do
-  curl -s "http://localhost:8080/xml?contract=$PRODUCT_ADDRESS&block=$block" |
-    grep -Eo 'evmstate:block-number="[0-9]+"|<TradeStatus>[^<]+|<Amount>[^<]+|<UnadjustedDate>[^<]+'
-done
-```
-
-Quote URLs containing `&` when using them directly in a shell. The demo also
-checks the expected block metadata and state values programmatically. The
+At the end of the demo, the console prints the renderer URL for every
+checkpoint, already populated with the corresponding contract address, state
+part ID where required, and receipt block. Open these URLs to compare the
+historical snapshots directly. The demo also checks the expected block
+metadata and state values programmatically. The
 `TextResource`, client registry, and factory contracts do not currently expose
 renderer-compatible XML state; the finalized text resources remain available
 through their immutable `web3Url()` values.

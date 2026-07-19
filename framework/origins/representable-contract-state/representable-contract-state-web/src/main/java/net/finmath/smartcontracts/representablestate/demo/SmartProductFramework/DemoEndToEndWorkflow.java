@@ -51,7 +51,7 @@ import java.util.List;
 
 /**
  * End-to-end demo for the Smart Product Framework sequence documented in
- * {@code documentation/smart-product-framework.puml}.
+ * {@code src/site/resources/diagrams/smart-product-framework.puml}.
  *
  * <p>The demo is deliberately standalone. It repeats the setup and product
  * definition publication from Demo 03, then covers the remaining workflow:</p>

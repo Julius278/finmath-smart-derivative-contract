@@ -52,29 +52,10 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 
 ## Architecture Overview
 
-```plantuml
-@startuml
-skinparam componentStyle rectangle
-top to bottom direction
+<a href="../../images/smart-product-framework-architecture.svg">
+    <img alt="Smart Product Framework architecture overview" src="../../images/smart-product-framework-architecture.svg" style="display:block;width:90%;height:auto;margin-left:5%;margin-right:5%;"/>
+</a>
 
-rectangle "ClientRegistry\nidentity + eligibility" as IR
-rectangle "BondProductRegistry concrete\n------\nAbstractProductRegistry" as REG
-rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
-rectangle "CurveIndications\nper product definition" as CI
-rectangle "ProductFactoryRegistry\ngeneric router" as GF
-rectangle "SimpleBondFactory\nproduct-specific" as SF
-rectangle "SimpleBond\ndeployed product\nself-rendering + lifecycle" as P
-
-REG --> IR : isEligibleClient
-REG --> TR : references / anchors
-REG --> CI : assign / read indication
-CI  --> TR : anchors
-REG --> GF : deployProduct
-GF  --> SF : routes by productTypeId
-SF  --> P  : new
-P   --> TR : includes templates
-@enduml
-```
 ---
 
 ## Modules
@@ -202,7 +183,7 @@ generic trade lifecycle.
 
 For a runnable walkthrough, including historical XML views of the product
 lifecycle, see
-[End-to-End Workflow Demo](smart-product-framework-end-to-end-workflow.md).
+[End-to-End Workflow Demo](end-to-end-workflow.html).
 
 1. Publish resources — deploy and finalize `TextResource(productTermsTemplate)` and `TextResource(productDocumentationTemplate)`.
 2. Publish product definition — `registry.publishProductDefinition(name, {productTermsTemplate, productDocumentationTemplate, productTypeId})`.

@@ -1,0 +1,24 @@
+@startuml
+' Published as ../images/smart-product-framework-architecture.svg.
+title Smart Product Framework - Architecture Overview
+
+skinparam componentStyle rectangle
+top to bottom direction
+
+rectangle "ClientRegistry\nidentity + eligibility" as IR
+rectangle "BondProductRegistry concrete\n------\nAbstractProductRegistry" as REG
+rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
+rectangle "CurveIndications\nper product definition" as CI
+rectangle "ProductFactoryRegistry\ngeneric router" as GF
+rectangle "SimpleBondFactory\nproduct-specific" as SF
+rectangle "SimpleBond\ndeployed product\nself-rendering + lifecycle" as P
+
+REG --> IR : isEligibleClient
+REG --> TR : references / anchors
+REG --> CI : assign / read indication
+CI  --> TR : anchors
+REG --> GF : deployProduct
+GF  --> SF : routes by productTypeId
+SF  --> P  : new
+P   --> TR : includes templates
+@enduml

@@ -1,4 +1,5 @@
 @startuml
+' Published as ../images/smart-product-framework.svg.
 title Smart Product Framework - End-to-End Sequence Flow
 
 actor "Product Provider" as PProvider
