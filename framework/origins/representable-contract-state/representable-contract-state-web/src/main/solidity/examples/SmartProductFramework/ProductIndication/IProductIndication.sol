@@ -10,13 +10,13 @@ import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
  *         indications for a product (e.g. curve indications for bonds)
  *         Each concrete registry serves exactly one indication category.
  *
- * @dev PURPOSE / LAYERING
- *      A product-data layer references an indication by the pair
+ * @dev PURPOSE / REGISTRY INTEGRATION
+ *      A product registry references an indication by the pair
  *      (indicationContract, indicationId). It never calls type-specific
  *      publish functions; it only relies on this generic surface to:
  *        - validate the contract is an IProductIndication (via ERC-165),
  *        - read its indicationCategory() to decide compatibility with a
- *          product definition's productTypeId (via a consuming-layer business hook),
+ *          product definition's productTypeId (via a registry business hook),
  *        - validate a specific indicationId exists / is presentable,
  *        - manage its lifecycle status (setIndicationStatus),
  *        - derive the partId and render via statePartXmlTemplate(partId).
@@ -30,7 +30,7 @@ import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
  *      keccak256("CURVE")), NOT a productTypeId. One category may serve many
  *      product types (e.g. a curve indication used by fixed-rate bonds AND
  *      commercial paper). The mapping category -> accepted productTypeIds is
- *      business logic evaluated in the consuming layer, not stored here.
+ *      business logic evaluated in the product registry, not stored here.
  *
  * @dev ID / PART ID SCHEME
  *      indicationId : opaque bytes32 key. Derivation is implementation-defined
@@ -98,7 +98,7 @@ interface IProductIndication is IERC165, IXMLRepresentableStatePart {
 
     /**
      * @notice Returns the coarse category of indications this registry serves
-     *         (e.g. keccak256("CURVE")). Used by the consuming layer to decide
+     *         (e.g. keccak256("CURVE")). Used by the product registry to decide
      *         compatibility with a product definition's productTypeId.
      */
     function indicationCategory() external view returns (bytes32);

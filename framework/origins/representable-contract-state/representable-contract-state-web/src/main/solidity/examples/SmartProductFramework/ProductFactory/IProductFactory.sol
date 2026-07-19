@@ -11,7 +11,7 @@ import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
  *         request to it.
  *
  * @dev ARCHITECTURE
- *      This is the factory the product trade-request registry (layer 3) talks to.
+ *      This is the factory called by the product registry.
  *      It maintains a mapping productTypeId -> product-specific factory and
  *      delegates the actual construction. The product-specific payload is
  *      opaque to it and passed through untouched.

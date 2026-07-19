@@ -13,7 +13,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @notice Product-agnostic deployment context assembled by the registry.
- * @param productRegistry           The calling product trade-request registry.
+ * @param productRegistry           The calling product registry.
  * @param tradeId                   Unique trade identifier.
  * @param productProvider           The product provider, usually the registry
  *                                  owner at deployment time.

@@ -7,7 +7,7 @@ participant "Frontend / dApp" as Frontend
 participant "TextResource\n(product terms template)\n----\nITextResource" as ProductTermsTemplate
 participant "TextResource\n(product documentation template)\n----\nITextResource" as ProductDocumentationTemplate
 participant "ClientRegistry\n\n----\nIClientRegistry" as ClientRegistry
-participant "BondProductRegistry\n----\nAbstractProductTradeRequestRegistry\nAbstractProductIndicationRegistry\nAbstractProductDefinitionRegistry\n----\nIProductDefinitionRegistry" as Registry
+participant "BondProductRegistry\n----\nAbstractProductRegistry\n----\nIProductDefinitionRegistry" as Registry
 participant "CurveIndications" as CurveRegistry
 participant "ProductFactoryRegistry\n(generic)" as GenericFactory
 participant "SimpleBondFactory\n(product-specific)" as ProductSpecificFactory

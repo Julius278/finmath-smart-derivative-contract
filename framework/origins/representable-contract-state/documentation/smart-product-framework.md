@@ -19,7 +19,7 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 - [Modules](#modules)
     - [1. Text Resources](#1-text-resources)
     - [2. Client Registry](#2-client-registry)
-    - [3. Product Registry (3 layers)](#3-product-registry-3-layers)
+    - [3. Product Registry](#3-product-registry)
     - [4. Product Indications](#4-product-indications)
     - [5. Product Factories](#5-product-factories)
     - [6. Products](#6-products)
@@ -42,9 +42,9 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
   which many products are deployed.
 - **Integrity by construction.** Content is anchored by `keccak256`, verified
   on-chain at finalization, and reproducible off-chain.
-- **Layered abstraction.** Each concern is an `abstract` base with a single,
-  deployable concrete specialization. `abstract` is used only where a genuine
-  extension hook exists.
+- **Cohesive registry abstraction.** `AbstractProductRegistry` contains the
+  complete product-agnostic registry workflow; concrete registries supply only
+  product-family resource and indication acceptance rules.
 - **Consistent ownership.** All long-lived, owner-managed contracts use
   OpenZeppelin `Ownable2Step`.
 
@@ -58,7 +58,7 @@ skinparam componentStyle rectangle
 top to bottom direction
 
 rectangle "ClientRegistry\nidentity + eligibility" as IR
-rectangle "BondProductRegistry concrete\n------\nAbstractProductTradeRequestRegistry\nAbstractProductIndicationRegistry\nAbstractProductDefinitionRegistry" as REG
+rectangle "BondProductRegistry concrete\n------\nAbstractProductRegistry" as REG
 rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
 rectangle "CurveIndications\nper product definition" as CI
 rectangle "ProductFactoryRegistry\ngeneric router" as GF
@@ -115,18 +115,18 @@ Source of truth for client identity, lifecycle, and eligibility.
 - **Eligible** = `Active` + derived per-product-definition rules (Option B / derived model;
   `productDefinitionId` reserved for future per-product-definition criteria).
 
-### 3. Product Registry (3 layers)
+### 3. Product Registry
 
 A *product definition* anchors a reusable product terms template and product
-documentation template and manages their lifecycle. It is built as three
-abstract layers plus one concrete bond specialization.
+documentation template and manages their lifecycle. One product-agnostic
+abstract registry coordinates definitions, indications, client eligibility,
+trade requests, and product deployment; the concrete registry supplies only
+product-family acceptance rules.
 
-| Layer | Contract | Adds                                                                                    |
-|---|---|-----------------------------------------------------------------------------------------|
-| 1 | `AbstractProductDefinitionRegistry` | Product definition publication, lifecycle, ERC-8100 XML rendering, resource validation. |
-| 2 | `AbstractProductIndicationRegistry` | Product-indication assignment and lookup per product definition.                        |
-| 3 | `AbstractProductTradeRequestRegistry` | Eligibility-gated trade-request creation, product deployment, and trade-to-product lookup. |
-| — | `BondProductRegistry` | Concrete: bond resource/indication acceptance rules.                                    |
+| Contract | Role |
+|---|---|
+| `AbstractProductRegistry` | Product-definition publication, lifecycle, ERC-8100 rendering, resource validation, indication assignment, eligibility-gated trade requests, deployment, and trade-to-product lookup. |
+| `BondProductRegistry` | Concrete bond resource and indication acceptance rules. |
 
 - `productDefinitionId = keccak256(abi.encode(name, address(this)))` (name is the
   unique key; no duplicates, no renaming).
@@ -146,7 +146,7 @@ Registries publishing price indications (e.g. yield curves) referenced by produc
 | `CurveIndications` | Concrete: curve of quotes (`Ownable2Step`). |
 
 - `indicationCategory()` (e.g. `keccak256("CURVE")`) is a coarse tag; the
-  product definition layer maps category → accepted product types (**many-to-many**) via
+  product registry maps category → accepted product types (**many-to-many**) via
   `_isAcceptedIndication`.
 - One indication per product definition (replaceable, shareable across product definitions).
 - Curve quotes have their own sub-lifecycle (`Active`/`Withdrawn`);

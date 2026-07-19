@@ -25,7 +25,7 @@ import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
  *      schema/type from the authoritative factory.
  *
  * @dev STATE RENDERING
- *      The product definition registry anchors the product terms template and
+ *      The product registry anchors the product terms template and
  *      product documentation template as inert text; the deployed product is
  *      the concrete instance that RESOLVES the product terms template's
  *      evmstate:call bindings against its own getters (e.g. notional()). The

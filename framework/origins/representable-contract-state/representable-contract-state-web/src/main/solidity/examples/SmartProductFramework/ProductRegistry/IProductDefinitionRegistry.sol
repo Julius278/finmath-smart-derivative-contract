@@ -3,18 +3,16 @@ pragma solidity ^0.8.24;
 
 /**
  * @title IProductDefinitionRegistry.sol
- * @notice Base layer for publishing financial product definitions and managing
+ * @notice Interface for publishing financial product definitions and managing
  *         their lifecycle. A product definition is a reusable, published
  *         product specification consisting of a product terms template,
  *         product documentation template and product type,
  *         under which concrete product contracts can later be deployed.
  *
- * @dev LAYERING
- *      This is the base publication layer. Higher layers build on top:
- *        1. lifecycle completion (abstract base contract),
- *        2. product indication assignment
- *           (e.g. curve indications for bonds),
- *        3. trade requests, client eligibility, and product deployment.
+ * @dev INTERFACE SCOPE
+ *      This interface defines product-definition publication and lifecycle.
+ *      The framework's product registry also coordinates indications, client
+ *      eligibility, trade requests, and product deployment.
  *
  * @dev PRODUCT DEFINITION ID SCHEME (canonical)
  *      productDefinitionId == keccak256(abi.encode(name, address(registry)))
