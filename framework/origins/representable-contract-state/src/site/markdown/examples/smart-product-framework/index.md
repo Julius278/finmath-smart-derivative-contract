@@ -1,7 +1,7 @@
 # On-Chain Tokenized Product Framework
 
 A modular Solidity framework for issuing, referencing, and trading tokenized
-financial products (e.g. bonds) with **self-rendering products backed by
+financial products (e.g. bonds and swaps) with **self-rendering products backed by
 on-chain product terms templates**.
 
 Product terms templates (XML) and product documentation templates (XSLT) are
@@ -24,6 +24,7 @@ state into a renderable document via an ERC-8100 / `evmstate` binding profile.
     - [5. Product Factories](#5-product-factories)
     - [6. Products](#6-products)
 - [End-to-End Flow](#end-to-end-flow)
+- [Interest Rate Swap Example](#interest-rate-swap-example)
 - [Key Conventions](#key-conventions)
 - [Deployment Order](#deployment-order)
 - [Dependencies](#dependencies)
@@ -108,6 +109,7 @@ product-family acceptance rules.
 |---|---|
 | `AbstractProductRegistry` | Product-definition publication, lifecycle, ERC-8100 rendering, resource validation, indication assignment, eligibility-gated trade requests, deployment, and trade-to-product lookup. |
 | `BondProductRegistry` | Concrete bond resource and indication acceptance rules. |
+| `InterestRateSwapProductRegistry` | Concrete swap resource rules; curve symbols remain product terms in the lightweight example. |
 
 - `productDefinitionId = keccak256(abi.encode(name, address(this)))` (name is the
   unique key; no duplicates, no renaming).
@@ -144,6 +146,7 @@ Two-tier factory: a generic router over product-specific builders.
 | `ProductFactoryRegistry` | Generic: `productTypeId → specific factory` registry + routing (`Ownable2Step`, `ReentrancyGuard`). |
 | `AbstractProductSpecificFactory` | Base: caller guard, schema check, deploy hook. |
 | `SimpleBondFactory` | Concrete: builds `SimpleBond`. |
+| `InterestRateSwapFactory` | Concrete: validates the seven-field swap payload schema and builds `InterestRateSwap`. |
 
 - Call chain (each access-controlled):
   `registry → generic factory → specific factory → product`.
@@ -163,6 +166,7 @@ generic trade lifecycle.
 | `ITradeLifecycle` | ERC-6123-inspired incept/confirm/cancel lifecycle. |
 | `AbstractProduct` | Immutable deployment state, lifecycle state machine, XML scaffolding. |
 | `SimpleBond` | Concrete demo: negotiable `notional` / `maturity`. |
+| `InterestRateSwap` | Concrete demo: fixed/floating swap terms, party direction, and symbolic forward/discount curves. |
 
 - **Self-rendering:** the product implements the `evmstate:call` getters the
   product terms template references (e.g. `notional()`, `maturity()`). The
@@ -187,7 +191,9 @@ lifecycle, see
 
 1. Publish resources — deploy and finalize `TextResource(productTermsTemplate)` and `TextResource(productDocumentationTemplate)`.
 2. Publish product definition — `registry.publishProductDefinition(name, {productTermsTemplate, productDocumentationTemplate, productTypeId})`.
-3. Assign indication — registry.assignProductIndication(productDefinitionId, curve, indicationId).
+3. (optional) Assign an indication — the bond demo calls
+   `registry.assignProductIndication(productDefinitionId, curve, indicationId)`;
+   the lightweight swap carries symbolic curve assignments in its product terms instead.
 4. Register client — clientRegistry.registerClient({client, lei}).
 5. Request trade — registry.createTradeRequest({productDefinitionId, schemaHash, payload}):
    - checks product definition is Active, client is eligible, product type is deployable;
@@ -198,6 +204,16 @@ lifecycle, see
 8. Confirm — product.confirmTrade(agreedTermsHash) (client) -> Active.
 9. Render — the renderer calls `product.stateXmlTemplate()`, resolves the
    `evmstate` bindings, and the frontend applies the product documentation template.
+
+## Interest Rate Swap Example
+
+The [Interest Rate Swap Demo](interest-rate-swap.html) applies the same compact
+framework to a second product family. Its FpML-shaped terms include the
+notional, currency, maturity, fixed swap rate, payer/receiver direction, and
+two symbolic curve assignments. The runnable Java example demonstrates the
+ERC-6123-inspired incept/confirm agreement and prints grouped historical XML
+URLs for the product-definition publication and the initial request, amended
+request, inception, and confirmation states.
 
 ---
 
@@ -219,12 +235,16 @@ lifecycle, see
 ### Shared constants
 
 Domain identifiers must be centralized to prevent drift
-across the registry, factories, indications, and text-resource classification, e.g. **`BondConstants.sol`**, :
+across the registry, factories, indications, and text-resource classification,
+e.g. `BondConstants.sol` and `SwapConstants.sol`:
 
-- `SIMPLE_DEMO_BOND_TYPE`, `COMMERCIAL_PAPER_TYPE`
+- `SIMPLE_BOND_TYPE`, `COMMERCIAL_PAPER_TYPE`
 - `CURVE_INDICATION_CATEGORY`
 - `BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE`
 - `BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE`
+- `INTEREST_RATE_SWAP_TYPE`
+- `INTEREST_RATE_SWAP_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE`
+- `INTEREST_RATE_SWAP_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE`
 
 > ⚠️ Off-chain deploy scripts must set each `TextResource`'s `resourceType`
 > using the same values, and product providers must publish product definitions with a
@@ -289,7 +309,8 @@ across the registry, factories, indications, and text-resource classification, e
 
 ## Status
 
-> ⚠️ **Prototype / demo.** Not audited. `SimpleBondDemo` is a minimal example;
+> ⚠️ **Prototype / demo.** Not audited. `SimpleBondDemo` and
+> `InterestRateSwapDemo` are minimal examples;
 > real products will extend the trade lifecycle with product-specific phases
-> (issuance, coupons, redemption) on top of `Active` via the `_onActivated`
-> hook.
+> (for example issuance/coupons/redemption or fixing/valuation/settlement) on
+> top of `Active` via the `_onActivated` hook.
