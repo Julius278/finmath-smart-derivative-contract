@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-public class Demo03ProductDefinitionRegistry {
+public class DemoProductDefinitionRegistry {
 
     static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 
@@ -45,7 +45,7 @@ public class Demo03ProductDefinitionRegistry {
 
         String owner = SmartContractDeployer.defaultSenderAddress();
 
-        System.out.println("Demo 03 - ProductDefinitionRegistry");
+        System.out.println("ProductDefinitionRegistry demo");
         System.out.println("Owner:                   " + owner);
         System.out.println("Product definition name: " + PRODUCT_DEFINITION_NAME);
         System.out.println("Product type name:       " + PRODUCT_TYPE_NAME);
@@ -130,7 +130,7 @@ public class Demo03ProductDefinitionRegistry {
         System.out.println();
 
         System.out.println("=".repeat(79));
-        System.out.println("Demo 03 completed.");
+        System.out.println("ProductDefinitionRegistry demo completed.");
         System.out.println("Registry:                " + registry);
         System.out.println("ProductDefinitionId:     " + Numeric.toHexString(productDefinitionId));
         System.out.println("PartId:                  " + partId);
@@ -214,7 +214,7 @@ public class Demo03ProductDefinitionRegistry {
     }
 
     private static byte[] loadResourceBytes(String resourceName) throws Exception {
-        try (InputStream inputStream = Demo03ProductDefinitionRegistry.class.getClassLoader().getResourceAsStream(resourceName)) {
+        try (InputStream inputStream = DemoProductDefinitionRegistry.class.getClassLoader().getResourceAsStream(resourceName)) {
             if (inputStream == null) {
                 throw new IllegalArgumentException("Could not find resource on classpath: " + resourceName);
             }

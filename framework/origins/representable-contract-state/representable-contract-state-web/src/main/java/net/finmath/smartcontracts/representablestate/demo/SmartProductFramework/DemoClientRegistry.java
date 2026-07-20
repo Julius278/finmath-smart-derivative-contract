@@ -18,7 +18,7 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.util.List;
 
-public class Demo02ClientRegistry {
+public class DemoClientRegistry {
 
     static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
 
@@ -53,7 +53,7 @@ public class Demo02ClientRegistry {
         String owner = SmartContractDeployer.defaultSenderAddress();
         byte[] productDefinitionId = Hash.sha3(DEMO_PRODUCT_DEFINITION_NAME.getBytes());
 
-        System.out.println("Demo 02 - ClientRegistry");
+        System.out.println("ClientRegistry demo");
         System.out.println("Owner:                  " + owner);
         System.out.println("Client:               " + CLIENT_ADDRESS);
         System.out.println("Client LEI:           " + CLIENT_LEI);
@@ -108,7 +108,7 @@ public class Demo02ClientRegistry {
 
         System.out.println();
         System.out.println("=".repeat(79));
-        System.out.println("Demo 02 completed.");
+        System.out.println("ClientRegistry demo completed.");
         System.out.println("ClientRegistry: " + clientRegistry);
     }
 

@@ -54,7 +54,8 @@ import java.util.List;
  * {@code src/site/resources/diagrams/smart-product-framework.puml}.
  *
  * <p>The demo is deliberately standalone. It repeats the setup and product
- * definition publication from Demo 03, then covers the remaining workflow:</p>
+ * definition publication from {@link DemoProductDefinitionRegistry}, then
+ * covers the remaining workflow:</p>
  *
  * <ol>
  *     <li>wire and register the generic and product-specific factories,</li>
@@ -192,7 +193,7 @@ public class DemoEndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Resource and product-definition publication (the Demo 03 portion).
+		 * Resource and product-definition publication.
 		 */
 		PublishedTextResource productTermsTemplate = publishStagedTextResource(
 				PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,

@@ -45,13 +45,12 @@ be used on a chain carrying real assets.
 Start the renderer in a second terminal and leave it running:
 
 ```bash
-jbang --java 21 \
-  -Dethereum.rpcUrl=http://127.0.0.1:8545 \
-  -Dethereum.chainId=1337 \
-  net.finmath:representable-contract-state-web:2.3.1
+jbang --java 21 -Dethereum.rpcUrl=http://127.0.0.1:8545 -Dethereum.chainId=1337 net.finmath:representable-contract-state-web:2.3.1
 ```
 
 Alternatively, run `EvmXmlRendererApplication` from the IDE.
+
+## Run the Demo
 
 ### Alternative 1: Run From a Project Checkout
 
