@@ -2,11 +2,10 @@
 
 # Smart Product Framework: End-to-End Workflow
 
-[`DemoEndToEndWorkflow`](https://gitlab.com/finmath/representable-contract-state/-/blob/main/representable-contract-state-web/src/main/java/net/finmath/smartcontracts/representablestate/demo/SmartProductFramework/DemoEndToEndWorkflow.java)
-runs the complete Simple Bond workflow on a local development chain. It deploys
-the framework, publishes the product resources and definition, creates a trade,
-and renders the registry, curve indication, and product at their state-change
-checkpoints.
+`DemoEndToEndWorkflow` runs the complete Simple Bond workflow on a local
+development chain. It deploys the framework, publishes the product resources
+and definition, creates a trade, and renders the registry, curve indication,
+and product at their state-change checkpoints.
 
 ## Sequence Overview
 
@@ -16,47 +15,98 @@ checkpoints.
 
 ## Before Running
 
-The demo expects:
+Both run alternatives require:
 
-- Java 21, Maven, `solc`, Docker, and the Solidity dependencies installed with
-  `npm ci` at the repository root;
+- Java 21, `solc`, and Node.js/npm;
+- Foundry (for Anvil);
 - a Cancun-capable JSON-RPC node at `http://127.0.0.1:8545`; and
 - the renderer web application at `http://localhost:8080` when opening the
   printed XML URLs.
 
-Start the development chain with the public demo account funded:
+The checkout-based alternative additionally requires Maven and a project
+checkout. The checkout-free alternative requires
+[JBang](https://www.jbang.dev/), `curl`, `tar`, and a Bash-compatible shell
+such as macOS/Linux Bash or Windows Git Bash. JBang is also required if you
+start the renderer from the command line instead of the IDE.
+
+### Start the Local Chain
+
+Start Anvil with the chain ID used by the renderer and the Cancun hard fork:
 
 ```bash
-export DEPLOYMENT_ACCOUNT=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-docker run --rm -it --name besu \
-  -p 8545:8545 -p 8546:8546 \
-  hyperledger/besu:latest \
-  --network=dev \
-  --miner-enabled=true \
-  --miner-coinbase="$DEPLOYMENT_ACCOUNT" \
-  --rpc-http-enabled=true \
-  --rpc-http-host=0.0.0.0 \
-  --rpc-http-port=8545 \
-  --rpc-http-api=ETH,NET,WEB3,TXPOOL,TRACE,DEBUG \
-  --host-allowlist="*"
+anvil --chain-id 1337 --hardfork cancun
 ```
 
-The embedded accounts are public development accounts and must never be used
-on a chain carrying real assets.
+The pre-funded Anvil accounts are public development accounts and must never
+be used on a chain carrying real assets.
 
-Build the project and start the renderer in a second terminal:
+### Start the Renderer
+
+Start the renderer in a second terminal and leave it running:
 
 ```bash
-npm ci
-mvn -pl representable-contract-state-web -am -DskipTests package
-java -jar representable-contract-state-web/target/representable-contract-state-web-2.3.1-SNAPSHOT.jar
+jbang --java 21 \
+  -Dethereum.rpcUrl=http://127.0.0.1:8545 \
+  -Dethereum.chainId=1337 \
+  net.finmath:representable-contract-state-web:2.3.1
 ```
 
-Alternatively, run `EvmXmlRendererApplication` from the IDE. Then run
-`DemoEndToEndWorkflow`, setting its working directory to
-`representable-contract-state-web`; the Solidity source and compiler output
-paths are relative to that module. Restart the renderer application after
-recompiling it because the project does not use automatic class reloading.
+Alternatively, run `EvmXmlRendererApplication` from the IDE.
+
+### Alternative 1: Run From a Project Checkout
+
+Install the Solidity dependencies into the Solidity source directory from the
+repository root:
+
+```bash
+npm ci --prefix representable-contract-state-web/src/main/solidity
+```
+
+Run
+[`DemoEndToEndWorkflow`](https://gitlab.com/finmath/representable-contract-state/-/blob/main/representable-contract-state-web/src/main/java/net/finmath/smartcontracts/representablestate/demo/SmartProductFramework/DemoEndToEndWorkflow.java)
+from your IDE, with `representable-contract-state-web` as its working
+directory. The Solidity source and compiler-output paths are relative to that
+module.
+
+### Alternative 2: Checkout-Free JBang Run
+
+The following commands download the version-matched Solidity source archive,
+install its locked npm dependencies in a temporary directory, and use JBang to
+run the demo from the released Java artifact. No Git checkout or Maven build is
+required. Run them in a third terminal:
+
+```bash
+DEMO_VERSION=2.3.1
+DEMO_TAG="representable-contract-state-parent-${DEMO_VERSION}"
+DEMO_WORK_DIR="$(mktemp -d)"
+
+curl -fsSL \
+  "https://gitlab.com/finmath/representable-contract-state/-/archive/${DEMO_TAG}/representable-contract-state-${DEMO_TAG}.tar.gz" \
+  | tar -xz -C "$DEMO_WORK_DIR" --strip-components=1
+
+DEMO_SOLIDITY_DIR="$DEMO_WORK_DIR/representable-contract-state-web/src/main/solidity"
+
+if [ -f "$DEMO_SOLIDITY_DIR/package-lock.json" ]; then
+  npm ci --prefix "$DEMO_SOLIDITY_DIR"
+else
+  npm ci --prefix "$DEMO_WORK_DIR"
+  ln -s "$DEMO_WORK_DIR/node_modules" "$DEMO_SOLIDITY_DIR/node_modules"
+fi
+
+cd "$DEMO_SOLIDITY_DIR"
+
+jbang --java 21 \
+  -Dloader.main=net.finmath.smartcontracts.representablestate.demo.SmartProductFramework.DemoEndToEndWorkflow \
+  --main=org.springframework.boot.loader.launch.PropertiesLauncher \
+  "net.finmath:representable-contract-state-web:${DEMO_VERSION}"
+```
+
+The release archive is necessary because the demo compiles its Solidity
+contracts at runtime. Pinning the archive and Java artifact to the same version
+keeps the contract sources and demo code consistent. The compatibility branch
+handles release `2.3.1`, which stores its npm manifest at the archive root;
+releases containing the relocated manifest install their dependencies directly
+in the Solidity source directory.
 
 ## Workflow
 

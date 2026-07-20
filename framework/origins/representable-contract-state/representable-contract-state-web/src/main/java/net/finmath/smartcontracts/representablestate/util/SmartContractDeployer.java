@@ -267,10 +267,7 @@ public class SmartContractDeployer {
 			throw new IllegalStateException("Missing Solady src dependency at " + soladySrc);
 		}
 
-		String solFileArg = projectRoot
-				.relativize(solFile.toAbsolutePath().normalize())
-				.toString()
-				.replace("\\", "/");
+		String solFileArg = solcPath(solFile);
 
 		var command = new java.util.ArrayList<String>();
 
@@ -396,19 +393,39 @@ public class SmartContractDeployer {
 				return provided.toAbsolutePath().normalize();
 			}
 
+			Path workingDirectory = Paths.get("").toAbsolutePath().normalize();
+			List<Path> sourceRoots = List.of(
+					workingDirectory.resolve(SOL_SRC_DIR),
+					workingDirectory.resolve("representable-contract-state-web").resolve(SOL_SRC_DIR)
+			);
+
+			for (Path sourceRoot : sourceRoots) {
+				Path candidate = sourceRoot.resolve(provided).normalize();
+
+				if (Files.exists(candidate)) {
+					return candidate;
+				}
+			}
+
 			URL location = SmartContractDeployer.class
 					.getProtectionDomain()
 					.getCodeSource()
 					.getLocation();
 
-            Path moduleRoot = Paths.get(location.toURI());
+			Path moduleRoot = Paths.get(location.toURI());
+			Path moduleRootName = moduleRoot.getFileName();
 
-			if ("classes".equals(moduleRoot.getFileName().toString())) {
+			if (moduleRootName != null && "classes".equals(moduleRootName.toString())) {
+				moduleRoot = moduleRoot.getParent();
+				moduleRootName = moduleRoot != null ? moduleRoot.getFileName() : null;
+			}
+
+			if (moduleRootName != null && "target".equals(moduleRootName.toString())) {
 				moduleRoot = moduleRoot.getParent();
 			}
 
-			if ("target".equals(moduleRoot.getFileName().toString())) {
-				moduleRoot = moduleRoot.getParent();
+			if (moduleRoot == null) {
+				throw new IllegalArgumentException("Cannot derive a Solidity source directory from " + location);
 			}
 
 			Path candidate = moduleRoot.resolve(SOL_SRC_DIR).resolve(pathLike).normalize();

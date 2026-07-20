@@ -1,0 +1,10 @@
+{
+  "name": "representable-contract-state-solidity",
+  "private": true,
+  "description": "Solidity dependencies for the representable contract state resources and examples.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@openzeppelin/contracts": "5.1.0",
+    "solady": "^0.1.26"
+  }
+}
