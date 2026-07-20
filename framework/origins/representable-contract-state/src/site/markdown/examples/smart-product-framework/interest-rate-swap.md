@@ -5,8 +5,8 @@
 `DemoInterestRateSwap` is a deliberately small second product example for the
 Smart Product Framework. It deploys a fixed-versus-floating EUR interest-rate
 swap, stores its product terms and documentation templates as immutable
-`TextResource` contracts, and walks one trade through request, inception, and
-confirmation.
+`TextResource` contracts, and walks one trade through request, amendment,
+inception, and confirmation.
 
 The implementation uses FpML's confirmation vocabulary for the represented
 economic terms. It is a focused example rather than a complete swap engine: it
