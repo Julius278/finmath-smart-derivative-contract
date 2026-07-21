@@ -8,7 +8,6 @@ import net.finmath.smartcontract.model.SDCException;
 import net.finmath.smartcontract.product.SmartDerivativeContractDescriptor;
 import net.finmath.smartcontract.settlement.Settlement;
 import net.finmath.smartcontract.settlement.SettlementGenerator;
-import net.finmath.smartcontract.valuation.client.ValuationClient;
 import net.finmath.smartcontract.valuation.marketdata.data.MarketDataPoint;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
@@ -81,7 +80,7 @@ class SDCXMLParserTest {
 
     @Test
     void unmarshalXml() throws IOException {
-		final String marketDataXml = new String(Objects.requireNonNull(ValuationClient.class.getClassLoader().getResourceAsStream("net/finmath/smartcontract/valuation/client/md_testset1.xml")).readAllBytes(), StandardCharsets.UTF_8);
+		final String marketDataXml = new String(Objects.requireNonNull(SDCXMLParserTest.class.getClassLoader().getResourceAsStream("net/finmath/smartcontract/valuation/client/md_testset1.xml")).readAllBytes(), StandardCharsets.UTF_8);
 		final MarketDataList marketData = SDCXMLParser.unmarshalXml(marketDataXml, MarketDataList.class);
 
 		Assertions.assertNotNull(marketData);
@@ -89,7 +88,7 @@ class SDCXMLParserTest {
 
 	@Test
 	void unmarshalXml_wrongInput() throws IOException {
-		final String marketDataXml = new String(Objects.requireNonNull(ValuationClient.class.getClassLoader().getResourceAsStream("net/finmath/smartcontract/valuation/client/md_testset1.xml")).readAllBytes(), StandardCharsets.UTF_8);
+		final String marketDataXml = new String(Objects.requireNonNull(SDCXMLParserTest.class.getClassLoader().getResourceAsStream("net/finmath/smartcontract/valuation/client/md_testset1.xml")).readAllBytes(), StandardCharsets.UTF_8);
 		assertThrows(SDCException.class, () -> SDCXMLParser.unmarshalXml(marketDataXml, Object.class));
 	}
 

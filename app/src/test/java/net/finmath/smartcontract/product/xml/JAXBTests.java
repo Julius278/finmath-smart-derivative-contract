@@ -19,7 +19,6 @@ import javax.xml.XMLConstants;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -89,9 +88,8 @@ class JAXBTests {
 
 	private Smartderivativecontract getUnmarshalledObjectFromXML(final JAXBContext jaxbContext, final URL url) throws java.lang.Exception {
 
-		File file = new File(url.getPath());
 		Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
-		Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(file);
+		Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(url);
 		return sdc;
 	}
 
@@ -109,22 +107,21 @@ class JAXBTests {
 	@Test
 	void jaxBTestWithValidation() {
 		try {
-			String xsdFile = JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xsd").getPath();
+			URL xsdUrl = JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xsd");
 			SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-			Schema sdcSchema = sf.newSchema(new File(xsdFile));
+			Schema sdcSchema = sf.newSchema(xsdUrl);
 
-			List<String> filePaths = List.of(
-					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xml").getPath(),
-					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract_simulated_historical_marketdata.xml").getPath(),
-					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract_with_rics.xml").getPath()
+			List<URL> fileUrls = List.of(
+					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xml"),
+					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract_simulated_historical_marketdata.xml"),
+					JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract_with_rics.xml")
 			);
-			for (String path : filePaths) {
-				File file = new File(path);
+			for (URL fileUrl : fileUrls) {
 				JAXBContext jaxbContext = JAXBContext.newInstance(Smartderivativecontract.class);
 				Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
 				jaxbUnmarshaller.setSchema(sdcSchema);
 
-				Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(file);
+				Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(fileUrl);
 
 				Assertions.assertNotNull(sdc);
 
@@ -137,7 +134,7 @@ class JAXBTests {
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 				marshaller.marshal(sdc, outputStream);
 
-				System.out.println(path + " checked and validated!");
+				System.out.println(fileUrl + " checked and validated!");
 			}
 
 		} catch (java.lang.Exception e) {
@@ -147,12 +144,11 @@ class JAXBTests {
 
 	@Test
 	void jaxBPlainTest() throws java.lang.Exception {
-		String path = JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xml").getPath();
-		File file = new File(path);
+		URL url = JAXBTests.class.getClassLoader().getResource("net.finmath.smartcontract.product.xml/smartderivativecontract.xml");
 		JAXBContext jaxbContext = JAXBContext.newInstance(Smartderivativecontract.class);
 		Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
 
-		Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(file);
+		Smartderivativecontract sdc = (Smartderivativecontract) jaxbUnmarshaller.unmarshal(url);
 
 		Marshaller marshaller = jaxbContext.createMarshaller();
 		marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);

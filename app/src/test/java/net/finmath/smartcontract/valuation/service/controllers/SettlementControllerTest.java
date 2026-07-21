@@ -1,6 +1,6 @@
 package net.finmath.smartcontract.valuation.service.controllers;
 
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.finmath.smartcontract.model.InitialSettlementRequest;
 import net.finmath.smartcontract.model.InitialSettlementResult;
 import net.finmath.smartcontract.model.RegularSettlementRequest;
@@ -51,8 +51,8 @@ class SettlementControllerTest {
 		RegularSettlementRequest request = new RegularSettlementRequest()
 				.settlementLast("settle")
 				.tradeData("tradeData");
-		Gson gson = new Gson();
-		String jsonRequest = gson.toJson(request);
+		ObjectMapper objectMapper = new ObjectMapper();
+		String jsonRequest = objectMapper.writeValueAsString(request);
 		RegularSettlementResult result = new RegularSettlementResult().generatedRegularSettlement(mockSettlement);
 
 		when(this.settlementService.generateRegularSettlementResult(request)).thenReturn(result);
@@ -75,8 +75,8 @@ class SettlementControllerTest {
 
 		InitialSettlementRequest request = new InitialSettlementRequest()
 				.tradeData("tradeData");
-		Gson gson = new Gson();
-		String jsonRequest = gson.toJson(request);
+		ObjectMapper objectMapper = new ObjectMapper();
+		String jsonRequest = objectMapper.writeValueAsString(request);
 		InitialSettlementResult result = new InitialSettlementResult().generatedInitialSettlement(mockSettlement);
 
 		when(this.settlementService.generateInitialSettlementResult(request)).thenReturn(result);
