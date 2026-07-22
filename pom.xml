@@ -12,7 +12,7 @@
 
     <groupId>net.finmath</groupId>
     <artifactId>finmath-smart-derivative-contract</artifactId>
-    <version>1.2.14-SNAPSHOT</version>
+    <version>1.3.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>finmath-smart-derivative-contract</name>
@@ -95,8 +95,6 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
-
-
 
 
     <profiles>
