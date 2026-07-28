@@ -141,6 +141,14 @@ http://localhost:8080/xml?contract=<product-address>&block=<receipt-block>
 http://localhost:8080/xml/part?contract=<address>&partid=<part-id>&block=<receipt-block>
 ```
 
+The product documentation is an optional derived view. It is available through
+the separate XSLT post-processing endpoint while the canonical `/xml` response
+remains unchanged:
+
+```text
+http://localhost:8080/xml/transform?contract=<product-address>&block=<receipt-block>&xslt=<url-or-xpath>
+```
+
 ### Product-Definition Registry
 
 | Checkpoint | Block label | Status | Version | Visible change |
