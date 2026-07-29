@@ -45,7 +45,7 @@ be used on a chain carrying real assets.
 Start the renderer in a second terminal and leave it running:
 
 ```bash
-jbang --java 21 -Dethereum.rpcUrl=http://127.0.0.1:8545 -Dethereum.chainId=1337 net.finmath:representable-contract-state-web:2.3.1
+jbang --java 21 -Dethereum.rpcUrl=http://127.0.0.1:8545 -Dethereum.chainId=1337 net.finmath:representable-contract-state-web:2.4.0
 ```
 
 Alternatively, run `EvmXmlRendererApplication` from the IDE.
@@ -75,7 +75,7 @@ run the demo from the released Java artifact. No Git checkout or Maven build is
 required. Run them in a third terminal:
 
 ```bash
-DEMO_VERSION=2.3.1
+DEMO_VERSION=2.4.0
 DEMO_TAG="representable-contract-state-parent-${DEMO_VERSION}"
 DEMO_WORK_DIR="$(mktemp -d)"
 
@@ -103,7 +103,7 @@ jbang --java 21 \
 The release archive is necessary because the demo compiles its Solidity
 contracts at runtime. Pinning the archive and Java artifact to the same version
 keeps the contract sources and demo code consistent. The compatibility branch
-handles release `2.3.1`, which stores its npm manifest at the archive root;
+handles release `2.4.0`, which stores its npm manifest at the archive root;
 releases containing the relocated manifest install their dependencies directly
 in the Solidity source directory.
 
@@ -139,6 +139,14 @@ Full-state and state-part views use different endpoints:
 ```text
 http://localhost:8080/xml?contract=<product-address>&block=<receipt-block>
 http://localhost:8080/xml/part?contract=<address>&partid=<part-id>&block=<receipt-block>
+```
+
+The product documentation is an optional derived view. It is available through
+the separate XSLT post-processing endpoint while the canonical `/xml` response
+remains unchanged:
+
+```text
+http://localhost:8080/xml/transform?contract=<product-address>&block=<receipt-block>&xslt=<url-or-xpath>
 ```
 
 ### Product-Definition Registry
