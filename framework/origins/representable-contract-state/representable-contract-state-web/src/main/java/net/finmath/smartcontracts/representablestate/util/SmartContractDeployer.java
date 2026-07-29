@@ -53,13 +53,18 @@ public class SmartContractDeployer {
 	// Solidity sources and output locations
 	static final Path SOL_SRC_DIR = Paths.get("src/main/solidity");
 	static final Path SOL_OUT_DIR = Paths.get("target/solc");
+	static final Path FORGE_OUT_DIR = Paths.get("target/forge");
+	static final Path FORGE_CACHE_DIR = Paths.get("target/forge-cache");
+
+	private static final String FORGE_SOLC_VERSION = "0.8.24";
+	private static final long FORGE_TIMEOUT_SECONDS = 300;
 
 	// ==== Compiler presets ====
 	public static final CompilerConfig PARIS = new CompilerConfig("paris", true, true);
 	public static final CompilerConfig CANCUN = new CompilerConfig("cancun", true, true);
 
 	/**
-	 * Compiler settings for solc.
+	 * Solidity compiler settings.
 	 *
 	 * @param evmVersion EVM target, e.g. paris, shanghai, cancun.
 	 * @param viaIr      Whether to compile via IR.
@@ -70,6 +75,17 @@ public class SmartContractDeployer {
 			boolean viaIr,
 			boolean optimize
 	) {}
+
+	private enum CompilerBackend {
+		SOLC("solc"),
+		FORGE("forge");
+
+		private final String command;
+
+		CompilerBackend(String command) {
+			this.command = command;
+		}
+	}
 
 	/**
 	 * Deploy with default compiler settings.
@@ -95,6 +111,25 @@ public class SmartContractDeployer {
 	}
 
 	/**
+	 * Deploy with default compiler settings, using Forge to compile the
+	 * Solidity contract.
+	 *
+	 * <p>Forge manages the pinned Solidity compiler internally, so callers do
+	 * not need a standalone {@code solc} executable on {@code PATH}.</p>
+	 */
+	public static String deployWithForge(Path contract, Type... constructorArgs) throws IOException, InterruptedException, TransactionException {
+		return deploy(contract, PARIS, Arrays.asList(constructorArgs), CompilerBackend.FORGE);
+	}
+
+	/**
+	 * Deploy with explicit EVM/compiler settings, using Forge to compile the
+	 * Solidity contract.
+	 */
+	public static String deployWithForge(Path contract, CompilerConfig compilerConfig, Type... constructorArgs) throws IOException, InterruptedException, TransactionException {
+		return deploy(contract, compilerConfig, Arrays.asList(constructorArgs), CompilerBackend.FORGE);
+	}
+
+	/**
 	 * Convenience method for contracts requiring Cancun opcodes, e.g. MCOPY.
 	 */
 	public static String deployCancun(Path contract, Type... constructorArgs) throws IOException, InterruptedException, TransactionException {
@@ -105,6 +140,15 @@ public class SmartContractDeployer {
 	 * Generic deploy method.
 	 */
 	public static String deploy(Path contract, CompilerConfig compilerConfig, List<Type> constructorArgs) throws IOException, InterruptedException, TransactionException {
+		return deploy(contract, compilerConfig, constructorArgs, CompilerBackend.SOLC);
+	}
+
+	private static String deploy(
+			Path contract,
+			CompilerConfig compilerConfig,
+			List<Type> constructorArgs,
+			CompilerBackend compilerBackend
+	) throws IOException, InterruptedException, TransactionException {
 
 		contract = resolveSolidityPath(contract.toString());
 
@@ -112,13 +156,17 @@ public class SmartContractDeployer {
 		String contractName = contractFile.substring(0, contractFile.length() - ".sol".length());
 
 		System.out.println("Compiling contract " + contractName);
+		System.out.println("Compiler backend: " + compilerBackend.command);
 		System.out.println("EVM version: " + compilerConfig.evmVersion());
 		System.out.println("via-ir: " + compilerConfig.viaIr());
 		System.out.println("optimize: " + compilerConfig.optimize());
 
-		// 1) Compile with solc if needed
+		// 1) Compile the Solidity contract.
 		Files.createDirectories(SOL_OUT_DIR);
-		compileWithSolc(contract, compilerConfig);
+		switch (compilerBackend) {
+			case SOLC -> compileWithSolc(contract, compilerConfig);
+			case FORGE -> compileWithForge(contract, compilerConfig);
+		}
 
 		// 2) Connect Web3j
 		Web3j web3;
@@ -188,11 +236,11 @@ public class SmartContractDeployer {
 		EthGetCode code = web3.ethGetCode(contractAddress, DefaultBlockParameterName.LATEST).send();
 
 		if ("0x".equalsIgnoreCase(code.getCode())) {
-			throw new IllegalStateException("No code at deployed contract address. Check deployment status, solc EVM version and Besu config.");
+			throw new IllegalStateException("No code at deployed contract address. Check deployment status, compiler EVM version and Besu config.");
 		}
 
 		// 5) Persist addresses to JSON
-		writeDeploymentJson(chainId, contractName, contractAddress, txHashContractDeployment, deploymentAccountAddress, compilerConfig);
+		writeDeploymentJson(chainId, contractName, contractAddress, txHashContractDeployment, deploymentAccountAddress, compilerConfig, compilerBackend);
 
 		printLocalApplicationProperties(chainId, contractName, contractAddress);
 
@@ -328,7 +376,153 @@ public class SmartContractDeployer {
 		}
 	}
 
-	private static void writeDeploymentJson(long chainId, String contractName, String contractAddress, String txHash, String deploymentAccountAddress, CompilerConfig compilerConfig) throws IOException {
+	private static void compileWithForge(Path solFile, CompilerConfig compilerConfig) throws IOException, InterruptedException {
+
+		Path nodeModules = findNodeModules(solFile);
+		Path projectRoot = nodeModules.getParent();
+
+		Path openZeppelinContracts = nodeModules
+				.resolve("@openzeppelin")
+				.resolve("contracts");
+
+		Path soladySrc = nodeModules
+				.resolve("solady")
+				.resolve("src");
+
+		if (!Files.isDirectory(openZeppelinContracts)) {
+			throw new IllegalStateException("Missing OpenZeppelin contracts dependency at " + openZeppelinContracts);
+		}
+
+		if (!Files.isDirectory(soladySrc)) {
+			throw new IllegalStateException("Missing Solady src dependency at " + soladySrc);
+		}
+
+		if (!solFile.startsWith(projectRoot)) {
+			throw new IllegalArgumentException("Solidity file must be inside the Forge project root " + projectRoot + ": " + solFile);
+		}
+
+		String contractFile = solFile.getFileName().toString();
+		String contractName = contractFile.substring(0, contractFile.length() - ".sol".length());
+		String sourceFile = projectRoot
+				.relativize(solFile)
+				.toString()
+				.replace("\\", "/");
+
+		Path forgeOut = FORGE_OUT_DIR.toAbsolutePath().normalize();
+		Path forgeCache = FORGE_CACHE_DIR.toAbsolutePath().normalize();
+
+		var command = new java.util.ArrayList<String>();
+
+		command.add("forge");
+		command.add("build");
+		command.add("--root");
+		command.add(solcPath(projectRoot));
+		command.add("--contracts");
+		command.add(".");
+		command.add("--lib-paths");
+		command.add("node_modules");
+		command.add("--out");
+		command.add(solcPath(forgeOut));
+		command.add("--cache-path");
+		command.add(solcPath(forgeCache));
+		command.add("--use");
+		command.add(FORGE_SOLC_VERSION);
+
+		if (compilerConfig.viaIr()) {
+			command.add("--via-ir");
+		}
+
+		command.add("--optimize");
+		command.add(Boolean.toString(compilerConfig.optimize()));
+
+		if (compilerConfig.optimize()) {
+			command.add("--optimizer-runs");
+			command.add("200");
+		}
+
+		command.add("--evm-version");
+		command.add(compilerConfig.evmVersion());
+		command.add("--remappings");
+		command.add("@openzeppelin/=node_modules/@openzeppelin/");
+		command.add("--remappings");
+		command.add("solady/=node_modules/solady/src/");
+		command.add("--color");
+		command.add("never");
+		command.add(sourceFile);
+
+		System.out.println("forge command:");
+		System.out.println(String.join(" ", command));
+
+		ProcessBuilder pb = new ProcessBuilder(command);
+		pb.directory(projectRoot.toFile());
+		pb.environment().put(
+				"FOUNDRY_VIA_IR",
+				Boolean.toString(compilerConfig.viaIr())
+		);
+		pb.environment().put(
+				"FOUNDRY_OPTIMIZER",
+				Boolean.toString(compilerConfig.optimize())
+		);
+		pb.environment().put(
+				"FOUNDRY_LINT__LINT_ON_BUILD",
+				"false"
+		);
+		pb.inheritIO();
+
+		Process p;
+
+		try {
+			p = pb.start();
+		} catch (IOException exception) {
+			throw new IOException(
+					"Unable to start Forge. Install Foundry and ensure that forge is available on PATH.",
+					exception
+			);
+		}
+
+		if (!p.waitFor(FORGE_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
+			p.destroyForcibly();
+			throw new RuntimeException("forge timed out");
+		}
+
+		if (p.exitValue() != 0) {
+			throw new RuntimeException("forge failed for " + solFile + " (see logs above)");
+		}
+
+		Path artifact = forgeOut
+				.resolve(contractFile)
+				.resolve(contractName + ".json");
+
+		if (!Files.isRegularFile(artifact)) {
+			throw new IllegalStateException("Forge did not produce the expected artifact " + artifact);
+		}
+
+		String bytecode = new ObjectMapper()
+				.readTree(artifact.toFile())
+				.path("bytecode")
+				.path("object")
+				.asText()
+				.trim();
+
+		if (!bytecode.matches("0x[0-9a-fA-F]+")) {
+			throw new IllegalStateException("Forge artifact contains no deployable bytecode: " + artifact);
+		}
+
+		Files.writeString(
+				SOL_OUT_DIR.resolve(contractName + ".bin"),
+				bytecode
+		);
+	}
+
+	private static void writeDeploymentJson(
+			long chainId,
+			String contractName,
+			String contractAddress,
+			String txHash,
+			String deploymentAccountAddress,
+			CompilerConfig compilerConfig,
+			CompilerBackend compilerBackend
+	) throws IOException {
 
 		Path deployJson = Paths.get("deployments", "besu-" + chainId + ".json");
 
@@ -342,6 +536,10 @@ public class SmartContractDeployer {
 		root.put("contractAddress", contractAddress);
 		root.put("contractTx", txHash);
 		root.put("deploymentAccount", deploymentAccountAddress);
+		root.put("compilerBackend", compilerBackend.command);
+		if (compilerBackend == CompilerBackend.FORGE) {
+			root.put("solcVersion", FORGE_SOLC_VERSION);
+		}
 		root.put("evmVersion", compilerConfig.evmVersion());
 		root.put("viaIr", compilerConfig.viaIr());
 		root.put("optimize", compilerConfig.optimize());
@@ -457,7 +655,11 @@ public class SmartContractDeployer {
 			current = current.getParent();
 		}
 
-		throw new IllegalStateException("Could not find node_modules in " + start.toAbsolutePath() + " or any parent directory. Did you run npm install?");
+		throw new IllegalStateException(
+				"Could not find Solidity dependencies in a node_modules directory at "
+						+ start.toAbsolutePath()
+						+ " or any parent directory."
+		);
 	}
 
 	private static String solcPath(Path path) {
