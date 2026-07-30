@@ -169,6 +169,9 @@ interface IProductDefinitionRegistry {
     /// @notice Returns the current lifecycle status of a product definition.
     function getProductDefinitionStatus(bytes32 productDefinitionId) external view returns (ProductDefinitionStatus status);
 
+    /// @notice Returns the factory anchored of a product definition
+    function getProductFactoryByDefinitionId(bytes32 productDefinitionId) external view returns (address productFactory);
+
     // @notice Returns the product type exposed by the factory anchored in the product definition.
     function productTypeByDefinitionId(bytes32 productDefinitionId) external view returns (bytes32 productTypeId);
 
