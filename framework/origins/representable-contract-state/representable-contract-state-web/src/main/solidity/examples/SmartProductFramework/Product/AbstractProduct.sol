@@ -39,7 +39,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     /// @inheritdoc IProduct
     address public immutable override productRegistry;
     /// @inheritdoc IProduct
-    address public immutable override productSpecificFactory;
+    address public immutable override productFactory;
     /// @inheritdoc IProduct
     bytes32 public immutable override tradeId;
     /// @inheritdoc IProduct
@@ -54,8 +54,6 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     address public immutable override productTermsTemplate;
     /// @inheritdoc IProduct
     address public immutable override productDocumentationTemplate;
-    /// @inheritdoc IProduct
-    bytes32 public immutable override productTypeId;
     /// @inheritdoc IProduct
     bytes32 public immutable override deploymentStateHash;
 
@@ -89,11 +87,10 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         if (c.productDefinitionId  == bytes32(0)) revert ZeroHash("productDefinitionId ");
         if (c.productTermsTemplate == address(0)) revert ZeroAddress("productTermsTemplate");
         if (c.productDocumentationTemplate == address(0)) revert ZeroAddress("productDocumentationTemplate");
-        if (c.productTypeId == bytes32(0)) revert ZeroHash("productTypeId");
         if (c.deploymentStateHash == bytes32(0)) revert ZeroHash("deploymentStateHash");
 
         productRegistry = c.productRegistry;
-        productSpecificFactory = msg.sender;
+        productFactory = msg.sender;
         tradeId = c.tradeId;
         productProvider = c.productProvider;
         client = c.client;
@@ -101,7 +98,6 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         productDefinitionVersion  = c.productDefinitionVersion ;
         productTermsTemplate = c.productTermsTemplate;
         productDocumentationTemplate = c.productDocumentationTemplate;
-        productTypeId = c.productTypeId;
         deploymentStateHash = c.deploymentStateHash;
 
         _status = TradeStatus.Requested;

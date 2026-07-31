@@ -8,11 +8,13 @@ import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165C
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IProductDefinitionRegistry} from "./IProductDefinitionRegistry.sol";
 import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
 import {IProductFactory} from "../ProductFactory/IProductFactory.sol";
 import {IClientRegistry} from "../ClientRegistry/IClientRegistry.sol";
+import {IProduct} from "../Product/IProduct.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**
@@ -30,18 +32,10 @@ import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory
  *
  * @author Raphael Prandtl
  */
-contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step {
+// TODO get product Name to know what can be traded?
+contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step, ReentrancyGuard {
     using Strings for uint256;
     using ERC165Checker for address;
-
-    // ------------------------------ Enums ------------------------------ */
-
-    /// @notice Logical slot a resource occupies within a product definition.
-    enum ResourceSlot {
-        Unknown,
-        ProductTermsTemplate,
-        ProductDocumentationTemplate
-    }
 
     // ------------------------------ Custom Errors ------------------------------ */
 
@@ -65,7 +59,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /// @notice Resource is not finalized (and thus not immutable).
     error ResourceNotFinalized(address resource);
 
-    /// @notice Resource type is not accepted for the given slot.
+    /// @notice Resource type not as expected.
     error InvalidResourceType(address resource, bytes32 expected, bytes32 actual);
 
     /// @notice Thrown when the indication address has no contract code.
@@ -78,7 +72,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
      * @notice Thrown when the indication category is not accepted for the
      *         product definition's product type.
      */
-    error InvalidIndicationCategory(address productIndication, bytes32 indicationCategory);
+    error UnsupportedIndicationCategory(address productIndication, bytes32 indicationCategory);
 
     /**
      * @notice Thrown when the referenced indication is not in an assignable
@@ -104,11 +98,15 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /// @notice Thrown when the caller is not eligible for the product definition.
     error ClientNotEligible(address client, bytes32 productDefinitionId);
 
-    /// @notice Thrown when the factory cannot deploy the product definition's type.
-    error ProductTypeNotDeployable(bytes32 productTypeId);
-
     /// @notice Thrown when querying a trade that does not exist.
     error UnknownTrade(bytes32 tradeId);
+
+    /// @notice Thrown when a tradeId has already been used for a deployment.
+    error TradeIdAlreadyUsed(bytes32 tradeId);
+
+    error ProductDeploymentFailed(address factory, bytes32 tradeId);
+
+    error InvalidDeployedProduct(address product);
 
     // ------------------------------ Events ------------------------------ */
 
@@ -118,11 +116,17 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /// @notice Emitted when a product definition's product indication is assigned or replaced.
     event ProductIndicationAssigned(bytes32 indexed productDefinitionId, address indexed productIndication, bytes32 indicationId);
 
+    /// @notice Emitted when a product definition's product indication is assigned or replaced.
+    event ProductIndicationCleared(bytes32 indexed productDefinitionId);
+
     /// @notice Emitted when the product factory is set or replaced.
     event ProductFactorySet(address indexed previousFactory, address indexed newFactory);
 
     /// @notice Emitted when a trade request is created and its product deployed.
-    event TradeRequestCreated(bytes32 indexed tradeId, address indexed productProvider, address indexed client, bytes32 productDefinitionId, bytes32 productTypeId, address product);
+    event TradeRequestCreated(bytes32 indexed tradeId, address indexed productProvider, address indexed client, bytes32 productDefinitionId, address product);
+
+
+
 
     // ------------------------------ Storage ------------------------------ */
 
@@ -146,14 +150,11 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /**
      * @notice Client-supplied parameters for a trade request.
      * @param productDefinitionId       Product definition to trade against.
-     * @param productSpecificSchemaHash Hash of the product-specific payload schema.
-     * @param productSpecificPayload    Product-specific deployment payload.
+     * @param productPayload    Product-specific deployment payload.
      */
-    // TODO
     struct TradeRequestParams {
         bytes32 productDefinitionId;
-        bytes32 productSpecificSchemaHash;
-        bytes productSpecificPayload;
+        bytes productPayload;
     }
 
     mapping(bytes32 => ProductDefinitionStorage) internal _productDefinitionsById;
@@ -167,7 +168,6 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /// @dev Monotonic nonce feeding tradeId derivation.
     uint256 internal _tradeIdNonce;
 
-    // TODO
     /// @dev tradeId -> deployed product instance address.
     mapping(bytes32 => address) internal _productByTradeId;
 
@@ -194,6 +194,11 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         if (definitionStorage.status != ProductDefinitionStatus.Unknown) {
             revert ProductDefinitionAlreadyExists(productDefinitionId);
         }
+        // Revalidate existing indication assignment if factory is updated
+        ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
+        if (assignment.productIndication != address(0) && definitionStorage.productDefinition.productFactory != params.productDefinition.productFactory) {
+            _validateProductIndication(params.productDefinition.productFactory, assignment.productIndication, assignment.indicationId);
+        }
 
         definitionStorage.status = ProductDefinitionStatus.Active;
         definitionStorage.name = params.name;
@@ -202,7 +207,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
 
         _touchProductDefinition(definitionStorage);
 
-        emit ProductDefinitionPublished(productDefinitionId, params.definition.productFactory, params.definition.productTermsTemplate, params.definition.productDocumentationTemplate);
+        emit ProductDefinitionPublished(productDefinitionId, params.productDefinition.productFactory, params.productDefinition.productTermsTemplate, params.productDefinition.productDocumentationTemplate);
         emit ProductDefinitionStatusChanged(productDefinitionId, ProductDefinitionStatus.Unknown, ProductDefinitionStatus.Active);
         emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
@@ -247,8 +252,12 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
             name: definitionStorage.name,
             partId: _partIdFromProductDefinitionId(productDefinitionId),
             version: definitionStorage.version,
-            resources: definitionStorage.productDefinition
+            productDefinition: definitionStorage.productDefinition
         });
+    }
+
+    function getProductFactoryByDefinitionId(bytes32 productDefinitionId) external view override returns (address productFactory) {
+        return _existingProductDefinition(productDefinitionId).productDefinition.productFactory;
     }
 
     function getProductDefinitionStatus(bytes32 productDefinitionId) external view override returns (ProductDefinitionStatus) {
@@ -257,30 +266,41 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
 
     // ------------------------------ Product Indication Assignment ------------------------------ */
 
-    // TODO who validates the indication assigning?
     /// @notice Assigns (or replaces) the product indication of a product definition.
-    function assignProductIndication(bytes32 productDefinitionId, address productIndication, bytes32 indicationId) external onlyOwner {
+    function setProductIndication(bytes32 productDefinitionId, address productIndication, bytes32 indicationId) external onlyOwner {
         ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
         _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
 
-        uint256 partId = _validateProductIndication(definition.resources.productTypeId, productIndication, indicationId);
+        uint256 partId = _validateProductIndication(definitionStorage.productDefinition.productFactory, productIndication, indicationId);
 
         ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
         assignment.productIndication = productIndication;
         assignment.indicationId = indicationId;
         assignment.partId = partId;
 
-        _touchProductDefinition(definition);
+        _touchProductDefinition(definitionStorage);
 
         emit ProductIndicationAssigned(productDefinitionId, productIndication, indicationId);
-        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
+        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
+    }
+
+    /// @notice Deletes the product indication of a product definition.
+    function clearProductIndication(bytes32 productDefinitionId) external onlyOwner {
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
+        _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
+
+        ProductIndicationAssignment storage assignment = _existingProductIndicationAssignment(productDefinitionId);
+        delete(assignment);
+
+        _touchProductDefinition(definitionStorage);
+
+        emit ProductIndicationCleared(productDefinitionId);
+        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
 
     /**
-     * @notice Returns the product indication assigned to a product definition,
-     *         together with the partId to render it on the indication contract.
-     * @dev Does not check the indication's current status — consumers should
-     *      verify liveness if required.
+     * @notice Returns the product indication assigned to a product definition, together with the partId to render it on the indication contract.
+     * @dev Does not check the indication's current status — consumers should verify liveness if required.
      */
     function productIndicationOfDefinition(bytes32 productDefinitionId) external view returns (address productIndication, bytes32 indicationId, uint256 partId) {
         ProductIndicationAssignment storage assignment = _existingProductIndicationAssignment(productDefinitionId);
@@ -295,12 +315,12 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
      *         product instance and records the tradeId -> product mapping.
      * @dev The caller (msg.sender) is the client; owner() is the product provider.
      */
-    function createTradeRequest(TradeRequestParams calldata params) external onlyAfterFactorySet returns (bytes32 tradeId, address product) {
+    function createTradeRequest(TradeRequestParams calldata params) external nonReentrant returns (bytes32 tradeId, address product) {
         bytes32 productDefinitionId = params.productDefinitionId;
 
-        ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
-        if (definition.status != ProductDefinitionStatus.Active) {
-            revert ProductDefinitionNotActive(productDefinitionId, definition.status);
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
+        if (definitionStorage.status != ProductDefinitionStatus.Active) {
+            revert ProductDefinitionNotActive(productDefinitionId, definitionStorage.status);
         }
 
         address client = msg.sender;
@@ -308,19 +328,20 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
             revert ClientNotEligible(client, productDefinitionId);
         }
 
-        ProductDefinitionResources memory resources = definition.resources;
-        address factory = productFactory;
-        if (!IProductFactory(factory).canDeployProduct(resources.productTypeId)) {
-            revert ProductTypeNotDeployable(resources.productTypeId);
-        }
+        ProductDefinition memory productDefinition = definitionStorage.productDefinition;
+        IProductFactory factory = IProductFactory(productDefinition.productFactory);
 
         address productProvider = owner();
         tradeId = _nextTradeId(client, productDefinitionId);
 
-        bytes32 deploymentStateHash = _deploymentStateHash(tradeId, productProvider, client, productDefinitionId, definition.version,
-            resources, params.productSpecificSchemaHash, params.productSpecificPayload);
+        if (_productByTradeId[tradeId] != address(0)) {
+            revert TradeIdAlreadyUsed(tradeId);
+        }
 
-        product = IProductFactory(factory).deployProduct(
+        bytes32 deploymentStateHash = _deploymentStateHash(tradeId, productProvider, client, productDefinitionId, definitionStorage.version,
+            productDefinition, params.productPayload);
+
+        product = factory.deployProduct(
             ProductDeploymentParams({
                 common: CommonDeploymentParams({
                     productRegistry: address(this),
@@ -328,20 +349,34 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
                     productProvider: productProvider,
                     client: client,
                     productDefinitionId: productDefinitionId,
-                    productDefinitionVersion: definition.version,
-                    productTermsTemplate: resources.productTermsTemplate,
-                    productDocumentationTemplate: resources.productDocumentationTemplate,
-                    productTypeId: resources.productTypeId,
+                    productDefinitionVersion: definitionStorage.version,
+                    productTermsTemplate: productDefinition.productTermsTemplate,
+                    productDocumentationTemplate: productDefinition.productDocumentationTemplate,
                     deploymentStateHash: deploymentStateHash
                 }),
-                productSpecificSchemaHash: params.productSpecificSchemaHash,
-                productSpecificPayload: params.productSpecificPayload
+                productPayload: params.productPayload
             })
         );
 
-        _productByTradeId[tradeId] = product;
+        if (product == address(0) || product.code.length == 0) {
+            revert ProductDeploymentFailed(address(factory), tradeId);
+        }
+        if (!factory.isFactoryDeployedProduct(product)) {
+            revert InvalidDeployedProduct(product);
+        }
 
-        emit TradeRequestCreated(tradeId, productProvider, client, productDefinitionId, resources.productTypeId, product);
+        IProduct deployedProduct = IProduct(product);
+
+        if (deployedProduct.productRegistry() != address(this) ||
+            deployedProduct.productFactory() != address(factory) ||
+            deployedProduct.tradeId() != tradeId ||
+            deployedProduct.productDefinitionId() != productDefinitionId ||
+            deployedProduct.productDefinitionVersion() != definitionStorage.version) {
+            revert InvalidDeployedProduct(product);
+        }
+
+        _productByTradeId[tradeId] = product;
+        emit TradeRequestCreated(tradeId, productProvider, client, productDefinitionId, product);
     }
 
     /// @notice Returns the product instance deployed for a trade.
@@ -350,24 +385,6 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         if (product == address(0)) {
             revert UnknownTrade(tradeId);
         }
-    }
-
-    // ------------------------------ Factory Management ------------------------------ */
-
-    /**
-     * @notice Sets or replaces the product factory.
-     * @dev The factory must have code and point back at this registry.
-     */
-    function setProductFactory(address factory) external onlyOwner {
-        if (factory == address(0) || factory.code.length == 0) {
-            revert InvalidProductFactory(factory);
-        }
-        if (IProductFactory(factory).productRegistryAddress() != address(this)) {
-            revert InvalidProductFactory(factory);
-        }
-
-        emit ProductFactorySet(productFactory, factory);
-        productFactory = factory;
     }
 
     // ------------------------------ XML View ------------------------------ */
@@ -390,26 +407,39 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
      *      The product indication assignment is represented as a reference to
      *      the separately rendered indication contract and state part.
      */
-    function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definition) internal view returns (string memory) {
+    function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definitionStorage) internal view returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
             "<ProductDefinition xmlns:xi=\"http://www.w3.org/2001/XInclude\"",
             " xmlns:evmstate=\"urn:evm:state:1.0\"",
             " productDefinitionId=\"", _bytes32ToHexString(productDefinitionId), "\"",
-            " status=\"", uint256(definition.status).toString(), "\"",
-            " productDefinitionVersion=\"", definition.version.toString(), "\"",
-            " updatedAt=\"", uint256(definition.updatedAt).toString(), "\"",
+            " status=\"", uint256(definitionStorage.status).toString(), "\"",
+            " productDefinitionVersion=\"", definitionStorage.version.toString(), "\"",
+            " updatedAt=\"", uint256(definitionStorage.updatedAt).toString(), "\"",
             ">",
             "<ProductResources>",
                 "<ProductTermsTemplate>",
-                    _include(definition.resources.productTermsTemplate),
+                    _include(definitionStorage.productDefinition.productTermsTemplate),
                 "</ProductTermsTemplate>",
-                "<ProductDocumentationTemplate>",
-                    _include(definition.resources.productDocumentationTemplate),
-                "</ProductDocumentationTemplate>",
+                _resourceReference(
+                    "ProductDocumentationTemplate",
+                    definitionStorage.productDefinition.productDocumentationTemplate
+                ),
             "</ProductResources>",
             _productIndicationAssignmentXml(productDefinitionId),
             "</ProductDefinition>"
+        );
+    }
+
+    function _include(address resource) internal view returns (string memory) {
+        ITextResource textResource = ITextResource(resource);
+        string memory href = textResource.web3Url();
+        string memory integrity = string.concat(
+            "keccak256-", _bytes32ToHexString(textResource.contentHash())
+        );
+        return string.concat(
+            "<xi:include href=\"", href,
+            "\" parse=\"text\" evmstate:integrity=\"", integrity, "\"/>"
         );
     }
 
@@ -428,15 +458,22 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         );
     }
 
-    function _include(address resource) internal view returns (string memory) {
+    /**
+    * @dev References a finalized TextResource without including its content in
+     *      the canonical XML. The term-sheet stylesheet is therefore loaded
+     *      only by the optional post-processing step.
+     */
+    function _resourceReference(string memory elementName, address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
-        string memory href = textResource.web3Url();
-        string memory integrity = string.concat(
-            "keccak256-", _bytes32ToHexString(textResource.contentHash())
-        );
+        string memory integrity = string.concat("keccak256-", uint256(textResource.contentHash()).toHexString(32));
         return string.concat(
-            "<xi:include href=\"", href,
-            "\" parse=\"text\" evmstate:integrity=\"", integrity, "\"/>"
+            "<",
+            elementName,
+            " href=\"",
+            textResource.web3Url(),
+            "\" integrity=\"",
+            integrity,
+            "\"/>"
         );
     }
 
@@ -477,19 +514,16 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     }
 
     /**
-     * @dev Integrity anchor recorded in the product instance at deployment.
-     *      Binds the trade identity to the exact product definition state
-     *      at trade time, including version and immutable resource contents,
-     *      and to the agreed product-specific payload, so it can be
+     * @dev Integrity anchor recorded in the product instance at deployment. Binds the trade identity to the exact product definition state
+     *      at trade time, including version and immutable resource contents, and to the agreed product-specific payload, so it can be
      *      independently recomputed and verified later.
      */
-    function _deploymentStateHash(bytes32 tradeId, address productProvider, address client, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinitionResources memory resources, bytes32 productSpecificSchemaHash, bytes calldata productSpecificPayload) internal view returns (bytes32) {
-        bytes32 productTermsTemplateContentHash = ITextResource(resources.productTermsTemplate).contentHash();
-        bytes32 productDocumentationTemplateContentHash = ITextResource(resources.productDocumentationTemplate).contentHash();
+    function _deploymentStateHash(bytes32 tradeId, address productProvider, address client, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinition memory productDefinition, bytes calldata productPayload) internal view returns (bytes32) {
+        bytes32 productTermsTemplateContentHash = ITextResource(productDefinition.productTermsTemplate).contentHash();
+        bytes32 productDocumentationTemplateContentHash = ITextResource(productDefinition.productDocumentationTemplate).contentHash();
 
-        return keccak256(abi.encode(address(this), block.chainid, tradeId, productProvider, client, productDefinitionId, productDefinitionVersion, resources.productTypeId,
-                resources.productTermsTemplate, productTermsTemplateContentHash, resources.productDocumentationTemplate, productDocumentationTemplateContentHash,
-                productSpecificSchemaHash, keccak256(productSpecificPayload)));
+        return keccak256(abi.encode(address(this), block.chainid, tradeId, productProvider, client, productDefinitionId, productDefinitionVersion, productDefinition.productFactory,
+            productDefinition.productTermsTemplate, productTermsTemplateContentHash, productDefinition.productDocumentationTemplate, productDocumentationTemplateContentHash, keccak256(productPayload)));
     }
 
     // ------------------------------ Validation Helpers ------------------------------ */
@@ -501,12 +535,6 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         }
     }
 
-    function _ensureProductDefinitionWritable(bytes32 productDefinitionId, ProductDefinitionStatus status) internal pure {
-        if (status == ProductDefinitionStatus.Retired || status == ProductDefinitionStatus.Archived) {
-            revert ProductDefinitionNotWritable(productDefinitionId, status);
-        }
-    }
-
     function _existingProductIndicationAssignment(bytes32 productDefinitionId) internal view returns (ProductIndicationAssignment storage assignment) {
         assignment = _indicationsByDefinitionId[productDefinitionId];
         if (assignment.productIndication == address(0)) {
@@ -514,74 +542,31 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         }
     }
 
-    function _validateProductIndication(bytes32 productTypeId, address productIndication, bytes32 indicationId) internal view returns (uint256 partId) {
-        if (productIndication == address(0)) {
-            revert ZeroAddress("productIndication");
-        }
-        if (indicationId == bytes32(0)) {
-            revert ZeroHash("indicationId");
-        }
-        if (productIndication.code.length == 0) {
-            revert InvalidIndicationContract(productIndication);
-        }
-
-        try IERC165(productIndication).supportsInterface(type(IProductIndication).interfaceId) returns (bool supported) {
-            if (!supported) {
-                revert InvalidIndicationInterface(productIndication);
-            }
-        } catch {
-            revert InvalidIndicationInterface(productIndication);
-        }
-
-        IProductIndication indicationRegistry = IProductIndication(productIndication);
-
-        try indicationRegistry.indicationStatus(indicationId) returns (IProductIndication.IndicationStatus status) {
-            if (status != IProductIndication.IndicationStatus.Active && status != IProductIndication.IndicationStatus.Suspended) {
-                revert InvalidIndicationStatus(productIndication, status);
-            }
-        } catch {
-            revert InvalidIndicationInterface(productIndication);
-        }
-
-        try indicationRegistry.indicationCategory() returns (bytes32 category) {
-            if (!_isAcceptedIndication(productTypeId, category)) {
-                revert InvalidIndicationCategory(productIndication, category);
-            }
-        } catch {
-            revert InvalidIndicationInterface(productIndication);
-        }
-
-        try indicationRegistry.partIdForIndication(indicationId) returns (uint256 resolvedPartId) {
-            partId = resolvedPartId;
-        } catch {
-            revert InvalidIndicationInterface(productIndication);
+    function _ensureProductDefinitionWritable(bytes32 productDefinitionId, ProductDefinitionStatus status) internal pure {
+        if (status == ProductDefinitionStatus.Retired || status == ProductDefinitionStatus.Archived) {
+            revert ProductDefinitionNotWritable(productDefinitionId, status);
         }
     }
 
     /**
      * @dev Allowed transitions:
-     *      Active    -> Suspended | Closed
-     *      Suspended -> Active | Closed
-     *      Closed    -> Archived
+     *      Active    -> Suspended | Retired
+     *      Suspended -> Active | Retired
+     *      Retired    -> Archived
      *      Archived  -> (terminal)
      */
     function _validateStatusTransition(ProductDefinitionStatus  oldStatus, ProductDefinitionStatus  newStatus) internal pure {
-        if (newStatus == ProductDefinitionStatus .Unknown) {
-            revert InvalidStatusTransition(oldStatus, newStatus);
-        }
-        if (oldStatus == ProductDefinitionStatus .Archived) {
-            revert InvalidStatusTransition(oldStatus, newStatus);
-        }
-        if (oldStatus == ProductDefinitionStatus .Retired && newStatus != ProductDefinitionStatus .Archived) {
-            revert InvalidStatusTransition(oldStatus, newStatus);
-        }
+        bool valid = (oldStatus == ProductDefinitionStatus.Active && (newStatus == ProductDefinitionStatus.Suspended || newStatus == ProductDefinitionStatus.Retired)) ||
+            (oldStatus == ProductDefinitionStatus.Suspended && (newStatus == ProductDefinitionStatus.Active || newStatus == ProductDefinitionStatus.Retired)) ||
+            (oldStatus == ProductDefinitionStatus.Retired && newStatus == ProductDefinitionStatus.Archived);
+        if (!valid) revert InvalidStatusTransition(oldStatus, newStatus);
     }
 
     function _validateProductDefinitionPublicationParams(ProductDefinitionPublicationParams calldata params) internal view {
         if (bytes(params.name).length == 0) {
             revert EmptyString("name");
         }
-        _validateProductDefinition(params.definition);
+        _validateProductDefinition(params.productDefinition);
     }
 
     function _validateProductDefinition(ProductDefinition calldata productDefinition) internal view {
@@ -604,6 +589,13 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         } catch {
             revert ContractCallFailed(factory, "productRegistryAddress()");
         }
+        // Factory must implement meaningful product specifications: productPayloadSchema, productTermsTemplateResourceType, productDocumentationTemplateResourceType
+        if (bytes(productFactory.productPayloadSchema()).length == 0) {
+            revert InvalidProductFactory(factory);
+        }
+        if (productFactory.productTermsTemplateResourceType() == bytes32(0) || productFactory.productDocumentationTemplateResourceType() == bytes32(0)) {
+            revert InvalidProductFactory(factory);
+        }
     }
 
     function _validateTextResource(address resource, bytes32 expectedResourceType) internal view {
@@ -619,7 +611,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         } catch {
             revert ContractCallFailed(resource, "isFinalized()");
         }
-        // Must carry an accepted resource type for this slot.
+        // Must carry an accepted resource type
         try textResource.resourceType() returns (bytes32 actualResourceType) {
             if (actualResourceType != expectedResourceType) revert InvalidResourceType(resource, expectedResourceType, actualResourceType);
         } catch {
@@ -627,21 +619,42 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         }
     }
 
-    function _validateContractAddress(address contractAddress, string memory field) internal pure {
+    function _validateProductIndication(address productFactory, address productIndication, bytes32 indicationId) internal view returns (uint256 partId) {
+        _validateContractAddress(productIndication, "productIndication");
+        if (indicationId == bytes32(0)) revert ZeroHash("indicationId");
+        // Must advertise IProductIndication via ERC-165
+        if (!productIndication.supportsInterface(type(IProductIndication).interfaceId)) {
+            revert InvalidInterface(productIndication);
+        }
+        IProductIndication indication = IProductIndication(productIndication);
+        // Indication must be in valid state
+        try indication.indicationStatus(indicationId) returns (IProductIndication.IndicationStatus status) {
+            if (status != IProductIndication.IndicationStatus.Active && status != IProductIndication.IndicationStatus.Suspended) {
+                revert InvalidIndicationStatus(productIndication, status);
+            }
+        } catch {
+            revert ContractCallFailed(indication, "indicationStatus()");
+        }
+        // Indication must be of a category accepted by the product / product factory
+        try indication.indicationCategory() returns (bytes32 category) {
+            if (!IProductFactory(productFactory).isAcceptedIndicationCategory(category)) {
+                revert UnsupportedIndicationCategory(productIndication, category);
+            }
+        } catch {
+            revert ContractCallFailed(indication, "indicationCategory()");
+        }
+        // Get partId of the indication (used for rendering)
+        try indication.partIdForIndication(indicationId) returns (uint256 resolvedPartId) {
+            partId = resolvedPartId;
+        } catch {
+            revert ContractCallFailed(indication, "partIdForIndication()");
+        }
+    }
+
+    function _validateContractAddress(address contractAddress, string memory field) internal view {
         if (contractAddress == address(0)) revert ZeroAddress(field);
         if (contractAddress.code.length == 0) revert EmptyContract(contractAddress);
     }
-
-    // ------------------------------ Final-Contract Hook ------------------------------ */
-
-    /// @dev Product-specific rule: which resource types are accepted per slot.
-    function _isAcceptedResourceType(ResourceSlot slot, bytes32 resourceType) internal view virtual returns (bool);
-
-    /**
-     * @dev Product-specific rule: may an indication of `indicationCategory` be
-     *      attached to a product definition of `productTypeId`?
-     */
-    function _isAcceptedIndication(bytes32 productTypeId, bytes32 indicationCategory) internal view virtual returns (bool);
 
     // ------------------------------ String Helpers ------------------------------ */
 

@@ -24,7 +24,6 @@ pragma solidity ^0.8.24;
  *                                  deployment time.
  * @param productTermsTemplate         ITextResource holding the product terms template.
  * @param productDocumentationTemplate ITextResource holding the product documentation template.
- * @param productTypeId             Identifies the deployable product type.
  * @param deploymentStateHash       Integrity anchor of the product definition
  *                                  state and agreed payload at trade time.
  */
@@ -37,7 +36,6 @@ struct CommonDeploymentParams {
     uint256 productDefinitionVersion;
     address productTermsTemplate;
     address productDocumentationTemplate;
-    bytes32 productTypeId;
     bytes32 deploymentStateHash;
 }
 
@@ -46,11 +44,10 @@ struct CommonDeploymentParams {
  *         payload.
  * @param common                    Product-agnostic deployment context.
  * @param productSpecificSchemaHash Identifies the schema of the payload.
- * @param productSpecificPayload    ABI-encoded product-specific economics,
+ * @param productPayload    ABI-encoded product-specific economics,
  *                                  opaque to the generic factory.
  */
 struct ProductDeploymentParams {
     CommonDeploymentParams common;
-    bytes32 productSpecificSchemaHash;
-    bytes productSpecificPayload;
+    bytes productPayload;
 }

@@ -1,52 +1,93 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductSpecificFactory} from "../ProductFactory/AbstractProductSpecificFactory.sol";
+import {AbstractProductFactory} from "../ProductFactory/AbstractProductFactory.sol";
 import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
+import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
 import {SimpleBond} from "./SimpleBond.sol";
-import {SIMPLE_BOND_TYPE} from "./BondConstants.sol";
+
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 /**
  * @title SimpleBondFactory
  * @notice Product-specific factory that deploys SimpleBond products.
  * @dev Caller restriction (onlyGenericFactory) and schema validation are
- *      handled by AbstractProductSpecificFactory.sol.sol; this contract only decodes
+ *      handled by AbstractProductFactory.sol.sol; this contract only decodes
  *      the payload, validates the economics, and constructs the bond.
  *
  * @author Raphael Prandtl
  */
-contract SimpleBondFactory is AbstractProductSpecificFactory {
+contract SimpleBondFactory is AbstractProductFactory {
+    using ERC165Checker for address;
+
     // ------------------------------ Constants ------------------------------ */
 
     /// @notice Human-readable schema of the expected productSpecificPayload.
     string internal constant PRODUCT_SPECIFIC_PAYLOAD_SCHEMA = "v1:SimpleBondDeploymentPayload(uint256 notional,uint256 maturity)";
 
-    /// @notice Hash of the payload schema, matched against incoming params.
-    bytes32 internal constant PRODUCT_SPECIFIC_SCHEMA_HASH = keccak256(bytes(PRODUCT_SPECIFIC_PAYLOAD_SCHEMA));
+    /// @dev resourceType() a text resource must declare to back the product terms template slot of a bond product.
+    bytes32 internal constant PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:SIMPLE_BOND:PRODUCT_TERMS_TEMPLATE:V1");
+
+    /// @dev resourceType() a text resource must declare to back the product documentation template slot of a bond product.
+    bytes32 internal constant PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:SIMPLE_BOND:PRODUCT_DOCUMENTATION_TEMPLATE:V1");
+
+
+    bytes32 public immutable acceptedIndicationCategory;
+
+    // ------------------------------ Custom Errors ------------------------------ */
+
+    /// @notice Address has no contract code.
+    error InvalidIndicationContract(address indicationContract);
+
+    /// @notice Resource does not implement the expected interface.
+    error InvalidInterface(address contractAddress);
+
+    /// @notice Call to a contract failed
+    error ContractCallFailed(address contractAddress, string functionName);
 
     // ------------------------------ Constructor ------------------------------ */
 
-    /// @param genericFactory_ The generic factory that will invoke this factory.
-    constructor(address genericFactory_) AbstractProductSpecificFactory(genericFactory_) {}
+    /// @param productRegistry_ The product registry that will invoke this factory.
+    constructor(address productRegistry_, address curveIndications_) AbstractProductFactory(productRegistry_) {
+        if (curveIndications_ == address(0) || curveIndications_.code.length == 0) {
+            revert InvalidIndicationContract(curveIndications_);
+        }
+        // Must advertise IProductIndication via ERC-165
+        if (!curveIndications_.supportsInterface(type(IProductIndication).interfaceId)) {
+            revert InvalidIndicationContract(curveIndications_);
+        }
+        IProductIndication indication = IProductIndication(curveIndications_);
+        try indication.indicationCategory() returns (bytes32 indicationCategory) {
+            acceptedIndicationCategory = indicationCategory;
+        } catch {
+            revert ContractCallFailed(curveIndications_, "indicationCategory()");
+        }
+    }
 
     // ------------------------------ Product Specification ------------------------------ */
 
-    function productTypeId() public pure override returns (bytes32) {
-        return SIMPLE_BOND_TYPE;
-    }
-
-    function productSpecificPayloadSchema() external pure override returns (string memory) {
+    function productPayloadSchema() external pure override returns (string memory) {
         return PRODUCT_SPECIFIC_PAYLOAD_SCHEMA;
     }
 
-    function productSpecificSchemaHash() public pure override returns (bytes32) {
-        return PRODUCT_SPECIFIC_SCHEMA_HASH;
+    function productTermsTemplateResourceType() external pure override returns (bytes32) {
+        return PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE;
+    }
+
+    function productDocumentationTemplateResourceType() external pure override returns (bytes32) {
+        return PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE;
+    }
+
+    // ------------------------------ Product Indication ------------------------------ */
+
+    function isAcceptedIndicationCategory(bytes32 indicationCategory) external view override returns (bool) {
+        return acceptedIndicationCategory == indicationCategory;
     }
 
     // ------------------------------ Product-Specific Deploy ------------------------------ */
 
     function _deployProduct(ProductDeploymentParams calldata params) internal override returns (address product) {
-        product = address(new SimpleBond(params.common, params.productSpecificPayload));
+        product = address(new SimpleBond(params.common, params.productPayload));
     }
 
 }

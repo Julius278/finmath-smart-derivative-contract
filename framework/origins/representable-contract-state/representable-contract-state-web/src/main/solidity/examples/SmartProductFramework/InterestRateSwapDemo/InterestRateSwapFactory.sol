@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductSpecificFactory} from "../ProductFactory/AbstractProductSpecificFactory.sol";
+import {AbstractProductFactory} from "../ProductFactory/AbstractProductFactory.sol";
 import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {InterestRateSwap} from "./InterestRateSwap.sol";
 import {INTEREST_RATE_SWAP_TYPE} from "./SwapConstants.sol";
@@ -14,7 +14,7 @@ import {INTEREST_RATE_SWAP_TYPE} from "./SwapConstants.sol";
  *
  * @author Raphael Prandtl
  */
-contract InterestRateSwapFactory is AbstractProductSpecificFactory {
+contract InterestRateSwapFactory is AbstractProductFactory {
     // ------------------------------ Constants ------------------------------ */
 
     /// @notice Human-readable schema of the expected productSpecificPayload.

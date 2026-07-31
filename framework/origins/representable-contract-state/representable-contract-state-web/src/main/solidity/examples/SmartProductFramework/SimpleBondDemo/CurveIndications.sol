@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {AbstractProductIndication} from "../ProductIndication/AbstractProductIndication.sol";
-import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 
 /**
  * @title CurveIndications
@@ -22,6 +21,9 @@ import {CURVE_INDICATION_CATEGORY} from "./BondConstants.sol";
 contract CurveIndications is AbstractProductIndication {
 
     // ------------------------------ Constants ------------------------------ */
+
+    /// @dev Canonical indication category owned and exposed by this contract.
+    bytes32 private constant INDICATION_CATEGORY = keccak256("CURVE");
 
     /// @notice Max number of simultaneously active quotes per curve.
     uint256 public constant MAX_ACTIVE_QUOTES = 20;
@@ -250,7 +252,7 @@ contract CurveIndications is AbstractProductIndication {
 
     /// @inheritdoc AbstractProductIndication
     function indicationCategory() external pure override returns (bytes32) {
-        return CURVE_INDICATION_CATEGORY;
+        return INDICATION_CATEGORY;
     }
 
     // ------------------------------ XML View ------------------------------ */

@@ -172,9 +172,6 @@ interface IProductDefinitionRegistry {
     /// @notice Returns the factory anchored of a product definition
     function getProductFactoryByDefinitionId(bytes32 productDefinitionId) external view returns (address productFactory);
 
-    // @notice Returns the product type exposed by the factory anchored in the product definition.
-    function productTypeByDefinitionId(bytes32 productDefinitionId) external view returns (bytes32 productTypeId);
-
     /**
      * @notice Derives the canonical product-definition id for a given name.
      * @dev This is an off-chain convenience function. It mirrors the canonical id scheme but does not check whether the definition exists.

@@ -62,18 +62,10 @@ import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
  * @author Raphael Prandtl
  */
 interface IProductFactory is IERC165 {
-    // ------------------------------ Custom Errors ------------------------------ */
-
-    /// @notice Thrown when a required address value is the zero address.
-    error ZeroAddress(string field);
-
-     /// @notice Thrown when deployProduct is called by an address other than the configured product registry.
-    error NotProductRegistry(address caller);
-
     // ------------------------------ Events ------------------------------------- */
 
     /// @notice Emitted after this factory successfully deploys a product.
-    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, bytes32 indexed productTypeId, address product, address productProvider, address client);
+    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, address product, address productProvider, address client);
 
     // ------------------------------ Factory Configuration ------------------------------ */
 
@@ -83,26 +75,20 @@ interface IProductFactory is IERC165 {
     // ------------------------------ Product Specification ------------------------------ */
 
     /**
-     * @notice Returns the logical product type implemented by this factory.
-     * @dev This value is descriptive product metadata, not a routing key.
-     *      Deployment routing is determined by the exact factory address anchored in the product definition.
-     */
-    function productTypeId() external view returns (bytes32);
-
-    /**
      * @notice Returns a human-readable description of the expected ABI encoding of ProductDeploymentParams.productSpecificPayload.
      * @dev Intended for documentation, integration tooling, and off-chain payload construction.
      */
     function productPayloadSchema() external view returns (string memory);
-
-    /// @notice Returns the canonical hash of the product-specific payload schema.
-    function productPayloadSchemaHash() external view returns (bytes32);
 
     /// @notice Returns the resource type required for the product terms template.
     function productTermsTemplateResourceType() external view returns (bytes32);
 
     /// @notice Returns the resource type required for the product documentation template.
     function productDocumentationTemplateResourceType() external view returns (bytes32);
+
+    // ------------------------------ Product Indication ------------------------------ */
+
+    function isAcceptedIndicationCategory(bytes32 indicationCategory) external view returns (bool);
 
     // ------------------------------ Product Authenticity ------------------------------ */
 

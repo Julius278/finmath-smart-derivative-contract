@@ -55,7 +55,7 @@ interface IProduct is IXMLRepresentableState {
      *      verification via
      *      IProductSpecificFactory(productSpecificFactory()).isFactoryDeployedProduct(this).
      */
-    function productSpecificFactory() external view returns (address);
+    function productFactory() external view returns (address);
 
     /// @notice Returns the unique trade identifier this product was created for.
     function tradeId() external view returns (bytes32);
@@ -84,13 +84,6 @@ interface IProduct is IXMLRepresentableState {
 
     /// @notice Returns the ITextResource holding the product documentation template.
     function productDocumentationTemplate() external view returns (address);
-
-    /**
-     * @notice Returns the product type identifier.
-     * @dev Matches the deploying product-specific factory's productTypeId()
-     *      and the product definition's productTypeId.
-     */
-    function productTypeId() external view returns (bytes32);
 
     /**
      * @notice Returns the deployment integrity anchor.
