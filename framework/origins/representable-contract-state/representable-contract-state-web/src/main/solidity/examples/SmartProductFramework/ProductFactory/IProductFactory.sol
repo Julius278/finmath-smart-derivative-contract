@@ -101,7 +101,7 @@ interface IProductFactory is IERC165 {
     /// @notice Returns the resource type required for the product terms template.
     function productTermsTemplateResourceType() external view returns (bytes32);
 
-    /// @notice Returns the resource type required for the product documentationtemplate.
+    /// @notice Returns the resource type required for the product documentation template.
     function productDocumentationTemplateResourceType() external view returns (bytes32);
 
     // ------------------------------ Product Authenticity ------------------------------ */

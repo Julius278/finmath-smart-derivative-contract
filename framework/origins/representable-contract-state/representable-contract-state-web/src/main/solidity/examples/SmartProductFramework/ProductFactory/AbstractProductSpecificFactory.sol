@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IProductSpecificFactory} from "./IProductFactory.sol";
+import {IProductFactory} from "./IProductFactory.sol";
 import {ProductDeploymentParams} from "./ProductDeploymentTypes.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
@@ -15,7 +15,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  *
  * @author Raphael Prandtl
  */
-abstract contract AbstractProductSpecificFactory is IProductSpecificFactory {
+abstract contract AbstractProductSpecificFactory is IProductFactory {
     // ------------------------------ Immutable State ------------------------------ */
 
     /// @notice The generic factory allowed to call deployProduct.

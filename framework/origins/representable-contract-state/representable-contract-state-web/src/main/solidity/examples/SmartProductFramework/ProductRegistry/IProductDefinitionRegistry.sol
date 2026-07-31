@@ -87,7 +87,7 @@ interface IProductDefinitionRegistry {
      */
     struct ProductDefinitionPublicationParams {
         string name;
-        ProductDefinition definition;
+        ProductDefinition productDefinition;
     }
 
     /**
@@ -107,7 +107,7 @@ interface IProductDefinitionRegistry {
         string name;
         uint256 partId;
         uint256 version;
-        ProductDefinition definition;
+        ProductDefinition productDefinition;
     }
 
     // ------------------------------ Custom Errors ------------------------------ */

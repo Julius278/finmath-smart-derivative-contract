@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductRegistry} from "../ProductRegistry/AbstractProductRegistry.sol";
+import {ProductDefinitionRegistry} from "../ProductRegistry/ProductDefinitionRegistry.sol";
 import {
     INTEREST_RATE_SWAP_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,
     INTEREST_RATE_SWAP_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE
@@ -15,7 +15,7 @@ import {
  *
  * @author Raphael Prandtl
  */
-contract InterestRateSwapProductRegistry is AbstractProductRegistry {
+contract InterestRateSwapProductRegistry is ProductDefinitionRegistry {
     // ------------------------------ Constructor ------------------------------ */
 
     /**

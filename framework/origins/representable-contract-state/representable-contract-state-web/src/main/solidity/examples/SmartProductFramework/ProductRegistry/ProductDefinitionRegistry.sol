@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ITextResource} from "../../../resources/ITextResource.sol";
 import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
 
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -16,7 +16,7 @@ import {IClientRegistry} from "../ClientRegistry/IClientRegistry.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**
- * @title AbstractProductRegistry.sol
+ * @title ProductDefinitionRegistry.sol
  * @notice Product-agnostic registry implementation covering product-definition
  *         publication and lifecycle, product-indication assignment, eligible
  *         client trade requests, and product deployment.
@@ -30,8 +30,9 @@ import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory
  *
  * @author Raphael Prandtl
  */
-abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step {
+contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step {
     using Strings for uint256;
+    using ERC165Checker for address;
 
     // ------------------------------ Enums ------------------------------ */
 
@@ -44,20 +45,28 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
 
     // ------------------------------ Custom Errors ------------------------------ */
 
+    // TODO: remove unused ones
+
     /// @notice ERC-8100: requested partId does not map to a known product definition.
     error UnknownPart(uint256 partId);
 
-    /// @notice Resource address has no contract code.
-    error InvalidResourceContract(address resource);
+    /// @notice Address has no contract code.
+    error EmptyContract(address contractAddress);
 
-    /// @notice Resource does not implement the ITextResource interface.
-    error InvalidResourceInterface(address resource);
+    /// @notice Resource does not implement the expected interface.
+    error InvalidInterface(address contractAddress);
+
+    /// @notice Factory is not configured for this product registry.
+    error FactoryNotConfigured(address configuredRegistry);
+
+    /// @notice Call to a contract failed
+    error ContractCallFailed(address contractAddress, string functionName);
 
     /// @notice Resource is not finalized (and thus not immutable).
     error ResourceNotFinalized(address resource);
 
     /// @notice Resource type is not accepted for the given slot.
-    error InvalidResourceType(address resource, ResourceSlot slot, bytes32 actualResourceType);
+    error InvalidResourceType(address resource, bytes32 expected, bytes32 actual);
 
     /// @notice Thrown when the indication address has no contract code.
     error InvalidIndicationContract(address productIndication);
@@ -124,7 +133,7 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
         uint64 updatedAt;
         string name;
         uint256 version;
-        ProductDefinitionResources resources;
+        ProductDefinition productDefinition;
     }
 
     /// @notice Per-product-definition indication reference.
@@ -140,6 +149,7 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
      * @param productSpecificSchemaHash Hash of the product-specific payload schema.
      * @param productSpecificPayload    Product-specific deployment payload.
      */
+    // TODO
     struct TradeRequestParams {
         bytes32 productDefinitionId;
         bytes32 productSpecificSchemaHash;
@@ -154,15 +164,10 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
     /// @notice Client registry consulted for eligibility.
     address public immutable clientRegistryAddress;
 
-    /**
-     * @notice Product factory used to deploy product instances.
-     *         Owner-settable and replaceable (see setProductFactory).
-     */
-    address public productFactory;
-
     /// @dev Monotonic nonce feeding tradeId derivation.
     uint256 internal _tradeIdNonce;
 
+    // TODO
     /// @dev tradeId -> deployed product instance address.
     mapping(bytes32 => address) internal _productByTradeId;
 
@@ -179,77 +184,70 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
         clientRegistryAddress = clientRegistryAddress_;
     }
 
-    modifier onlyAfterFactorySet() {
-        if (productFactory == address(0)) {
-            revert MissingProductFactory();
-        }
-        _;
-    }
-
     // ------------------------------ Product Definition Publication and Lifecycle Management ------------------------------ */
 
     function publishProductDefinition(ProductDefinitionPublicationParams calldata params) external override onlyOwner returns (bytes32 productDefinitionId) {
         _validateProductDefinitionPublicationParams(params);
 
         productDefinitionId = _productDefinitionId(params.name);
-        ProductDefinitionStorage storage definition = _productDefinitionsById[productDefinitionId];
-        if (definition.status != ProductDefinitionStatus.Unknown) {
+        ProductDefinitionStorage storage definitionStorage = _productDefinitionsById[productDefinitionId];
+        if (definitionStorage.status != ProductDefinitionStatus.Unknown) {
             revert ProductDefinitionAlreadyExists(productDefinitionId);
         }
 
-        definition.status = ProductDefinitionStatus.Active;
-        definition.name = params.name;
-        definition.publishedAt = uint64(block.timestamp);
-        definition.resources = params.resources;
+        definitionStorage.status = ProductDefinitionStatus.Active;
+        definitionStorage.name = params.name;
+        definitionStorage.publishedAt = uint64(block.timestamp);
+        definitionStorage.productDefinition = params.productDefinition;
 
-        _touchProductDefinition(definition);
+        _touchProductDefinition(definitionStorage);
 
-        emit ProductDefinitionPublished(productDefinitionId, params.resources.productTypeId, params.resources.productTermsTemplate, params.resources.productDocumentationTemplate);
+        emit ProductDefinitionPublished(productDefinitionId, params.definition.productFactory, params.definition.productTermsTemplate, params.definition.productDocumentationTemplate);
         emit ProductDefinitionStatusChanged(productDefinitionId, ProductDefinitionStatus.Unknown, ProductDefinitionStatus.Active);
-        emit StatePartUpdated(msg.sender, address(this),             _partIdFromProductDefinitionId(productDefinitionId), definition.version);
+        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
 
-    function updateProductDefinitionResources(bytes32 productDefinitionId, ProductDefinitionResources calldata resources) external override onlyOwner {
-        _validateProductDefinitionResources(resources);
+    function updateProductDefinition(bytes32 productDefinitionId, ProductDefinition calldata productDefinition) external override onlyOwner {
+        _validateProductDefinition(productDefinition);
 
-        ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
-        _ensureProductDefinitionWritable(productDefinitionId, definition.status);
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
+        _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
 
-        definition.resources = resources;
-        _touchProductDefinition(definition);
+        definitionStorage.productDefinition = productDefinition;
+        _touchProductDefinition(definitionStorage);
 
-        emit ProductDefinitionResourcesUpdated(productDefinitionId, resources.productTypeId, resources.productTermsTemplate, resources.productDocumentationTemplate, definition.version);
-        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
+        emit ProductDefinitionUpdated(productDefinitionId, productDefinition.productFactory, productDefinition.productTermsTemplate, productDefinition.productDocumentationTemplate, definitionStorage.version);
+        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
 
     function setProductDefinitionStatus(bytes32 productDefinitionId, ProductDefinitionStatus newStatus) external override onlyOwner {
-        ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
-        ProductDefinitionStatus oldStatus = definition.status;
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
+        ProductDefinitionStatus oldStatus = definitionStorage.status;
 
         if (oldStatus == newStatus) {
             return;
         }
         _validateStatusTransition(oldStatus, newStatus);
 
-        definition.status = newStatus;
-        _touchProductDefinition(definition);
+        definitionStorage.status = newStatus;
+        _touchProductDefinition(definitionStorage);
 
         emit ProductDefinitionStatusChanged(productDefinitionId, oldStatus, newStatus);
-        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definition.version);
+        emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
 
     // ------------------------------ Product Definition Read API ------------------------------ */
 
     function getProductDefinition(bytes32 productDefinitionId) external view override returns (ProductDefinitionView memory) {
-        ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
         return ProductDefinitionView({
-            status: definition.status,
-            publishedAt: definition.publishedAt,
-            updatedAt: definition.updatedAt,
-            name: definition.name,
+            status: definitionStorage.status,
+            publishedAt: definitionStorage.publishedAt,
+            updatedAt: definitionStorage.updatedAt,
+            name: definitionStorage.name,
             partId: _partIdFromProductDefinitionId(productDefinitionId),
-            version: definition.version,
-            resources: definition.resources
+            version: definitionStorage.version,
+            resources: definitionStorage.productDefinition
         });
     }
 
@@ -257,16 +255,13 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
         return _productDefinitionsById[productDefinitionId].status;
     }
 
-    function productTypeByDefinitionId(bytes32 productDefinitionId) external view override returns (bytes32 productTypeId) {
-        return _existingProductDefinition(productDefinitionId).resources.productTypeId;
-    }
-
     // ------------------------------ Product Indication Assignment ------------------------------ */
 
+    // TODO who validates the indication assigning?
     /// @notice Assigns (or replaces) the product indication of a product definition.
     function assignProductIndication(bytes32 productDefinitionId, address productIndication, bytes32 indicationId) external onlyOwner {
-        ProductDefinitionStorage storage definition = _existingProductDefinition(productDefinitionId);
-        _ensureProductDefinitionWritable(productDefinitionId, definition.status);
+        ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
+        _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
 
         uint256 partId = _validateProductIndication(definition.resources.productTypeId, productIndication, indicationId);
 
@@ -463,9 +458,9 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
         return uint256(productDefinitionId);
     }
 
-    function _touchProductDefinition(ProductDefinitionStorage storage definition) internal {
-        unchecked { definition.version += 1; }
-        definition.updatedAt = uint64(block.timestamp);
+    function _touchProductDefinition(ProductDefinitionStorage storage definitionStorage) internal {
+        unchecked { definitionStorage.version += 1; }
+        definitionStorage.updatedAt = uint64(block.timestamp);
     }
 
     // ------------------------------ Client Validation ------------------------------ */
@@ -530,8 +525,8 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
             revert InvalidIndicationContract(productIndication);
         }
 
-        try IERC165(productIndication).supportsInterface(type(IProductIndication).interfaceId) returns (bool ok) {
-            if (!ok) {
+        try IERC165(productIndication).supportsInterface(type(IProductIndication).interfaceId) returns (bool supported) {
+            if (!supported) {
                 revert InvalidIndicationInterface(productIndication);
             }
         } catch {
@@ -586,54 +581,55 @@ abstract contract AbstractProductRegistry is IProductDefinitionRegistry, IXMLRep
         if (bytes(params.name).length == 0) {
             revert EmptyString("name");
         }
-        _validateProductDefinitionResources(params.resources);
+        _validateProductDefinition(params.definition);
     }
 
-    function _validateProductDefinitionResources(ProductDefinitionResources calldata resources) internal view {
-        _validateTextResource(resources.productTermsTemplate, ResourceSlot.ProductTermsTemplate);
-        _validateTextResource(resources.productDocumentationTemplate, ResourceSlot.ProductDocumentationTemplate);
-
-        if (resources.productTypeId == bytes32(0)) {
-            revert ZeroHash("productTypeId");
-        }
+    function _validateProductDefinition(ProductDefinition calldata productDefinition) internal view {
+        IProductFactory factory = IProductFactory(productDefinition.productFactory);
+        _validateProductFactory(productDefinition.productFactory);
+        _validateTextResource(productDefinition.productTermsTemplate, factory.productTermsTemplateResourceType());
+        _validateTextResource(productDefinition.productDocumentationTemplate, factory.productDocumentationTemplateResourceType());
     }
 
-    function _validateTextResource(address resource, ResourceSlot slot) internal view {
-        if (resource == address(0)) {
-            revert ZeroAddress("resource");
+    function _validateProductFactory(address factory) internal view {
+        _validateContractAddress(factory, "productFactory");
+        // Must advertise IProductFactory via ERC-165
+        if (!factory.supportsInterface(type(IProductFactory).interfaceId)) {
+            revert InvalidInterface(factory);
         }
-        if (resource.code.length == 0) {
-            revert InvalidResourceContract(resource);
-        }
-
-        // Must advertise ITextResource via ERC-165.
-        try IERC165(resource).supportsInterface(type(ITextResource).interfaceId) returns (bool ok) {
-            if (!ok) {
-                revert InvalidResourceInterface(resource);
-            }
+        IProductFactory productFactory = IProductFactory(factory);
+        // Factory must be configured for this registry
+        try productFactory.productRegistryAddress() returns (address configuredAddress) {
+            if (configuredAddress != address(this)) revert FactoryNotConfigured(configuredAddress);
         } catch {
-            revert InvalidResourceInterface(resource);
+            revert ContractCallFailed(factory, "productRegistryAddress()");
         }
+    }
 
+    function _validateTextResource(address resource, bytes32 expectedResourceType) internal view {
+        _validateContractAddress(resource, "textResource");
+        // Must advertise ITextResource via ERC-165
+        if(!resource.supportsInterface(type(ITextResource).interfaceId)) {
+            revert InvalidInterface(resource);
+        }
         ITextResource textResource = ITextResource(resource);
-
-        // Must be finalized (immutable).
+        // TextResource must be finalized (immutable).
         try textResource.isFinalized() returns (bool finalized) {
-            if (!finalized) {
-                revert ResourceNotFinalized(resource);
-            }
+            if (!finalized)  revert ResourceNotFinalized(resource);
         } catch {
-            revert InvalidResourceInterface(resource);
+            revert ContractCallFailed(resource, "isFinalized()");
         }
-
         // Must carry an accepted resource type for this slot.
         try textResource.resourceType() returns (bytes32 actualResourceType) {
-            if (!_isAcceptedResourceType(slot, actualResourceType)) {
-                revert InvalidResourceType(resource, slot, actualResourceType);
-            }
+            if (actualResourceType != expectedResourceType) revert InvalidResourceType(resource, expectedResourceType, actualResourceType);
         } catch {
-            revert InvalidResourceInterface(resource);
+            revert ContractCallFailed(resource, "resourceType()");
         }
+    }
+
+    function _validateContractAddress(address contractAddress, string memory field) internal pure {
+        if (contractAddress == address(0)) revert ZeroAddress(field);
+        if (contractAddress.code.length == 0) revert EmptyContract(contractAddress);
     }
 
     // ------------------------------ Final-Contract Hook ------------------------------ */

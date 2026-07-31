@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AbstractProductRegistry} from "../ProductRegistry/AbstractProductRegistry.sol";
+import {ProductDefinitionRegistry} from "../ProductRegistry/ProductDefinitionRegistry.sol";
 import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND_PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE, BOND_PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE} from "./BondConstants.sol";
 
 
@@ -11,13 +11,13 @@ import {SIMPLE_BOND_TYPE, COMMERCIAL_PAPER_TYPE, CURVE_INDICATION_CATEGORY, BOND
  *         generic product registry with bond-specific acceptance
  *         rules: which resource types may back a product definition, and which indication
  *         categories may be attached to which bond product types.
- * @dev Extends AbstractProductRegistry, which coordinates product definitions,
+ * @dev Extends ProductDefinitionRegistry.sol, which coordinates product definitions,
  *      indications, trade requests, and deployment. This contract supplies the
  *      bond-specific resource and indication acceptance rules.
  *
  * @author Raphael Prandtl
  */
-contract BondProductRegistry is AbstractProductRegistry {
+contract BondProductRegistry is ProductDefinitionRegistry {
     // ------------------------------ Constructor ------------------------------ */
 
     /**
