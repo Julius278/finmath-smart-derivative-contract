@@ -1,40 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
 import {ITextResource} from "../../../resources/ITextResource.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {IProduct} from "./IProduct.sol";
 import {ITradeLifecycle} from "./ITradeLifecycle.sol";
 import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title AbstractProduct
- * @notice Product-agnostic base for deployed products. Stores immutable
- *         deployment state, captures the deploying factory (msg.sender),
- *         drives the generic trade inception/confirmation lifecycle, and
- *         provides XML rendering scaffolding.
+ * @notice Base contract for deployed products with immutable deployment state,
+ *         a generic trade lifecycle, and XML rendering helpers.
  *
- * @dev LIFECYCLE (ITradeLifecycle, ERC-6123-inspired)
- *      Requested -> Incepted -> Active, with Cancelled as a pre-activation
- *      terminal state. The base owns status, guards, and the agreed-terms-hash
- *      handshake; concrete products implement the term storage/update and the
- *      terms fingerprint via _updateTerms / _economicTermsHash. Product-specific
- *      lifecycles (e.g. issuance, coupons, redemption) can be layered on top of
- *      Active via the _onActivated hook.
- *
- * @dev TERMS FROZEN AFTER INCEPTION
- *      updateTerms is only allowed in Requested. Concrete products MUST NOT
- *      mutate agreement-relevant economic state after Incepted, or the agreed
- *      terms hash would no longer match live state.
+ * @dev Concrete products implement product-specific term updates, term hashing,
+ *      and XML state construction.
  *
  * @author Raphael Prandtl
  */
 abstract contract AbstractProduct is IProduct, ITradeLifecycle {
     using Strings for uint256;
 
-    // ------------------------------ Immutable State ------------------------------ */
+    // ------------------------------ Immutable State ------------------------------
 
     /// @inheritdoc IProduct
     address public immutable override productRegistry;
@@ -59,46 +46,61 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
 
     // ------------------------------ Mutable State ------------------------------ */
 
-    /// @dev Current trade status.
+    /// @dev Current trade lifecycle status.
     TradeStatus internal _status;
 
-    /// @dev Agreed terms hash fixed at inception (0 before Incepted).
+    /// @dev Terms hash accepted at inception.
     bytes32 internal _agreedTermsHash;
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    /// @notice Thrown when a required address field is the zero address.
+    /// @notice Thrown when a required address is zero.
     error ZeroAddress(string field);
-    /// @notice Thrown when a required bytes32 field is zero.
+
+    /// @notice Thrown when a required bytes32 value is zero.
     error ZeroHash(string field);
 
     // ------------------------------ Constructor ------------------------------ */
 
     /**
-     * @param c Common deployment parameters assembled by the registry.
-     * @dev The deploying product-specific factory is captured as msg.sender.
-     *      The concrete product sets its initial terms after this constructor.
+     * @param common Common deployment parameters assembled by the registry.
      */
-    constructor(CommonDeploymentParams memory c) {
-        if (c.productRegistry == address(0)) revert ZeroAddress("productRegistry");
-        if (c.tradeId == bytes32(0)) revert ZeroHash("tradeId");
-        if (c.productProvider  == address(0)) revert ZeroAddress("productProvider ");
-        if (c.client == address(0)) revert ZeroAddress("client");
-        if (c.productDefinitionId  == bytes32(0)) revert ZeroHash("productDefinitionId ");
-        if (c.productTermsTemplate == address(0)) revert ZeroAddress("productTermsTemplate");
-        if (c.productDocumentationTemplate == address(0)) revert ZeroAddress("productDocumentationTemplate");
-        if (c.deploymentStateHash == bytes32(0)) revert ZeroHash("deploymentStateHash");
+    constructor(CommonDeploymentParams memory common) {
+        if (common.productRegistry == address(0)) {
+            revert ZeroAddress("productRegistry");
+        }
+        if (common.tradeId == bytes32(0)) {
+            revert ZeroHash("tradeId");
+        }
+        if (common.productProvider == address(0)) {
+            revert ZeroAddress("productProvider");
+        }
+        if (common.client == address(0)) {
+            revert ZeroAddress("client");
+        }
+        if (common.productDefinitionId == bytes32(0)) {
+            revert ZeroHash("productDefinitionId");
+        }
+        if (common.productTermsTemplate == address(0)) {
+            revert ZeroAddress("productTermsTemplate");
+        }
+        if (common.productDocumentationTemplate == address(0)) {
+            revert ZeroAddress("productDocumentationTemplate");
+        }
+        if (common.deploymentStateHash == bytes32(0)) {
+            revert ZeroHash("deploymentStateHash");
+        }
 
-        productRegistry = c.productRegistry;
+        productRegistry = common.productRegistry;
         productFactory = msg.sender;
-        tradeId = c.tradeId;
-        productProvider = c.productProvider;
-        client = c.client;
-        productDefinitionId = c.productDefinitionId;
-        productDefinitionVersion  = c.productDefinitionVersion ;
-        productTermsTemplate = c.productTermsTemplate;
-        productDocumentationTemplate = c.productDocumentationTemplate;
-        deploymentStateHash = c.deploymentStateHash;
+        tradeId = common.tradeId;
+        productProvider = common.productProvider;
+        client = common.client;
+        productDefinitionId = common.productDefinitionId;
+        productDefinitionVersion = common.productDefinitionVersion;
+        productTermsTemplate = common.productTermsTemplate;
+        productDocumentationTemplate = common.productDocumentationTemplate;
+        deploymentStateHash = common.deploymentStateHash;
 
         _status = TradeStatus.Requested;
         emit TradeStatusChanged(TradeStatus.Requested, TradeStatus.Requested);
@@ -122,21 +124,29 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
 
     // ------------------------------ Trade Lifecycle ------------------------------ */
 
-    function updateTerms(bytes calldata productSpecificPayload) external override onlyClient {
-        if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
+    /// @inheritdoc ITradeLifecycle
+    function updateTerms(bytes calldata productPayload) external override onlyClient {
+        if (_status != TradeStatus.Requested) {
+            revert InvalidTradeStatus(_status);
+        }
 
-        _updateTerms(productSpecificPayload);
+        _updateTerms(productPayload);
 
         bytes32 newHash = currentTermsHash();
         emit TermsUpdated(msg.sender, newHash);
         emit StateUpdated(msg.sender, address(this), newHash);
     }
 
+    /// @inheritdoc ITradeLifecycle
     function inceptTrade(bytes32 agreedTermsHash_) external override onlyProductProvider {
-        if (_status != TradeStatus.Requested) revert InvalidTradeStatus(_status);
+        if (_status != TradeStatus.Requested) {
+            revert InvalidTradeStatus(_status);
+        }
 
         bytes32 current = currentTermsHash();
-        if (agreedTermsHash_ != current) revert AgreedTermsMismatch(current, agreedTermsHash_);
+        if (agreedTermsHash_ != current) {
+            revert AgreedTermsMismatch(current, agreedTermsHash_);
+        }
 
         _agreedTermsHash = agreedTermsHash_;
         _setStatus(TradeStatus.Incepted);
@@ -144,8 +154,11 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         emit TradeIncepted(msg.sender, agreedTermsHash_);
     }
 
+    /// @inheritdoc ITradeLifecycle
     function confirmTrade(bytes32 agreedTermsHash_) external override onlyClient {
-        if (_status != TradeStatus.Incepted) revert InvalidTradeStatus(_status);
+        if (_status != TradeStatus.Incepted) {
+            revert InvalidTradeStatus(_status);
+        }
         if (agreedTermsHash_ != _agreedTermsHash) {
             revert AgreedTermsMismatch(_agreedTermsHash, agreedTermsHash_);
         }
@@ -158,6 +171,7 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         _onActivated();
     }
 
+    /// @inheritdoc ITradeLifecycle
     function cancelTrade() external override {
         if (msg.sender != productProvider && msg.sender != client) {
             revert NotTradeParty(msg.sender);
@@ -182,110 +196,82 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         return _agreedTermsHash;
     }
 
-    /**
-     * @inheritdoc ITradeLifecycle
-     * @dev Binds the economic terms to this instance and its deployment anchor,
-     *      so an agreed hash cannot be replayed against another product.
-     */
+    /// @inheritdoc ITradeLifecycle
     function currentTermsHash() public view override returns (bytes32) {
         return keccak256(abi.encode(address(this), deploymentStateHash, _economicTermsHash()));
     }
 
     // ------------------------------ Internal Lifecycle ------------------------------ */
 
+    /// @dev Updates the current trade status and emits the status change.
     function _setStatus(TradeStatus newStatus) internal {
-        TradeStatus old = _status;
+        TradeStatus oldStatus = _status;
         _status = newStatus;
-        emit TradeStatusChanged(old, newStatus);
+        emit TradeStatusChanged(oldStatus, newStatus);
     }
 
     // ------------------------------ XML View ------------------------------ */
 
-    /// @inheritdoc IXMLRepresentableState
+    /// @inheritdoc IProduct
     function stateXmlTemplate() external view override returns (string memory) {
         return _productSpecificStateXml();
     }
 
-    /**
-     * @dev Concrete product renders its root element and places the deployment
-     *      state plus role-labelled product resource includes beneath it. Economic
-     *      bindings live in the included product terms template.
-     */
+    /// @dev Returns the complete XML state template of the concrete product.
     function _productSpecificStateXml() internal view virtual returns (string memory);
 
-    /**
-     * @dev Generic deployment + lifecycle bindings as child elements (resolved
-     *      by the renderer against this product's getters). Placed inside the
-     *      concrete product's root element.
-     */
+    /// @dev Returns the common deployment and lifecycle XML bindings.
     function _deploymentStateXml() internal pure returns (string memory) {
         return string.concat(
             "<DeploymentState>",
-                "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
-                "<ProductFactory evmstate:call=\"productFactory()(address)\"/>",
-                "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
-                "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
-                "<Client evmstate:call=\"client()(address)\"/>",
-                "<ProductDefinitionId evmstate:call=\"productDefinitionId()(bytes32)\"/>",
-                "<ProductDefinitionVersion evmstate:call=\"productDefinitionVersion()(uint256)\"/>",
-                "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
-                "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"
+            "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
+            "<ProductFactory evmstate:call=\"productFactory()(address)\"/>",
+            "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
+            "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
+            "<Client evmstate:call=\"client()(address)\"/>",
+            "<ProductDefinitionId evmstate:call=\"productDefinitionId()(bytes32)\"/>",
+            "<ProductDefinitionVersion evmstate:call=\"productDefinitionVersion()(uint256)\"/>",
+            "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
+            "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>",
             "</DeploymentState>"
         );
     }
 
-    /**
-     * @dev Builds an xi:include for a text resource, parsed as XML so its
-     *      evmstate:call bindings resolve, with a keccak256 integrity hint.
-     */
+    /// @dev Builds an XML include for a text resource.
     function _include(address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
-        string memory href = textResource.web3Url();
-        string memory integrity = string.concat(
-            "keccak256-", uint256(textResource.contentHash()).toHexString(32)
-        );
-        return string.concat(
-            "<xi:include href=\"", href,
-            "\" parse=\"xml\" evmstate:integrity=\"", integrity, "\"/>"
-        );
-    }
-
-    /**
-     * @dev References a finalized TextResource without including its content in
-     *      the canonical XML. The term-sheet stylesheet is therefore loaded
-     *      only by the optional post-processing step.
-     */
-    function _resourceReference(string memory elementName, address resource) internal view returns (string memory) {
-        ITextResource textResource = ITextResource(resource);
         string memory integrity = string.concat("keccak256-", uint256(textResource.contentHash()).toHexString(32));
+
         return string.concat(
-            "<",
-            elementName,
-            " href=\"",
+            "<xi:include href=\"",
             textResource.web3Url(),
-            "\" integrity=\"",
+            "\" parse=\"xml\" evmstate:integrity=\"",
             integrity,
             "\"/>"
         );
     }
 
-    // ------------------------------ Concrete Hooks ------------------------------ */
+    /// @dev Builds an XML reference to a text resource.
+    function _resourceReference(string memory elementName, address resource) internal view returns (string memory) {
+        ITextResource textResource = ITextResource(resource);
+        string memory integrity = string.concat("keccak256-", uint256(textResource.contentHash()).toHexString(32));
 
-    /**
-     * @dev Decodes and applies a full-replacement terms payload. Called only in
-     *      Requested (client). Must validate the decoded economics.
-     */
-    function _updateTerms(bytes calldata productSpecificPayload) internal virtual;
+        return string.concat(
+            "<", elementName,
+            " href=\"", textResource.web3Url(),
+            "\" integrity=\"", integrity,
+            "\"/>"
+        );
+    }
 
-    /**
-     * @dev Fingerprint of the product's economic terms (folded into
-     *      currentTermsHash). Must reflect all negotiable terms.
-     */
+    // ------------------------------ Concrete Hooks ------------------------------
+
+    /// @dev Applies a full replacement product payload.
+    function _updateTerms(bytes calldata productPayload) internal virtual;
+
+    /// @dev Returns a hash of all negotiable product terms.
     function _economicTermsHash() internal view virtual returns (bytes32);
 
-    /**
-     * @dev Optional hook invoked once when the trade becomes Active. Default
-     *      no-op; product-specific lifecycles extend here.
-     */
+    /// @dev Hook called when the trade becomes active.
     function _onActivated() internal virtual {}
 }

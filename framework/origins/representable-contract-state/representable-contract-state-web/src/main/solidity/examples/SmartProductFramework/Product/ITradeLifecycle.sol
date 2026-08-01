@@ -77,10 +77,10 @@ interface ITradeLifecycle {
 
     /**
      * @notice Amends the requested trade terms (client only, Requested only).
-     * @param productSpecificPayload Full replacement terms, same schema as
+     * @param productPayload Full replacement terms, same schema as
      *        deployment; decoded and validated by the concrete product.
      */
-    function updateTerms(bytes calldata productSpecificPayload) external;
+    function updateTerms(bytes calldata productPayload) external;
 
     /**
      * @notice Product provider accepts the current terms, freezing them.
