@@ -8,7 +8,7 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
  * @title SimpleBond
  * @notice Minimal demo product: a bond with negotiable notional and maturity.
  * @dev The product owns its payload format: it decodes the raw
- *      productSpecificPayload once (in _applyTerms), used both at construction
+ *      productPayload once (in _applyTerms), used both at construction
  *      and on client updates. Economic bindings (Notional, Maturity) live in
  *      the product terms template and resolve against notional()/maturity().
  *
@@ -25,7 +25,7 @@ contract SimpleBond is AbstractProduct {
     // ------------------------------ Structs ------------------------------ */
 
     /// @notice Decoded product-specific payload for a SimpleBond.
-    struct ProductSpecificPayload {
+    struct ProductPayload {
         uint256 notional;
         uint256 maturity;
     }
@@ -37,24 +37,26 @@ contract SimpleBond is AbstractProduct {
     /// @notice Thrown when the requested maturity is not in the future.
     error InvalidMaturity();
 
+    error InvalidPayloadLength(uint256 expected, uint256 actual);
+
     // ------------------------------ Constructor ------------------------------ */
 
     /**
      * @param c                     Common deployment parameters.
-     * @param productSpecificPayload Raw ABI-encoded ProductSpecificPayload.
+     * @param productPayload        Raw ABI-encoded ProductPayload.
      */
-    constructor(CommonDeploymentParams memory c, bytes memory productSpecificPayload)
+    constructor(CommonDeploymentParams memory c, bytes memory productPayload)
     AbstractProduct(c)
     {
-        _applyTerms(productSpecificPayload);
+        _applyTerms(productPayload);
         emit StateUpdated(msg.sender, address(this), currentTermsHash());
     }
 
     // ------------------------------ Terms Hooks ------------------------------ */
 
     /// @inheritdoc AbstractProduct
-    function _updateTerms(bytes calldata productSpecificPayload) internal override {
-        _applyTerms(productSpecificPayload);
+    function _updateTerms(bytes calldata productPayload) internal override {
+        _applyTerms(productPayload);
     }
 
     /// @inheritdoc AbstractProduct
@@ -67,8 +69,11 @@ contract SimpleBond is AbstractProduct {
      *      Accepts memory so it is callable from both the constructor and the
      *      calldata-based _updateTerms path.
      */
-    function _applyTerms(bytes memory productSpecificPayload) internal {
-        ProductSpecificPayload memory p = abi.decode(productSpecificPayload, (ProductSpecificPayload));
+    function _applyTerms(bytes memory productPayload) internal {
+        if (productPayload.length != 64) {
+            revert InvalidPayloadLength(64, productPayload.length);
+        }
+        ProductPayload memory p = abi.decode(productPayload, (ProductPayload));
 
         if (p.notional == 0) {
             revert InvalidNotional();
@@ -94,9 +99,10 @@ contract SimpleBond is AbstractProduct {
                 "<ProductTermsTemplate>",
                     _include(productTermsTemplate),
                 "</ProductTermsTemplate>",
-                "<ProductDocumentationTemplate>",
-                    _include(productDocumentationTemplate),
-                "</ProductDocumentationTemplate>",
+                _resourceReference(
+                    "ProductDocumentationTemplate",
+                    productDocumentationTemplate
+                ),
             "</ProductResources>",
             "</SimpleBond>"
         );

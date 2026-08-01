@@ -194,11 +194,6 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         if (definitionStorage.status != ProductDefinitionStatus.Unknown) {
             revert ProductDefinitionAlreadyExists(productDefinitionId);
         }
-        // Revalidate existing indication assignment if factory is updated
-        ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
-        if (assignment.productIndication != address(0) && definitionStorage.productDefinition.productFactory != params.productDefinition.productFactory) {
-            _validateProductIndication(params.productDefinition.productFactory, assignment.productIndication, assignment.indicationId);
-        }
 
         definitionStorage.status = ProductDefinitionStatus.Active;
         definitionStorage.name = params.name;
@@ -217,6 +212,11 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
 
         ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
         _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
+        // Revalidate existing indication assignment if factory is updated
+        ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
+        if (assignment.productIndication != address(0) && definitionStorage.productDefinition.productFactory != params.productDefinition.productFactory) {
+            _validateProductIndication(params.productDefinition.productFactory, assignment.productIndication, assignment.indicationId);
+        }
 
         definitionStorage.productDefinition = productDefinition;
         _touchProductDefinition(definitionStorage);
@@ -289,8 +289,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
         _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
 
-        ProductIndicationAssignment storage assignment = _existingProductIndicationAssignment(productDefinitionId);
-        delete(assignment);
+        _existingProductIndicationAssignment(productDefinitionId);
+        delete _indicationsByDefinitionId[productDefinitionId];
 
         _touchProductDefinition(definitionStorage);
 
@@ -357,21 +357,25 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
                 productPayload: params.productPayload
             })
         );
-
+        // Verify external factory result
         if (product == address(0) || product.code.length == 0) {
             revert ProductDeploymentFailed(address(factory), tradeId);
         }
         if (!factory.isFactoryDeployedProduct(product)) {
             revert InvalidDeployedProduct(product);
         }
-
+        // Validate immutable common deployment parameters
         IProduct deployedProduct = IProduct(product);
-
         if (deployedProduct.productRegistry() != address(this) ||
             deployedProduct.productFactory() != address(factory) ||
             deployedProduct.tradeId() != tradeId ||
+            deployedProduct.productProvider() != productProvider ||
+            deployedProduct.client() != client ||
             deployedProduct.productDefinitionId() != productDefinitionId ||
-            deployedProduct.productDefinitionVersion() != definitionStorage.version) {
+            deployedProduct.productDefinitionVersion() != definitionStorage.version ||
+            deployedProduct.productTermsTemplate() != productDefinition.productTermsTemplate ||
+            deployedProduct.productDocumentationTemplate() != productDefinition.productDocumentationTemplate ||
+            deployedProduct.deploymentStateHash() != deploymentStateHash) {
             revert InvalidDeployedProduct(product);
         }
 
@@ -459,7 +463,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     }
 
     /**
-    * @dev References a finalized TextResource without including its content in
+     * @dev References a finalized TextResource without including its content in
      *      the canonical XML. The term-sheet stylesheet is therefore loaded
      *      only by the optional post-processing step.
      */
@@ -633,7 +637,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
                 revert InvalidIndicationStatus(productIndication, status);
             }
         } catch {
-            revert ContractCallFailed(indication, "indicationStatus()");
+            revert ContractCallFailed(productIndication, "indicationStatus()");
         }
         // Indication must be of a category accepted by the product / product factory
         try indication.indicationCategory() returns (bytes32 category) {
@@ -641,13 +645,13 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
                 revert UnsupportedIndicationCategory(productIndication, category);
             }
         } catch {
-            revert ContractCallFailed(indication, "indicationCategory()");
+            revert ContractCallFailed(productIndication, "indicationCategory()");
         }
         // Get partId of the indication (used for rendering)
         try indication.partIdForIndication(indicationId) returns (uint256 resolvedPartId) {
             partId = resolvedPartId;
         } catch {
-            revert ContractCallFailed(indication, "partIdForIndication()");
+            revert ContractCallFailed(productIndication, "partIdForIndication()");
         }
     }
 

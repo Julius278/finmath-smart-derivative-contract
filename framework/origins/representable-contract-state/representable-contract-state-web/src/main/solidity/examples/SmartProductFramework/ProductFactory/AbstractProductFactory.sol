@@ -27,7 +27,7 @@ abstract contract AbstractProductFactory is IProductFactory {
      * @notice Whether an address was deployed through this factory.
      * @dev Convenience authenticity check for consumers of deployed products.
      */
-    mapping(address => bool) public _isFactoryDeployedProduct;
+    mapping(address => bool) private _isFactoryDeployedProduct;
 
 
     // ------------------------------ Custom Errors ------------------------------ */
@@ -77,6 +77,7 @@ abstract contract AbstractProductFactory is IProductFactory {
     function deployProduct(ProductDeploymentParams calldata params) external override onlyProductRegistry returns (address product) {
         CommonDeploymentParams calldata common = params.common;
         product = _deployProduct(params);
+        // Verify factory specific _deployProduct() implementation
         if (product == address(0) || product.code.length == 0) {
             revert ProductDeploymentFailed(common.tradeId);
         }

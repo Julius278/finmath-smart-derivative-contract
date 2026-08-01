@@ -45,6 +45,8 @@ contract SimpleBondFactory is AbstractProductFactory {
     /// @notice Call to a contract failed
     error ContractCallFailed(address contractAddress, string functionName);
 
+    error InvalidIndicationCategory(address indicationContract);
+
     // ------------------------------ Constructor ------------------------------ */
 
     /// @param productRegistry_ The product registry that will invoke this factory.
@@ -58,6 +60,7 @@ contract SimpleBondFactory is AbstractProductFactory {
         }
         IProductIndication indication = IProductIndication(curveIndications_);
         try indication.indicationCategory() returns (bytes32 indicationCategory) {
+            if (indicationCategory == bytes32(0)) revert InvalidIndicationCategory(curveIndications_);
             acceptedIndicationCategory = indicationCategory;
         } catch {
             revert ContractCallFailed(curveIndications_, "indicationCategory()");

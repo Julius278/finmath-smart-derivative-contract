@@ -222,13 +222,12 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         return string.concat(
             "<DeploymentState>",
                 "<ProductRegistry evmstate:call=\"productRegistry()(address)\"/>",
-                "<ProductSpecificFactory evmstate:call=\"productSpecificFactory()(address)\"/>",
+                "<ProductFactory evmstate:call=\"productFactory()(address)\"/>",
                 "<TradeId evmstate:call=\"tradeId()(bytes32)\"/>",
                 "<ProductProvider evmstate:call=\"productProvider()(address)\"/>",
                 "<Client evmstate:call=\"client()(address)\"/>",
                 "<ProductDefinitionId evmstate:call=\"productDefinitionId()(bytes32)\"/>",
                 "<ProductDefinitionVersion evmstate:call=\"productDefinitionVersion()(uint256)\"/>",
-                "<ProductTypeId evmstate:call=\"productTypeId()(bytes32)\"/>",
                 "<DeploymentStateHash evmstate:call=\"deploymentStateHash()(bytes32)\"/>",
                 "<TradeStatus evmstate:call=\"tradeStatus()(uint8)\"/>"
             "</DeploymentState>"
@@ -248,6 +247,25 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
         return string.concat(
             "<xi:include href=\"", href,
             "\" parse=\"xml\" evmstate:integrity=\"", integrity, "\"/>"
+        );
+    }
+
+    /**
+     * @dev References a finalized TextResource without including its content in
+     *      the canonical XML. The term-sheet stylesheet is therefore loaded
+     *      only by the optional post-processing step.
+     */
+    function _resourceReference(string memory elementName, address resource) internal view returns (string memory) {
+        ITextResource textResource = ITextResource(resource);
+        string memory integrity = string.concat("keccak256-", uint256(textResource.contentHash()).toHexString(32));
+        return string.concat(
+            "<",
+            elementName,
+            " href=\"",
+            textResource.web3Url(),
+            "\" integrity=\"",
+            integrity,
+            "\"/>"
         );
     }
 
