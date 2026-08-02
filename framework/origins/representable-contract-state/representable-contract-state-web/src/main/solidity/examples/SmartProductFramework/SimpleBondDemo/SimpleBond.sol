@@ -6,48 +6,50 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
 
 /**
  * @title SimpleBond
- * @notice Minimal demo product: a bond with negotiable notional and maturity.
- * @dev The product owns its payload format: it decodes the raw
- *      productPayload once (in _applyTerms), used both at construction
- *      and on client updates. Economic bindings (Notional, Maturity) live in
- *      the product terms template and resolve against notional()/maturity().
+ * @notice Example bond product with negotiable notional and maturity.
+ *
+ * @dev Decodes and validates the SimpleBond product payload during deployment
+ *      and subsequent term updates.
  *
  * @author Raphael Prandtl
  */
 contract SimpleBond is AbstractProduct {
+    // ------------------------------ Constants ------------------------------ */
+
+    uint256 private constant PRODUCT_PAYLOAD_LENGTH = 64;
+
     // ------------------------------ Mutable State ------------------------------ */
 
-    /// @notice Requested/negotiated notional. Resolves the product terms template's Notional binding.
+    /// @notice Current bond notional.
     uint256 public notional;
-    /// @notice Requested/negotiated maturity (unix timestamp).
+    /// @notice Current bond maturity as a Unix timestamp.
     uint256 public maturity;
 
     // ------------------------------ Structs ------------------------------ */
 
-    /// @notice Decoded product-specific payload for a SimpleBond.
-    struct ProductPayload {
+    /// @notice ABI-decoded payload used to set the bond terms.
+    struct SimpleBondDeploymentPayload {
         uint256 notional;
         uint256 maturity;
     }
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    /// @notice Thrown when the requested notional is zero.
+    /// @notice Thrown when the notional is zero.
     error InvalidNotional();
-    /// @notice Thrown when the requested maturity is not in the future.
+    /// @notice Thrown when the maturity is not in the future.
     error InvalidMaturity();
 
+    /// @notice Thrown when the encoded payload has an invalid length.
     error InvalidPayloadLength(uint256 expected, uint256 actual);
 
     // ------------------------------ Constructor ------------------------------ */
 
     /**
-     * @param c                     Common deployment parameters.
-     * @param productPayload        Raw ABI-encoded ProductPayload.
+     * @param common         Common deployment parameters.
+     * @param productPayload ABI-encoded SimpleBondDeploymentPayload.
      */
-    constructor(CommonDeploymentParams memory c, bytes memory productPayload)
-    AbstractProduct(c)
-    {
+    constructor(CommonDeploymentParams memory common, bytes memory productPayload) AbstractProduct(common) {
         _applyTerms(productPayload);
         emit StateUpdated(msg.sender, address(this), currentTermsHash());
     }
@@ -64,25 +66,20 @@ contract SimpleBond is AbstractProduct {
         return keccak256(abi.encode(notional, maturity));
     }
 
-    /**
-     * @dev Single decode + validate + set, shared by construction and updates.
-     *      Accepts memory so it is callable from both the constructor and the
-     *      calldata-based _updateTerms path.
-     */
+    /// @notice Decodes, validates, and applies a complete product payload.
     function _applyTerms(bytes memory productPayload) internal {
-        if (productPayload.length != 64) {
-            revert InvalidPayloadLength(64, productPayload.length);
+        if (productPayload.length != PRODUCT_PAYLOAD_LENGTH) {
+            revert InvalidPayloadLength(PRODUCT_PAYLOAD_LENGTH, productPayload.length);
         }
-        ProductPayload memory p = abi.decode(productPayload, (ProductPayload));
-
-        if (p.notional == 0) {
+        SimpleBondDeploymentPayload memory payload = abi.decode(productPayload, (SimpleBondDeploymentPayload));
+        if (payload.notional == 0) {
             revert InvalidNotional();
         }
-        if (p.maturity <= block.timestamp) {
+        if (payload.maturity <= block.timestamp) {
             revert InvalidMaturity();
         }
-        notional = p.notional;
-        maturity = p.maturity;
+        notional = payload.notional;
+        maturity = payload.maturity;
     }
 
     // ------------------------------ XML View ------------------------------ */

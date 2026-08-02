@@ -10,10 +10,11 @@ import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165C
 
 /**
  * @title SimpleBondFactory
- * @notice Product-specific factory that deploys SimpleBond products.
- * @dev Caller restriction (onlyGenericFactory) and schema validation are
- *      handled by AbstractProductFactory.sol.sol; this contract only decodes
- *      the payload, validates the economics, and constructs the bond.
+ * @notice Factory defining and deploying the SimpleBond product specification.
+ *
+ * @dev Defines the product payload schema, required resource types, and
+ *      accepted indication category. Product deployment is restricted by
+ *      AbstractProductFactory.
  *
  * @author Raphael Prandtl
  */
@@ -22,45 +23,46 @@ contract SimpleBondFactory is AbstractProductFactory {
 
     // ------------------------------ Constants ------------------------------ */
 
-    /// @notice Human-readable schema of the expected productSpecificPayload.
-    string internal constant PRODUCT_SPECIFIC_PAYLOAD_SCHEMA = "v1:SimpleBondDeploymentPayload(uint256 notional,uint256 maturity)";
+    /// @notice Human-readable schema of the expected product payload.
+    string internal constant PRODUCT_PAYLOAD_SCHEMA = "v1:SimpleBondDeploymentPayload(uint256 notional,uint256 maturity)";
 
-    /// @dev resourceType() a text resource must declare to back the product terms template slot of a bond product.
+    /// @notice Required resource type of the product terms template.
     bytes32 internal constant PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:SIMPLE_BOND:PRODUCT_TERMS_TEMPLATE:V1");
 
-    /// @dev resourceType() a text resource must declare to back the product documentation template slot of a bond product.
+    /// @notice Required resource type of the product documentation template.
     bytes32 internal constant PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:SIMPLE_BOND:PRODUCT_DOCUMENTATION_TEMPLATE:V1");
 
+    // ------------------------------ Immutable State ------------------------------ */
 
+    /// @notice Indication category accepted by this factory.
     bytes32 public immutable acceptedIndicationCategory;
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    /// @notice Address has no contract code.
+    /// @notice Thrown when the supplied indication contract is invalid.
     error InvalidIndicationContract(address indicationContract);
 
-    /// @notice Resource does not implement the expected interface.
-    error InvalidInterface(address contractAddress);
-
-    /// @notice Call to a contract failed
+    /// @notice Thrown when a call to the indication contract fails.
     error ContractCallFailed(address contractAddress, string functionName);
 
+    /// @notice Thrown when the indication contract exposes a zero category.
     error InvalidIndicationCategory(address indicationContract);
 
     // ------------------------------ Constructor ------------------------------ */
 
-    /// @param productRegistry_ The product registry that will invoke this factory.
+    /**
+     * @param productRegistry_  Product registry authorized to use this factory.
+     * @param curveIndications_ Curve indication contract defining the accepted category.
+     */
     constructor(address productRegistry_, address curveIndications_) AbstractProductFactory(productRegistry_) {
-        if (curveIndications_ == address(0) || curveIndications_.code.length == 0) {
+        if (curveIndications_ == address(0) || curveIndications_.code.length == 0 || !curveIndications_.supportsInterface(type(IProductIndication).interfaceId)) {
             revert InvalidIndicationContract(curveIndications_);
         }
-        // Must advertise IProductIndication via ERC-165
-        if (!curveIndications_.supportsInterface(type(IProductIndication).interfaceId)) {
-            revert InvalidIndicationContract(curveIndications_);
-        }
-        IProductIndication indication = IProductIndication(curveIndications_);
-        try indication.indicationCategory() returns (bytes32 indicationCategory) {
-            if (indicationCategory == bytes32(0)) revert InvalidIndicationCategory(curveIndications_);
+
+        try IProductIndication(curveIndications_).indicationCategory() returns (bytes32 indicationCategory) {
+            if (indicationCategory == bytes32(0)) {
+                revert InvalidIndicationCategory(curveIndications_);
+            }
             acceptedIndicationCategory = indicationCategory;
         } catch {
             revert ContractCallFailed(curveIndications_, "indicationCategory()");
@@ -69,28 +71,32 @@ contract SimpleBondFactory is AbstractProductFactory {
 
     // ------------------------------ Product Specification ------------------------------ */
 
+    /// @inheritdoc AbstractProductFactory
     function productPayloadSchema() external pure override returns (string memory) {
-        return PRODUCT_SPECIFIC_PAYLOAD_SCHEMA;
+        return PRODUCT_PAYLOAD_SCHEMA;
     }
 
+    /// @inheritdoc AbstractProductFactory
     function productTermsTemplateResourceType() external pure override returns (bytes32) {
         return PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE;
     }
 
+    /// @inheritdoc AbstractProductFactory
     function productDocumentationTemplateResourceType() external pure override returns (bytes32) {
         return PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE;
     }
 
     // ------------------------------ Product Indication ------------------------------ */
 
+    /// @inheritdoc AbstractProductFactory
     function isAcceptedIndicationCategory(bytes32 indicationCategory) external view override returns (bool) {
-        return acceptedIndicationCategory == indicationCategory;
+        return indicationCategory == acceptedIndicationCategory;
     }
 
-    // ------------------------------ Product-Specific Deploy ------------------------------ */
+    // ------------------------------ Product Deployment ------------------------------ */
 
+    /// @inheritdoc AbstractProductFactory
     function _deployProduct(ProductDeploymentParams calldata params) internal override returns (address product) {
         product = address(new SimpleBond(params.common, params.productPayload));
     }
-
 }
