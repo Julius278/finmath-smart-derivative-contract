@@ -4,49 +4,58 @@ pragma solidity ^0.8.24;
 import {AbstractProductFactory} from "../ProductFactory/AbstractProductFactory.sol";
 import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {InterestRateSwap} from "./InterestRateSwap.sol";
-import {INTEREST_RATE_SWAP_TYPE} from "./SwapConstants.sol";
 
 /**
  * @title InterestRateSwapFactory
- * @notice Product-specific factory for lightweight fixed-versus-floating swaps.
- * @dev notional has decimal scale 2, swapRate has decimal scale 4, and
- *      clientFixedRateRole is encoded as 0 (Payer) or 1 (Receiver).
+ * @notice Factory defining and deploying the InterestRateSwap product specification.
+ *
+ * @dev Defines the product payload schema and required resource types.
+ *      This product specification does not accept product indications.
  *
  * @author Raphael Prandtl
  */
 contract InterestRateSwapFactory is AbstractProductFactory {
     // ------------------------------ Constants ------------------------------ */
 
-    /// @notice Human-readable schema of the expected productSpecificPayload.
-    string internal constant PRODUCT_SPECIFIC_PAYLOAD_SCHEMA =
-        "v1:InterestRateSwapDeploymentPayload(uint256 notional,string currency,uint256 maturity,int256 swapRate,uint8 clientFixedRateRole,string forwardCurveSymbol,string discountCurveSymbol)";
+    /// @notice Required resource type of the product terms template.
+    bytes32 internal constant PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:INTEREST_RATE_SWAP:PRODUCT_TERMS_TEMPLATE:V1");
 
-    /// @notice Hash of the payload schema, matched against incoming parameters.
-    bytes32 internal constant PRODUCT_SPECIFIC_SCHEMA_HASH =
-        keccak256(bytes(PRODUCT_SPECIFIC_PAYLOAD_SCHEMA));
+    /// @notice Required resource type of the product documentation template.
+    bytes32 internal constant PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:INTEREST_RATE_SWAP:PRODUCT_DOCUMENTATION_TEMPLATE:V1");
 
     // ------------------------------ Constructor ------------------------------ */
 
-    /// @param genericFactory_ The generic factory that will invoke this factory.
-    constructor(address genericFactory_) AbstractProductSpecificFactory(genericFactory_) {}
+    /// @param productRegistry_ Product registry authorized to use this factory.
+    constructor(address productRegistry_)AbstractProductFactory(productRegistry_) {}
 
     // ------------------------------ Product Specification ------------------------------ */
 
-    function productTypeId() public pure override returns (bytes32) {
-        return INTEREST_RATE_SWAP_TYPE;
+    /// @inheritdoc AbstractProductFactory
+    function productPayloadSchema() external pure override returns (string memory) {
+        return PRODUCT_PAYLOAD_SCHEMA;
     }
 
-    function productSpecificPayloadSchema() external pure override returns (string memory) {
-        return PRODUCT_SPECIFIC_PAYLOAD_SCHEMA;
+    /// @inheritdoc AbstractProductFactory
+    function productTermsTemplateResourceType() external pure override returns (bytes32) {
+        return PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE;
     }
 
-    function productSpecificSchemaHash() public pure override returns (bytes32) {
-        return PRODUCT_SPECIFIC_SCHEMA_HASH;
+    /// @inheritdoc AbstractProductFactory
+    function productDocumentationTemplateResourceType() external pure override returns (bytes32) {
+        return PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE;
+    }
+
+    // ------------------------------ Product Indication ------------------------------ */
+
+    /// @inheritdoc AbstractProductFactory
+    function isAcceptedIndicationCategory(bytes32) external pure override returns (bool){
+        return false;
     }
 
     // ------------------------------ Product-Specific Deploy ------------------------------ */
 
-    function _deployProduct(ProductDeploymentParams calldata params) internal override returns (address product) {
-        product = address(new InterestRateSwap(params.common, params.productSpecificPayload));
+    /// @inheritdoc AbstractProductFactory
+    function _deployProduct(ProductDeploymentParams calldata params) internal override returns (address product){
+        product = address(new InterestRateSwap(params.common, params.productPayload));
     }
 }

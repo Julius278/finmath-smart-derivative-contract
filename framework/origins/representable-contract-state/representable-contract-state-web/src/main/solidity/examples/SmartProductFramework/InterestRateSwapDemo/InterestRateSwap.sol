@@ -6,20 +6,17 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
 
 /**
  * @title InterestRateSwap
- * @notice Lightweight fixed-versus-floating interest-rate swap whose client
- *         and product provider agree its terms through the shared
- *         incept/confirm lifecycle.
- * @dev The requested payload deliberately contains only the seven terms that
- *      vary in the demo. The trade and effective dates are both anchored to
- *      deployment time, while schedule conventions remain in the immutable
- *      product terms template.
+ * @notice Example fixed-versus-floating interest-rate swap product.
+ *
+ * @dev Decodes and validates the swap product payload during deployment and
+ *      subsequent term updates.
  *
  * @author Raphael Prandtl
  */
 contract InterestRateSwap is AbstractProduct {
     // ------------------------------ Enums ------------------------------ */
 
-    /// @notice The client's role on the fixed-rate leg.
+    /// @notice Client role on the fixed-rate leg.
     enum FixedRateRole {
         Payer,
         Receiver
@@ -35,44 +32,39 @@ contract InterestRateSwap is AbstractProduct {
 
     // ------------------------------ Immutable State ------------------------------ */
 
-    /// @notice Trade date used by the FpML view (deployment unix timestamp).
+    /// @notice Trade date represented by the deployment timestamp.
     uint256 public immutable tradeDate;
 
-    /// @notice Effective date used by the FpML view (deployment unix timestamp).
+    /// @notice Effective date represented by the deployment timestamp.
     uint256 public immutable effectiveDate;
 
     // ------------------------------ Mutable State ------------------------------ */
 
-    /// @notice Notional as an integer with two decimal places.
+    /// @notice Current notional with NOTIONAL_SCALE decimal places.
     uint256 public notional;
 
-    /// @notice Three-letter uppercase ISO-style currency code.
+    /// @notice Three-letter uppercase currency code.
     string public currency;
 
-    /// @notice Contractual maturity as a unix timestamp.
+    /// @notice Current maturity as a Unix timestamp.
     uint256 public maturity;
 
-    /// @notice Fixed swap rate as a signed decimal with four decimal places.
+    /// @notice Current fixed rate with SWAP_RATE_SCALE decimal places.
     int256 public swapRate;
 
-    /// @notice Whether the client pays or receives the fixed-rate leg.
+    /// @notice Current client role on the fixed-rate leg.
     FixedRateRole public clientFixedRateRole;
 
-    /// @notice Symbolic identifier of the forward curve used for projection.
+    /// @notice Forward curve symbol used by the floating-rate leg.
     string public forwardCurveSymbol;
 
-    /// @notice Symbolic identifier of the discount curve used for discounting.
+    /// @notice Discount curve symbol used for valuation.
     string public discountCurveSymbol;
 
     // ------------------------------ Structs ------------------------------ */
 
-    /**
-     * @notice Decoded interest-rate-swap payload.
-     * @dev clientFixedRateRole uses 0 for Payer and 1 for Receiver. uint8 is
-     *      used in the wire schema so an invalid value can be rejected with a
-     *      descriptive custom error before conversion to the enum.
-     */
-    struct ProductSpecificPayload {
+    /// @notice ABI-decoded payload used to set the swap terms.
+    struct InterestRateSwapDeploymentPayload {
         uint256 notional;
         string currency;
         uint256 maturity;
@@ -84,129 +76,113 @@ contract InterestRateSwap is AbstractProduct {
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    /// @notice Thrown when the requested notional is zero.
+    /// @notice Thrown when the notional is zero.
     error InvalidNotional();
 
-    /// @notice Thrown when the requested currency is not three uppercase ASCII letters.
+    /// @notice Thrown when the currency is not three uppercase ASCII letters.
     error InvalidCurrency(string currency);
 
-    /// @notice Thrown when the requested maturity is not in the future.
+    /// @notice Thrown when the maturity is not in the future.
     error InvalidMaturity();
 
-    /// @notice Thrown when the wire value does not identify a FixedRateRole.
+    /// @notice Thrown when the fixed-rate role is invalid.
     error InvalidFixedRateRole(uint8 role);
 
-    /// @notice Thrown when a required curve symbol is empty.
+    /// @notice Thrown when a required string is empty.
     error EmptyString(string field);
 
     // ------------------------------ Constructor ------------------------------ */
 
     /**
-     * @param c                      Common deployment parameters.
-     * @param productSpecificPayload Raw ABI-encoded ProductSpecificPayload.
+     * @param common         Common deployment parameters.
+     * @param productPayload ABI-encoded InterestRateSwapDeploymentPayload.
      */
-    constructor(CommonDeploymentParams memory c, bytes memory productSpecificPayload)
-    AbstractProduct(c)
-    {
+    constructor(CommonDeploymentParams memory common, bytes memory productPayload) AbstractProduct(common) {
         tradeDate = block.timestamp;
         effectiveDate = block.timestamp;
-        _applyTerms(productSpecificPayload);
+        _applyTerms(productPayload);
         emit StateUpdated(msg.sender, address(this), currentTermsHash());
     }
 
     // ------------------------------ Terms Hooks ------------------------------ */
 
     /// @inheritdoc AbstractProduct
-    function _updateTerms(bytes calldata productSpecificPayload) internal override {
-        _applyTerms(productSpecificPayload);
+    function _updateTerms(bytes calldata productPayload) internal override {
+        _applyTerms(productPayload);
     }
 
     /// @inheritdoc AbstractProduct
     function _economicTermsHash() internal view override returns (bytes32) {
-        return keccak256(abi.encode(
-            notional,
-            currency,
-            maturity,
-            swapRate,
-            clientFixedRateRole,
-            forwardCurveSymbol,
-            discountCurveSymbol,
-            tradeDate,
-            effectiveDate
-        ));
+        return keccak256(abi.encode(notional, currency, maturity, swapRate, clientFixedRateRole, forwardCurveSymbol, discountCurveSymbol, tradeDate, effectiveDate));
     }
 
-    /**
-     * @dev Decodes, validates, and fully replaces the requested terms. This is
-     *      shared by construction and client updates before inception.
-     */
-    function _applyTerms(bytes memory productSpecificPayload) internal {
-        ProductSpecificPayload memory p = abi.decode(productSpecificPayload, (ProductSpecificPayload));
-
-        if (p.notional == 0) {
+    /// @notice Decodes, validates, and applies a complete product payload.
+    function _applyTerms(bytes memory productPayload) internal {
+        InterestRateSwapDeploymentPayload memory payload = abi.decode(productPayload, (InterestRateSwapDeploymentPayload));
+        if (payload.notional == 0) {
             revert InvalidNotional();
         }
-        if (!_isCurrencyCode(p.currency)) {
-            revert InvalidCurrency(p.currency);
+        if (!_isCurrencyCode(payload.currency)) {
+            revert InvalidCurrency(payload.currency);
         }
-        if (p.maturity <= block.timestamp) {
+        if (payload.maturity <= block.timestamp) {
             revert InvalidMaturity();
         }
-        if (p.clientFixedRateRole > uint8(FixedRateRole.Receiver)) {
-            revert InvalidFixedRateRole(p.clientFixedRateRole);
+        if (payload.clientFixedRateRole > uint8(FixedRateRole.Receiver)) {
+            revert InvalidFixedRateRole(payload.clientFixedRateRole);
         }
-        if (bytes(p.forwardCurveSymbol).length == 0) {
+        if (bytes(payload.forwardCurveSymbol).length == 0) {
             revert EmptyString("forwardCurveSymbol");
         }
-        if (bytes(p.discountCurveSymbol).length == 0) {
+        if (bytes(payload.discountCurveSymbol).length == 0) {
             revert EmptyString("discountCurveSymbol");
         }
 
-        notional = p.notional;
-        currency = p.currency;
-        maturity = p.maturity;
-        swapRate = p.swapRate;
-        clientFixedRateRole = FixedRateRole(p.clientFixedRateRole);
-        forwardCurveSymbol = p.forwardCurveSymbol;
-        discountCurveSymbol = p.discountCurveSymbol;
+        notional = payload.notional;
+        currency = payload.currency;
+        maturity = payload.maturity;
+        swapRate = payload.swapRate;
+        clientFixedRateRole = FixedRateRole(payload.clientFixedRateRole);
+        forwardCurveSymbol = payload.forwardCurveSymbol;
+        discountCurveSymbol = payload.discountCurveSymbol;
     }
+
+    // ------------------------------ Validation Helpers ------------------------------
 
     function _isCurrencyCode(string memory value) internal pure returns (bool) {
         bytes memory characters = bytes(value);
-        return characters.length == 3
-            && _isUppercaseAsciiLetter(characters[0])
-            && _isUppercaseAsciiLetter(characters[1])
-            && _isUppercaseAsciiLetter(characters[2]);
+        return characters.length == 3 && _isUppercaseAsciiLetter(characters[0]) &&
+                _isUppercaseAsciiLetter(characters[1]) &&
+                _isUppercaseAsciiLetter(characters[2]);
     }
 
     function _isUppercaseAsciiLetter(bytes1 character) internal pure returns (bool) {
-        uint8 code = uint8(character);
-        return code >= 65 && code <= 90;
+        return character >= 0x41 && character <= 0x5A;
     }
 
     // ------------------------------ FpML Party References ------------------------------ */
 
-    /// @notice Human-readable name of the client's fixed-rate role.
-    function clientFixedRateRoleName() external view returns (string memory) {
+    /// @notice Returns the client's fixed-rate role name.
+    function clientFixedRateRoleName() external view returns (string memory){
         return clientFixedRateRole == FixedRateRole.Payer ? "Payer" : "Receiver";
     }
 
-    /// @notice XML id of the party paying the fixed-rate leg.
+    /// @notice Returns the XML party id paying the fixed-rate leg.
     function fixedLegPayerPartyReference() external view returns (string memory) {
         return clientFixedRateRole == FixedRateRole.Payer ? "client" : "productProvider";
     }
 
-    /// @notice XML id of the party receiving the fixed-rate leg.
+    /// @notice Returns the XML party id receiving the fixed-rate leg.
     function fixedLegReceiverPartyReference() external view returns (string memory) {
         return clientFixedRateRole == FixedRateRole.Payer ? "productProvider" : "client";
     }
 
-    /// @notice XML id of the party paying the floating-rate leg.
+    /// @notice Returns the XML party id paying the floating-rate leg.
     function floatingLegPayerPartyReference() external view returns (string memory) {
         return clientFixedRateRole == FixedRateRole.Payer ? "productProvider" : "client";
     }
 
-    /// @notice XML id of the party receiving the floating-rate leg.
+    /// @notice Returns the XML party id receiving the floating-rate leg.
     function floatingLegReceiverPartyReference() external view returns (string memory) {
         return clientFixedRateRole == FixedRateRole.Payer ? "client" : "productProvider";
     }
@@ -225,9 +201,10 @@ contract InterestRateSwap is AbstractProduct {
                 "<ProductTermsTemplate>",
                     _include(productTermsTemplate),
                 "</ProductTermsTemplate>",
-                "<ProductDocumentationTemplate>",
-                    _include(productDocumentationTemplate),
-                "</ProductDocumentationTemplate>",
+                _resourceReference(
+                    "ProductDocumentationTemplate",
+                    productDocumentationTemplate
+                ),
             "</ProductResources>",
             "</InterestRateSwap>"
         );
