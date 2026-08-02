@@ -1,41 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IProductIndication} from "./IProductIndication.sol";
+
 import {IXMLRepresentableStatePart} from "../../../IRepresentableState.sol";
 
-import {IProductIndication} from "./IProductIndication.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
- * @title AbstractProductIndication.sol
- * @notice Generic base for indication registries. Owns the indication
- *         lifecycle (status, versioning, id/partId derivation, rendering
- *         dispatch) that is identical across indication types. Concrete
- *         contracts (e.g. CurveIndications) add their typed publish logic,
- *         data model, indicationCategory(), and the _indicationStateXml hook.
+ * @title AbstractProductIndication
+ * @notice Base contract for product indication registries.
  *
- * @dev PUBLISH-OVERWRITES SEMANTIC
- *      A concrete publish may fully (re)write an indication's payload. Use
- *      _openForPublish to begin a publish: it creates the indication on first
- *      use (emitting IndicationPublished once) or asserts writability on
- *      subsequent re-publishes. After writing payload, call _touchIndication.
- *
- * @dev ID / PART ID SCHEME
- *      indicationId : keccak256(abi.encode(name, address(this)))
- *      partId       : uint256(indicationId)   (bijective)
+ * @dev Manages indication lifecycle state, versioning, state-part ids, and
+ *      rendering dispatch. Concrete implementations define the indication
+ *      category, payload, publication logic, and XML representation.
  *
  * @author Raphael Prandtl
  */
 abstract contract AbstractProductIndication is IProductIndication, Ownable2Step {
     // ------------------------------ Storage ------------------------------ */
 
-    /**
-     * @dev Generic per-indication lifecycle state. Type-specific payload
-     *      (e.g. curve quotes) is stored by the concrete contract, keyed by
-     *      the same indicationId.
-     */
+    /// @dev Lifecycle state shared by all indication implementations.
     struct IndicationCore {
         IndicationStatus status;
         uint64 publishedAt;
@@ -43,22 +30,19 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         uint256 version;
     }
 
-    mapping(bytes32 => IndicationCore) private _cores;
+    mapping(bytes32 indicationId => IndicationCore core) private _cores;
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    /// @notice Requested partId does not map to a known indication.
+    /// @notice Thrown when a state-part id does not represent an indication.
     error UnknownPart(uint256 partId);
 
-    /**
-     * @notice Indication cannot be modified in its current status
-     *         (Closed or Archived).
-     */
+    /// @notice Thrown when an indication cannot be modified in its current status.
     error IndicationNotWritable(bytes32 indicationId, IndicationStatus status);
 
     // ------------------------------ Constructor ------------------------------ */
 
-    /// @param owner_ Initial owner authorized to publish and manage indications.
+    /// @param owner_ Initial owner authorized to manage indications.
     constructor(address owner_) Ownable(owner_) {}
 
     // ------------------------------ Indication Lifecycle ------------------------------ */
@@ -67,7 +51,6 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
     function setIndicationStatus(bytes32 indicationId, IndicationStatus newStatus) external override onlyOwner {
         IndicationCore storage core = _existingCore(indicationId);
         IndicationStatus oldStatus = core.status;
-
         if (oldStatus == newStatus) {
             return;
         }
@@ -75,32 +58,35 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
 
         core.status = newStatus;
         emit IndicationStatusChanged(indicationId, oldStatus, newStatus);
-
         _touchIndication(indicationId, core);
     }
 
     // ------------------------------ ERC-165 ------------------------------ */
 
+    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IProductIndication).interfaceId || interfaceId == type(IXMLRepresentableStatePart).interfaceId
-            || interfaceId == type(IERC165).interfaceId;
+        return interfaceId == type(IProductIndication).interfaceId || interfaceId == type(IXMLRepresentableStatePart).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
     // ------------------------------ Indication Read API ------------------------------ */
 
+    /// @inheritdoc IProductIndication
     function indicationStatus(bytes32 indicationId) external view override returns (IndicationStatus) {
         return _cores[indicationId].status;
     }
 
+    /// @inheritdoc IProductIndication
     function isIndication(bytes32 indicationId) external view override returns (bool) {
         return _cores[indicationId].status != IndicationStatus.Unknown;
     }
 
-    function partIdForIndication(bytes32 indicationId) external view override returns (uint256) {
+    /// @inheritdoc IProductIndication
+    function partIdForIndication(bytes32 indicationId) external view override returns (uint256 partId) {
         _existingCore(indicationId);
         return _partIdFromIndicationId(indicationId);
     }
 
+    /// @inheritdoc IProductIndication
     function indicationForPartId(uint256 partId) external view override returns (bytes32 indicationId) {
         indicationId = _indicationIdFromPartId(partId);
         _existingCore(indicationId);
@@ -108,6 +94,7 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
 
     // ------------------------------ XML View ------------------------------ */
 
+    /// @inheritdoc IXMLRepresentableStatePart
     function statePartXmlTemplate(uint256 partId) external view override returns (string memory) {
         bytes32 indicationId = _indicationIdFromPartId(partId);
         if (_cores[indicationId].status == IndicationStatus.Unknown) {
@@ -119,9 +106,8 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
     // ------------------------------ Internal Lifecycle Helpers ------------------------------ */
 
     /**
-     * @dev Begins a publish. On first use of `indicationId`, creates it as
-     *      Active and emits IndicationPublished + the initial status change.
-     *      On re-publish, asserts the indication is writable.
+     * @notice Opens an indication for publication.
+     * @dev Creates a new active indication or verifies that an existing one is writable.
      */
     function _openForPublish(bytes32 indicationId) internal returns (IndicationCore storage core) {
         core = _cores[indicationId];
@@ -135,18 +121,16 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /**
-     * @dev Bumps version + updatedAt and emits the ERC-8100 StatePartUpdated.
-     *      Call after every payload or status mutation.
-     */
+    /// @notice Updates the indication revision after a state change.
     function _touchIndication(bytes32 indicationId, IndicationCore storage core) internal {
-        unchecked { core.version += 1;}
+        unchecked { core.version += 1; }
         core.updatedAt = uint64(block.timestamp);
         emit StatePartUpdated(msg.sender, address(this), _partIdFromIndicationId(indicationId), core.version);
     }
 
     // ------------------------------ Validation Helpers ------------------------------ */
 
+    /// @notice Returns the lifecycle state of an existing indication.
     function _existingCore(bytes32 indicationId) internal view returns (IndicationCore storage core) {
         core = _cores[indicationId];
         if (core.status == IndicationStatus.Unknown) {
@@ -154,14 +138,12 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
         }
     }
 
-    /**
-     * @dev Raw (non-reverting) access to a lifecycle record, for callers that
-     *      already established existence (e.g. the render path).
-     */
+    /// @notice Returns the lifecycle state without checking existence.
     function _core(bytes32 indicationId) internal view returns (IndicationCore storage) {
         return _cores[indicationId];
     }
 
+    /// @notice Ensures that an indication may still be modified.
     function _ensureWritable(bytes32 indicationId, IndicationStatus status) internal pure {
         if (status == IndicationStatus.Closed || status == IndicationStatus.Archived) {
             revert IndicationNotWritable(indicationId, status);
@@ -176,36 +158,37 @@ abstract contract AbstractProductIndication is IProductIndication, Ownable2Step 
      *      Archived  -> (terminal)
      */
     function _validateStatusTransition(IndicationStatus oldStatus, IndicationStatus newStatus) internal pure virtual {
-        if (newStatus == IndicationStatus.Unknown) {
-            revert InvalidStatusTransition(oldStatus, newStatus);
-        }
-        if (oldStatus == IndicationStatus.Archived) {
-            revert InvalidStatusTransition(oldStatus, newStatus);
-        }
-        if (oldStatus == IndicationStatus.Closed && newStatus != IndicationStatus.Archived) {
+        bool validTransition =
+            (oldStatus == IndicationStatus.Active && (newStatus == IndicationStatus.Suspended || newStatus == IndicationStatus.Closed)) ||
+            (oldStatus == IndicationStatus.Suspended && (newStatus == IndicationStatus.Active || newStatus == IndicationStatus.Closed)) ||
+            (oldStatus == IndicationStatus.Closed && newStatus == IndicationStatus.Archived);
+        if (!validTransition) {
             revert InvalidStatusTransition(oldStatus, newStatus);
         }
     }
 
-    // ------------------------------ Internal Key / Hash Logic ------------------------------ */
+    // ------------------------------ Internal Id Logic ------------------------------ */
 
+    /// @notice Derives an indication id from its unique name.
     function _indicationIdFromName(string memory name) internal view returns (bytes32) {
         return keccak256(abi.encode(name, address(this)));
     }
 
+    /// @notice Converts a state-part id to its indication id.
     function _indicationIdFromPartId(uint256 partId) internal pure returns (bytes32) {
         return bytes32(partId);
     }
 
+    /// @notice Converts an indication id to its state-part id.
     function _partIdFromIndicationId(bytes32 indicationId) internal pure returns (uint256) {
         return uint256(indicationId);
     }
 
-    // ------------------------------ Concrete Hooks ------------------------------ */
+    // ------------------------------ Concrete Hooks ------------------------------
 
-    /// @dev Concrete contracts return their fixed category constant.
+    /// @inheritdoc IProductIndication
     function indicationCategory() external view virtual override returns (bytes32);
 
-    /// @dev Renders the full XML for an existing indication.
+    /// @notice Returns the XML representation of an existing indication.
     function _indicationStateXml(bytes32 indicationId) internal view virtual returns (string memory);
 }
