@@ -95,7 +95,7 @@ fi
 cd "$DEMO_SOLIDITY_DIR"
 
 jbang --java 21 \
-  -Dloader.main=net.finmath.smartcontracts.representablestate.demo.SmartProductFramework.DemoEndToEndWorkflow \
+  -Dloader.main=net.finmath.smartcontracts.representablestate.demo.SmartProductFramework.DemoSimpleBond \
   --main=org.springframework.boot.loader.launch.PropertiesLauncher \
   "net.finmath:representable-contract-state-web:${DEMO_VERSION}"
 ```

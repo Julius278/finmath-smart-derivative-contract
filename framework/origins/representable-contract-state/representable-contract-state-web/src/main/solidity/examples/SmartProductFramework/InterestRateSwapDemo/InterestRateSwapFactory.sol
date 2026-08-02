@@ -17,6 +17,9 @@ import {InterestRateSwap} from "./InterestRateSwap.sol";
 contract InterestRateSwapFactory is AbstractProductFactory {
     // ------------------------------ Constants ------------------------------ */
 
+    /// @notice Human-readable schema of the expected product payload.
+    string internal constant PRODUCT_PAYLOAD_SCHEMA = "v1:InterestRateSwapDeploymentPayload(uint256 notional,string currency,uint256 maturity,int256 swapRate,uint8 clientFixedRateRole,string forwardCurveSymbol,string discountCurveSymbol)";
+
     /// @notice Required resource type of the product terms template.
     bytes32 internal constant PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = keccak256("SPF:INTEREST_RATE_SWAP:PRODUCT_TERMS_TEMPLATE:V1");
 

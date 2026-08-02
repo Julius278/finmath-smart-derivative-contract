@@ -53,15 +53,15 @@ import java.util.List;
  * End-to-end demo for the Smart Product Framework sequence documented in
  * {@code src/site/resources/diagrams/smart-product-framework.puml}.
  *
- * <p>The demo is deliberately standalone. It repeats the setup and product
- * definition publication from {@link DemoProductDefinitionRegistry}, then
- * covers the remaining workflow:</p>
+ * <p>The demo is deliberately standalone and covers the complete framework
+ * workflow:</p>
  *
  * <ol>
- *     <li>wire and register the generic and product-specific factories,</li>
+ *     <li>deploy the generic registry, curve indication contract, and product factory,</li>
+ *     <li>publish factory-compatible text resources and a product definition,</li>
  *     <li>publish, assign, and update a curve indication,</li>
  *     <li>register and fund a client dev account,</li>
- *     <li>perform the frontend discovery steps and ABI-encode a payload,</li>
+ *     <li>discover the anchored factory and ABI-encode its product payload,</li>
  *     <li>create and optionally amend a trade request as the client,</li>
  *     <li>incept as product provider and confirm as client, and</li>
  *     <li>verify provenance and render block-pinned framework and product states.</li>
@@ -72,12 +72,11 @@ import java.util.List;
  *
  * @author Christian Fries
  */
-public class DemoEndToEndWorkflow {
+public class DemoSimpleBond {
 
 	static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
 	static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
-	static final Path BOND_PRODUCT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "BondProductRegistry.sol");
-	static final Path PRODUCT_FACTORY_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductFactory", "ProductFactoryRegistry.sol");
+	static final Path PRODUCT_DEFINITION_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductRegistry", "ProductDefinitionRegistry.sol");
 	static final Path SIMPLE_BOND_FACTORY_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "SimpleBondFactory.sol");
 	static final Path CURVE_INDICATIONS_CONTRACT = Path.of("examples", "SmartProductFramework", "SimpleBondDemo", "CurveIndications.sol");
 
@@ -94,8 +93,6 @@ public class DemoEndToEndWorkflow {
 	private static final String CLIENT_LEI = "529900T8BM49AURSDO55";
 	private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/simple-bond-product-terms-template.xml";
 	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH = "text-resources/simple-bond-product-documentation-template.xslt";
-	private static final String PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_TERMS_TEMPLATE";
-	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE = "BOND_PRODUCT_DOCUMENTATION_TEMPLATE";
 	private static final String PRODUCT_DEFINITION_NAME = "Simple Bond Demo Product Definition";
 	private static final String CURVE_NAME = "EUR Demo Curve";
 	private static final int DEMO_CHUNK_SIZE = 10_000;
@@ -106,8 +103,7 @@ public class DemoEndToEndWorkflow {
 	private static final BigInteger INITIAL_TWO_YEAR_YIELD_BPS = BigInteger.valueOf(275);
 	private static final BigInteger UPDATED_TWO_YEAR_YIELD_BPS = BigInteger.valueOf(285);
 
-	private static final String TRADE_REQUEST_CREATED_EVENT_SIGNATURE =
-			Hash.sha3String("TradeRequestCreated(bytes32,address,address,bytes32,bytes32,address)");
+	private static final String TRADE_REQUEST_CREATED_EVENT_SIGNATURE = Hash.sha3String("TradeRequestCreated(bytes32,address,address,bytes32,address)");
 
 	public static void main(String[] args) throws Exception {
 
@@ -116,12 +112,11 @@ public class DemoEndToEndWorkflow {
 		String productProvider = Credentials.create(PRODUCT_PROVIDER_PRIVATE_KEY).getAddress();
 		String client = Credentials.create(CLIENT_PRIVATE_KEY).getAddress();
 
-		assertAddressEquals(SmartContractDeployer.defaultSenderAddress(), productProvider,
-				"The product-provider key must match the configured transaction-signing key.");
+		assertAddressEquals(SmartContractDeployer.defaultSenderAddress(), productProvider, "The product-provider key must match the configured transaction-signing key.");
 
 		System.out.println("Smart Product Framework end-to-end workflow demo");
 		System.out.println("Product provider:         " + productProvider);
-		System.out.println("Client:                 " + client);
+		System.out.println("Client:                   " + client);
 		System.out.println("Product definition:       " + PRODUCT_DEFINITION_NAME);
 		System.out.println("Curve:                    " + CURVE_NAME);
 		System.out.println("-".repeat(79));
@@ -129,7 +124,7 @@ public class DemoEndToEndWorkflow {
 		ensureClientFunded(productProvider, client);
 
 		/*
-		 * Initial setup and factory registration.
+		 * Initial setup.
 		 */
 		System.out.println("Deploying ClientRegistry.");
 		String clientRegistry = SmartContractDeployer.deploy(
@@ -138,70 +133,75 @@ public class DemoEndToEndWorkflow {
 				new Address(productProvider)
 		);
 
-		System.out.println("Deploying BondProductRegistry.");
+		System.out.println("Deploying ProductDefinitionRegistry.");
 		String registry = SmartContractDeployer.deploy(
-				BOND_PRODUCT_REGISTRY_CONTRACT,
+				PRODUCT_DEFINITION_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider),
 				new Address(clientRegistry)
 		);
 
-		System.out.println("Deploying ProductFactoryRegistry.");
-		String genericFactory = SmartContractDeployer.deploy(
-				PRODUCT_FACTORY_REGISTRY_CONTRACT,
+		System.out.println("Deploying CurveIndications.");
+		String curveIndications = SmartContractDeployer.deploy(
+				CURVE_INDICATIONS_CONTRACT,
 				SmartContractDeployer.CANCUN,
-				new Address(productProvider),
-				new Address(registry)
+				new Address(productProvider)
 		);
-
-		SmartContractDeployer.transact(
-				registry,
-				function("setProductFactory", new Address(genericFactory))
-		);
-
-		String factoryBackReference = callAddress(genericFactory, "productRegistryAddress");
-		assertAddressEquals(registry, factoryBackReference, "Generic factory back-reference mismatch.");
 
 		System.out.println("Deploying SimpleBondFactory.");
 		String simpleBondFactory = SmartContractDeployer.deploy(
 				SIMPLE_BOND_FACTORY_CONTRACT,
 				SmartContractDeployer.CANCUN,
-				new Address(genericFactory)
+				new Address(registry),
+				new Address(curveIndications)
 		);
 
-		byte[] productTypeId = callBytes32(simpleBondFactory, "productTypeId");
+		String factoryBackReference = callAddress(simpleBondFactory, "productRegistryAddress");
+		assertAddressEquals(registry, factoryBackReference, "Factory product-registry back-reference mismatch.");
 
-		SmartContractDeployer.transact(
-				genericFactory,
-				function("registerProductFactory", new Bytes32(productTypeId), new Address(simpleBondFactory))
-		);
-
-		assertTrue(
-				callBool(genericFactory, function("canDeployProduct", new Bytes32(productTypeId))),
-				"Registered SimpleBond product type is not deployable."
-		);
-		assertAddressEquals(
+		byte[] acceptedIndicationCategory = callBytes32(
 				simpleBondFactory,
-				callAddress(genericFactory, function("productFactoryOf", new Bytes32(productTypeId))),
-				"The generic factory does not resolve the SimpleBond factory."
+				"acceptedIndicationCategory"
+		);
+		byte[] curveIndicationCategory = callBytes32(
+				curveIndications,
+				"indicationCategory"
+		);
+		assertBytesEqual(
+				curveIndicationCategory,
+				acceptedIndicationCategory,
+				"SimpleBondFactory accepted indication category mismatch."
 		);
 
-		System.out.println("Factory setup complete.");
-		System.out.println("Generic factory:          " + genericFactory);
+		byte[] productTermsTemplateResourceType = callBytes32(
+				simpleBondFactory,
+				"productTermsTemplateResourceType"
+		);
+		byte[] productDocumentationTemplateResourceType = callBytes32(
+				simpleBondFactory,
+				"productDocumentationTemplateResourceType"
+		);
+
+		System.out.println("Infrastructure setup complete.");
+		System.out.println("Product registry:         " + registry);
 		System.out.println("SimpleBond factory:       " + simpleBondFactory);
-		System.out.println("Product type id:          " + Numeric.toHexString(productTypeId));
+		System.out.println("Curve indications:        " + curveIndications);
+		System.out.println("Terms resource type:      " + Numeric.toHexString(productTermsTemplateResourceType));
+		System.out.println("Documentation type:       " + Numeric.toHexString(productDocumentationTemplateResourceType));
 		System.out.println("-".repeat(79));
 
 		/*
 		 * Resource and product-definition publication.
 		 */
 		PublishedTextResource productTermsTemplate = publishStagedTextResource(
-				PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,
+				"Simple Bond product terms template",
+				productTermsTemplateResourceType,
 				"application/xml",
 				PRODUCT_TERMS_TEMPLATE_PATH
 		);
 		PublishedTextResource productDocumentationTemplate = publishStagedTextResource(
-				PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE,
+				"Simple Bond product documentation template",
+				productDocumentationTemplateResourceType,
 				"application/xslt+xml",
 				PRODUCT_DOCUMENTATION_TEMPLATE_PATH
 		);
@@ -212,10 +212,10 @@ public class DemoEndToEndWorkflow {
 						"publishProductDefinition",
 						new ProductDefinitionPublicationParams(
 								new Utf8String(PRODUCT_DEFINITION_NAME),
-								new ProductDefinitionResources(
+								new ProductDefinition(
+										new Address(simpleBondFactory),
 										new Address(productTermsTemplate.contractAddress()),
-										new Address(productDocumentationTemplate.contractAddress()),
-										new Bytes32(productTypeId)
+										new Address(productDocumentationTemplate.contractAddress())
 								)
 						)
 				)
@@ -235,12 +235,7 @@ public class DemoEndToEndWorkflow {
 		/*
 		 * Curve indication publication and assignment.
 		 */
-		System.out.println("Deploying and publishing CurveIndications.");
-		String curveIndications = SmartContractDeployer.deploy(
-				CURVE_INDICATIONS_CONTRACT,
-				SmartContractDeployer.CANCUN,
-				new Address(productProvider)
-		);
+		System.out.println("Publishing CurveIndications.");
 
 		long now = Instant.now().getEpochSecond();
 		List<QuoteParams> quotes = createCurveQuotes(now);
@@ -281,7 +276,7 @@ public class DemoEndToEndWorkflow {
 		TransactionReceipt indicationAssignmentReceipt = SmartContractDeployer.transact(
 				registry,
 				function(
-						"assignProductIndication",
+						"setProductIndication",
 						new Bytes32(productDefinitionId),
 						new Address(curveIndications),
 						new Bytes32(indicationId)
@@ -352,41 +347,36 @@ public class DemoEndToEndWorkflow {
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Frontend discovery: resolve product type, factory, schema, and payload.
+		 * Frontend discovery: resolve the exact factory, schema, and payload.
 		 */
-		byte[] discoveredProductTypeId = callBytes32(
-				registry,
-				function("productTypeByDefinitionId", new Bytes32(productDefinitionId))
-		);
-		assertBytesEqual(productTypeId, discoveredProductTypeId, "Product definition type mismatch.");
-
 		String discoveredFactory = callAddress(
-				genericFactory,
-				function("productFactoryOf", new Bytes32(discoveredProductTypeId))
+				registry,
+				function(
+						"getProductFactoryByDefinitionId",
+						new Bytes32(productDefinitionId)
+				)
 		);
-		assertAddressEquals(simpleBondFactory, discoveredFactory, "Frontend resolved the wrong factory.");
+		assertAddressEquals(
+				simpleBondFactory,
+				discoveredFactory,
+				"Product definition resolves the wrong factory."
+		);
 
-		String payloadSchema = callString(simpleBondFactory, "productSpecificPayloadSchema");
-		byte[] payloadSchemaHash = callBytes32(simpleBondFactory, "productSpecificSchemaHash");
-		assertBytesEqual(
-				Hash.sha3(payloadSchema.getBytes(StandardCharsets.UTF_8)),
-				payloadSchemaHash,
-				"Factory schema string and schema hash are inconsistent."
-		);
+		String payloadSchema = callString(simpleBondFactory, "productPayloadSchema");
 
 		BigInteger initialNotional = BigInteger.valueOf(100_000_000L); // 1,000,000.00 with scale 2
 		BigInteger initialMaturity = BigInteger.valueOf(now + 3L * 365 * 24 * 60 * 60);
 		byte[] initialPayload = encodeSimpleBondPayload(initialNotional, initialMaturity);
 
 		System.out.println("Frontend discovery complete.");
+		System.out.println("Anchored factory:         " + discoveredFactory);
 		System.out.println("Payload schema:           " + payloadSchema);
-		System.out.println("Payload schema hash:      " + Numeric.toHexString(payloadSchemaHash));
 		System.out.println("Initial notional:         " + initialNotional);
 		System.out.println("Initial maturity:         " + initialMaturity);
 		System.out.println("-".repeat(79));
 
 		/*
-		 * Client trade request and deployment through both factory layers.
+		 * Client trade request and direct factory deployment.
 		 */
 		TransactionReceipt tradeRequestReceipt = transactAs(
 				CLIENT_PRIVATE_KEY,
@@ -395,7 +385,6 @@ public class DemoEndToEndWorkflow {
 						"createTradeRequest",
 						new TradeRequestParams(
 								new Bytes32(productDefinitionId),
-								new Bytes32(payloadSchemaHash),
 								new DynamicBytes(initialPayload)
 						)
 				)
@@ -405,26 +394,36 @@ public class DemoEndToEndWorkflow {
 		byte[] tradeId = deployedTrade.tradeId();
 		String product = deployedTrade.productAddress();
 
+		assertBytesEqual(
+				productDefinitionId,
+				deployedTrade.productDefinitionId(),
+				"TradeRequestCreated product definition id mismatch."
+		);
+
 		assertAddressEquals(
 				product,
 				callAddress(registry, function("productOf", new Bytes32(tradeId))),
 				"Registry trade lookup mismatch."
 		);
-		assertAddressEquals(
-				product,
-				callAddress(genericFactory, function("productByTradeId", new Bytes32(tradeId))),
-				"Generic factory trade lookup mismatch."
-		);
 		assertTradeStatus(product, STATUS_REQUESTED, "Requested");
 
 		assertAddressEquals(registry, callAddress(product, "productRegistry"), "Product registry mismatch.");
+		assertAddressEquals(simpleBondFactory, callAddress(product, "productFactory"), "Product factory mismatch.");
 		assertAddressEquals(productProvider, callAddress(product, "productProvider"), "Product provider mismatch.");
 		assertAddressEquals(client, callAddress(product, "client"), "Product client mismatch.");
 		assertAddressEquals(productTermsTemplate.contractAddress(), callAddress(product, "productTermsTemplate"), "Product terms template mismatch.");
 		assertAddressEquals(productDocumentationTemplate.contractAddress(), callAddress(product, "productDocumentationTemplate"), "Product documentation template mismatch.");
 		assertBytesEqual(tradeId, callBytes32(product, "tradeId"), "Product trade id mismatch.");
 		assertBytesEqual(productDefinitionId, callBytes32(product, "productDefinitionId"), "Product definition id mismatch.");
-		assertBytesEqual(productTypeId, callBytes32(product, "productTypeId"), "Product type id mismatch.");
+		assertEquals(
+				BigInteger.valueOf(2),
+				callUint256(product, "productDefinitionVersion"),
+				"Product definition version mismatch."
+		);
+		assertFalse(
+				Arrays.equals(new byte[32], callBytes32(product, "deploymentStateHash")),
+				"Product deployment state hash is zero."
+		);
 
 		System.out.println("Trade request created; SimpleBond deployed in Requested state.");
 		System.out.println("Trade id:                 " + Numeric.toHexString(tradeId));
@@ -482,14 +481,14 @@ public class DemoEndToEndWorkflow {
 		/*
 		 * Bidirectional authenticity proof.
 		 */
-		String productSpecificFactory = callAddress(product, "productSpecificFactory");
-		assertAddressEquals(simpleBondFactory, productSpecificFactory, "Product points to the wrong specific factory.");
+		String productFactory = callAddress(product, "productFactory");
+		assertAddressEquals(simpleBondFactory, productFactory, "Product points to the wrong factory.");
 		assertTrue(
 				callBool(
 						simpleBondFactory,
 						function("isFactoryDeployedProduct", new Address(product))
 				),
-				"Specific factory does not recognize its deployed product."
+				"Factory does not recognize its deployed product."
 		);
 
 		System.out.println("Product authenticity checks passed.");
@@ -508,9 +507,10 @@ public class DemoEndToEndWorkflow {
 				"Definition published",
 				productDefinitionPublicationReceipt,
 				"<ProductDefinition",
+				"<ProductFactory contractAddress=\"" + simpleBondFactory + "\"/>",
 				"<ProductResources>",
 				"<ProductTermsTemplate>",
-				"<ProductDocumentationTemplate>",
+				"<ProductDocumentationTemplate href=",
 				"<ProductIndicationAssignment assigned=\"false\"/>",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
@@ -523,9 +523,10 @@ public class DemoEndToEndWorkflow {
 				"Curve indication assigned",
 				indicationAssignmentReceipt,
 				"<ProductDefinition",
+				"<ProductFactory contractAddress=\"" + simpleBondFactory + "\"/>",
 				"<ProductResources>",
 				"<ProductTermsTemplate>",
-				"<ProductDocumentationTemplate>",
+				"<ProductDocumentationTemplate href=",
 				"<ProductIndicationAssignment assigned=\"true\"",
 				"contractAddress=\"" + curveIndications + "\"",
 				"indicationId=\"" + Numeric.toHexString(indicationId) + "\"",
@@ -588,8 +589,8 @@ public class DemoEndToEndWorkflow {
 		String productStateTemplate = callString(product, "stateXmlTemplate");
 		assertContains(productStateTemplate, "<SimpleBond");
 		assertContains(productStateTemplate, "<ProductResources><ProductTermsTemplate><xi:include");
-		assertContains(productStateTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate><xi:include");
-		assertContains(productStateTemplate, "</ProductDocumentationTemplate></ProductResources>");
+		assertContains(productStateTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate href=\"");
+		assertContains(productStateTemplate, "</ProductResources>");
 		assertContains(productStateTemplate, "parse=\"xml\"");
 		assertContains(productStateTemplate, productTermsTemplate.web3Url());
 		assertContains(productStateTemplate, productDocumentationTemplate.web3Url());
@@ -658,7 +659,6 @@ public class DemoEndToEndWorkflow {
 		System.out.println("End-to-end workflow demo completed.");
 		System.out.println("ClientRegistry:           " + clientRegistry);
 		System.out.println("Product registry:         " + registry);
-		System.out.println("Generic factory:          " + genericFactory);
 		System.out.println("SimpleBond factory:       " + simpleBondFactory);
 		System.out.println("Curve indications:        " + curveIndications);
 		System.out.println("Product definition id:    " + Numeric.toHexString(productDefinitionId));
@@ -715,18 +715,19 @@ public class DemoEndToEndWorkflow {
 	}
 
 	private static PublishedTextResource publishStagedTextResource(
-			String resourceTypeName,
+			String resourceLabel,
+			byte[] resourceType,
 			String mediaType,
 			String classpathResource
 	) throws Exception {
 
 		String owner = SmartContractDeployer.defaultSenderAddress();
 		byte[] content = loadResourceBytes(classpathResource);
-		byte[] resourceType = bytes32FromKeccak256String(resourceTypeName);
 		byte[] expectedContentHash = Hash.sha3(content);
 
-		System.out.println("Publishing TextResource:  " + resourceTypeName);
+		System.out.println("Publishing TextResource:  " + resourceLabel);
 		System.out.println("Classpath resource:       " + classpathResource);
+		System.out.println("Resource type:            " + Numeric.toHexString(resourceType));
 		System.out.println("Content length:           " + content.length + " bytes");
 
 		String contractAddress = SmartContractDeployer.deploy(
@@ -754,6 +755,7 @@ public class DemoEndToEndWorkflow {
 		);
 
 		assertTrue(callBool(contractAddress, "isFinalized"), "TextResource was not finalized.");
+		assertBytesEqual(resourceType, callBytes32(contractAddress, "resourceType"), "TextResource type mismatch.");
 		assertBytesEqual(expectedContentHash, callBytes32(contractAddress, "contentHash"), "TextResource content hash mismatch.");
 		assertBytesEqual(
 				content,
@@ -884,7 +886,6 @@ public class DemoEndToEndWorkflow {
 					List.of(),
 					List.of(
 							new TypeReference<Bytes32>() {},
-							new TypeReference<Bytes32>() {},
 							new TypeReference<Address>() {}
 					)
 			);
@@ -893,12 +894,13 @@ public class DemoEndToEndWorkflow {
 					eventDataDecoder.getOutputParameters()
 			);
 
-			if (decoded.size() != 3) {
+			if (decoded.size() != 2) {
 				throw new IllegalStateException("Unexpected TradeRequestCreated event payload.");
 			}
 
-			String product = ((Address) decoded.get(2)).getValue();
-			return new DeployedTrade(tradeId, product);
+			byte[] productDefinitionId = ((Bytes32) decoded.get(0)).getValue();
+			String product = ((Address) decoded.get(1)).getValue();
+			return new DeployedTrade(tradeId, productDefinitionId, product);
 		}
 
 		throw new IllegalStateException(
@@ -987,8 +989,8 @@ public class DemoEndToEndWorkflow {
 		assertContains(renderedState, "<ProductResources>");
 		assertContains(renderedState, "<ProductTermsTemplate>");
 		assertContains(renderedState, "<SimpleBondTerms");
-		assertContains(renderedState, "<ProductDocumentationTemplate>");
-		assertContains(renderedState, "<xsl:stylesheet");
+		assertContains(renderedState, "<ProductDocumentationTemplate href=");
+		assertNotContains(renderedState, "<xsl:stylesheet");
 		assertContains(renderedState, "<TradeStatus>" + expectedStatus + "</TradeStatus>");
 		assertContains(renderedState, new BigDecimal(expectedNotional, 2).toPlainString());
 		assertContains(renderedState, isoDate(expectedMaturity));
@@ -1162,7 +1164,7 @@ public class DemoEndToEndWorkflow {
 	}
 
 	private static byte[] loadResourceBytes(String resourceName) throws Exception {
-		try (InputStream inputStream = DemoEndToEndWorkflow.class.getClassLoader().getResourceAsStream(resourceName)) {
+		try (InputStream inputStream = DemoSimpleBond.class.getClassLoader().getResourceAsStream(resourceName)) {
 			if (inputStream == null) {
 				throw new IllegalArgumentException("Could not find resource on classpath: " + resourceName);
 			}
@@ -1170,9 +1172,6 @@ public class DemoEndToEndWorkflow {
 		}
 	}
 
-	private static byte[] bytes32FromKeccak256String(String value) {
-		return Numeric.hexStringToByteArray(Hash.sha3String(value));
-	}
 
 	private static void assertAddressEquals(String expected, String actual, String message) {
 		if (!expected.equalsIgnoreCase(actual)) {
@@ -1221,26 +1220,33 @@ public class DemoEndToEndWorkflow {
 	public static class ProductDefinitionPublicationParams extends DynamicStruct {
 
 		public final Utf8String name;
-		public final ProductDefinitionResources resources;
+		public final ProductDefinition productDefinition;
 
-		public ProductDefinitionPublicationParams(Utf8String name, ProductDefinitionResources resources) {
-			super(name, resources);
+		public ProductDefinitionPublicationParams(
+				Utf8String name,
+				ProductDefinition productDefinition
+		) {
+			super(name, productDefinition);
 			this.name = name;
-			this.resources = resources;
+			this.productDefinition = productDefinition;
 		}
 	}
 
-	public static class ProductDefinitionResources extends StaticStruct {
+	public static class ProductDefinition extends StaticStruct {
 
+		public final Address productFactory;
 		public final Address productTermsTemplate;
 		public final Address productDocumentationTemplate;
-		public final Bytes32 productTypeId;
 
-		public ProductDefinitionResources(Address productTermsTemplate, Address productDocumentationTemplate, Bytes32 productTypeId) {
-			super(productTermsTemplate, productDocumentationTemplate, productTypeId);
+		public ProductDefinition(
+				Address productFactory,
+				Address productTermsTemplate,
+				Address productDocumentationTemplate
+		) {
+			super(productFactory, productTermsTemplate, productDocumentationTemplate);
+			this.productFactory = productFactory;
 			this.productTermsTemplate = productTermsTemplate;
 			this.productDocumentationTemplate = productDocumentationTemplate;
-			this.productTypeId = productTypeId;
 		}
 	}
 
@@ -1259,18 +1265,15 @@ public class DemoEndToEndWorkflow {
 	public static class TradeRequestParams extends DynamicStruct {
 
 		public final Bytes32 productDefinitionId;
-		public final Bytes32 productSpecificSchemaHash;
-		public final DynamicBytes productSpecificPayload;
+		public final DynamicBytes productPayload;
 
 		public TradeRequestParams(
 				Bytes32 productDefinitionId,
-				Bytes32 productSpecificSchemaHash,
-				DynamicBytes productSpecificPayload
+				DynamicBytes productPayload
 		) {
-			super(productDefinitionId, productSpecificSchemaHash, productSpecificPayload);
+			super(productDefinitionId, productPayload);
 			this.productDefinitionId = productDefinitionId;
-			this.productSpecificSchemaHash = productSpecificSchemaHash;
-			this.productSpecificPayload = productSpecificPayload;
+			this.productPayload = productPayload;
 		}
 	}
 
@@ -1363,5 +1366,9 @@ public class DemoEndToEndWorkflow {
 			String rendererUrl
 	) implements StateCheckpoint {}
 
-	private record DeployedTrade(byte[] tradeId, String productAddress) {}
+	private record DeployedTrade(
+			byte[] tradeId,
+			byte[] productDefinitionId,
+			String productAddress
+	) {}
 }

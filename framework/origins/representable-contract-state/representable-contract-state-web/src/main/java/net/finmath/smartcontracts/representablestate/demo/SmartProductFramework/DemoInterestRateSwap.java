@@ -41,10 +41,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Focused Smart Product Framework demo for a fixed-versus-floating interest
- * rate swap. It deploys the minimum complete framework stack, publishes the
- * FpML-shaped product resources, creates a request, and performs the
- * ERC-6123-inspired incept/confirm handshake.
+ * End-to-end Smart Product Framework demo for a fixed-versus-floating
+ * interest-rate swap.
+ *
+ * <p>The demo deploys the generic product registry and the exact swap factory,
+ * publishes factory-compatible FpML resources and a product definition,
+ * registers a client, creates and amends a trade request, performs the
+ * incept/confirm handshake, verifies deployment provenance, and renders
+ * block-pinned registry and product states.</p>
  *
  * <p>The embedded private keys are public development keys. Never use them on
  * a chain carrying real assets.</p>
@@ -54,47 +58,25 @@ import java.util.List;
 public class DemoInterestRateSwap {
 
 	private static final Path TEXT_RESOURCE_CONTRACT = Path.of("resources", "TextResource.sol");
-	private static final Path CLIENT_REGISTRY_CONTRACT = Path.of(
-			"examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol"
-	);
-	private static final Path SWAP_PRODUCT_REGISTRY_CONTRACT = Path.of(
-			"examples", "SmartProductFramework", "InterestRateSwapDemo", "InterestRateSwapProductRegistry.sol"
-	);
-	private static final Path PRODUCT_FACTORY_REGISTRY_CONTRACT = Path.of(
-			"examples", "SmartProductFramework", "ProductFactory", "ProductFactoryRegistry.sol"
-	);
-	private static final Path SWAP_FACTORY_CONTRACT = Path.of(
-			"examples", "SmartProductFramework", "InterestRateSwapDemo", "InterestRateSwapFactory.sol"
-	);
+	private static final Path CLIENT_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ClientRegistry", "ClientRegistry.sol");
+	private static final Path PRODUCT_DEFINITION_REGISTRY_CONTRACT = Path.of("examples", "SmartProductFramework", "ProductRegistry", "ProductDefinitionRegistry.sol");
+	private static final Path SWAP_FACTORY_CONTRACT = Path.of("examples", "SmartProductFramework", "InterestRateSwapDemo", "InterestRateSwapFactory.sol");
 
 	private static final String RPC_URL = "http://127.0.0.1:8545";
 	private static final String RENDERER_XML_URL = "http://localhost:8080/xml";
 	private static final BigInteger GAS_PRICE = BigInteger.valueOf(1_000_000_000L);
 	private static final BigInteger GAS_LIMIT = BigInteger.valueOf(20_000_000L);
-	private static final BigInteger CLIENT_TARGET_BALANCE = Convert.toWei("1", Convert.Unit.ETHER)
-			.toBigIntegerExact();
+	private static final BigInteger CLIENT_TARGET_BALANCE = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
 
 	// Public Anvil/Hardhat development accounts used elsewhere in this project.
-	private static final String PRODUCT_PROVIDER_PRIVATE_KEY =
-			"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-	private static final String CLIENT_PRIVATE_KEY =
-			"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+	private static final String PRODUCT_PROVIDER_PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+	private static final String CLIENT_PRIVATE_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 
 	private static final String CLIENT_LEI = "529900T8BM49AURSDO55";
 	private static final String PRODUCT_DEFINITION_NAME = "EUR Fixed-Floating Interest Rate Swap";
-	private static final String PRODUCT_TYPE = "INTEREST_RATE_SWAP";
-	private static final String PRODUCT_SPECIFIC_PAYLOAD_SCHEMA =
-			"v1:InterestRateSwapDeploymentPayload(uint256 notional,string currency,uint256 maturity,"
-					+ "int256 swapRate,uint8 clientFixedRateRole,string forwardCurveSymbol,"
-					+ "string discountCurveSymbol)";
-	private static final String PRODUCT_TERMS_TEMPLATE_PATH =
-			"text-resources/interest-rate-swap-product-terms-template.xml";
-	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH =
-			"text-resources/interest-rate-swap-product-documentation-template.xslt";
-	private static final String PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE =
-			"INTEREST_RATE_SWAP_PRODUCT_TERMS_TEMPLATE";
-	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE =
-			"INTEREST_RATE_SWAP_PRODUCT_DOCUMENTATION_TEMPLATE";
+	private static final String PRODUCT_PAYLOAD_SCHEMA = "v1:InterestRateSwapDeploymentPayload(uint256 notional,string currency,uint256 maturity,int256 swapRate,uint8 clientFixedRateRole,string forwardCurveSymbol,string discountCurveSymbol)";
+	private static final String PRODUCT_TERMS_TEMPLATE_PATH = "text-resources/interest-rate-swap-product-terms-template.xml";
+	private static final String PRODUCT_DOCUMENTATION_TEMPLATE_PATH = "text-resources/interest-rate-swap-product-documentation-template.xslt";
 	private static final int RESOURCE_CHUNK_SIZE = 10_000;
 
 	private static final BigInteger STATUS_REQUESTED = BigInteger.ZERO;
@@ -103,8 +85,7 @@ public class DemoInterestRateSwap {
 	private static final BigInteger CLIENT_FIXED_RATE_PAYER = BigInteger.ZERO;
 	private static final BigInteger CLIENT_FIXED_RATE_RECEIVER = BigInteger.ONE;
 
-	private static final String TRADE_REQUEST_CREATED_EVENT_SIGNATURE =
-			Hash.sha3String("TradeRequestCreated(bytes32,address,address,bytes32,bytes32,address)");
+	private static final String TRADE_REQUEST_CREATED_EVENT_SIGNATURE = Hash.sha3String("TradeRequestCreated(bytes32,address,address,bytes32,address)");
 
 	private DemoInterestRateSwap() {
 	}
@@ -133,55 +114,61 @@ public class DemoInterestRateSwap {
 		System.out.println("Client:                   " + client);
 		System.out.println("-".repeat(79));
 
+		System.out.println("Deploying ClientRegistry.");
 		String clientRegistry = SmartContractDeployer.deploy(
 				CLIENT_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider)
 		);
+
+		System.out.println("Deploying ProductDefinitionRegistry.");
 		String productRegistry = SmartContractDeployer.deploy(
-				SWAP_PRODUCT_REGISTRY_CONTRACT,
+				PRODUCT_DEFINITION_REGISTRY_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(productProvider),
 				new Address(clientRegistry)
 		);
-		String genericFactory = SmartContractDeployer.deploy(
-				PRODUCT_FACTORY_REGISTRY_CONTRACT,
-				SmartContractDeployer.CANCUN,
-				new Address(productProvider),
-				new Address(productRegistry)
-		);
-		SmartContractDeployer.transact(
-				productRegistry,
-				function("setProductFactory", new Address(genericFactory))
-		);
 
+		System.out.println("Deploying InterestRateSwapFactory.");
 		String swapFactory = SmartContractDeployer.deploy(
 				SWAP_FACTORY_CONTRACT,
 				SmartContractDeployer.CANCUN,
-				new Address(genericFactory)
-		);
-		byte[] productTypeId = callBytes32(swapFactory, "productTypeId");
-		assertBytesEqual(
-				bytes32FromKeccak256String(PRODUCT_TYPE),
-				productTypeId,
-				"Unexpected swap product type."
-		);
-		SmartContractDeployer.transact(
-				genericFactory,
-				function("registerProductFactory", new Bytes32(productTypeId), new Address(swapFactory))
-		);
-		assertTrue(
-				callBool(genericFactory, function("canDeployProduct", new Bytes32(productTypeId))),
-				"The registered swap type is not deployable."
+				new Address(productRegistry)
 		);
 
+		assertAddressEquals(
+				productRegistry,
+				callAddress(swapFactory, "productRegistryAddress"),
+				"Swap factory product-registry back-reference mismatch."
+		);
+
+		byte[] productTermsTemplateResourceType = callBytes32(
+				swapFactory,
+				"productTermsTemplateResourceType"
+		);
+		byte[] productDocumentationTemplateResourceType = callBytes32(
+				swapFactory,
+				"productDocumentationTemplateResourceType"
+		);
+
+		System.out.println("Infrastructure setup complete.");
+		System.out.println("Product registry:         " + productRegistry);
+		System.out.println("Swap factory:             " + swapFactory);
+		System.out.println("Terms resource type:      "
+				+ Numeric.toHexString(productTermsTemplateResourceType));
+		System.out.println("Documentation type:       "
+				+ Numeric.toHexString(productDocumentationTemplateResourceType));
+		System.out.println("-".repeat(79));
+
 		PublishedTextResource productTermsTemplate = publishTextResource(
-				PRODUCT_TERMS_TEMPLATE_RESOURCE_TYPE,
+				"Interest-rate-swap product terms template",
+				productTermsTemplateResourceType,
 				"application/xml",
 				PRODUCT_TERMS_TEMPLATE_PATH
 		);
 		PublishedTextResource productDocumentationTemplate = publishTextResource(
-				PRODUCT_DOCUMENTATION_TEMPLATE_RESOURCE_TYPE,
+				"Interest-rate-swap product documentation template",
+				productDocumentationTemplateResourceType,
 				"application/xslt+xml",
 				PRODUCT_DOCUMENTATION_TEMPLATE_PATH
 		);
@@ -192,10 +179,10 @@ public class DemoInterestRateSwap {
 						"publishProductDefinition",
 						new ProductDefinitionPublicationParams(
 								new Utf8String(PRODUCT_DEFINITION_NAME),
-								new ProductDefinitionResources(
+								new ProductDefinition(
+										new Address(swapFactory),
 										new Address(productTermsTemplate.contractAddress()),
-										new Address(productDocumentationTemplate.contractAddress()),
-										new Bytes32(productTypeId)
+										new Address(productDocumentationTemplate.contractAddress())
 								)
 						)
 				)
@@ -214,17 +201,42 @@ public class DemoInterestRateSwap {
 				)
 		);
 
-		String payloadSchema = callString(swapFactory, "productSpecificPayloadSchema");
-		byte[] payloadSchemaHash = callBytes32(swapFactory, "productSpecificSchemaHash");
+		assertTrue(
+				callBool(
+						clientRegistry,
+						function(
+								"isEligibleClient",
+								new Address(client),
+								new Bytes32(productDefinitionId)
+						)
+				),
+				"The registered client is not eligible for the swap definition."
+		);
+
+		System.out.println("Product definition published and client registered.");
+		System.out.println("Product definition id:    " + Numeric.toHexString(productDefinitionId));
+		System.out.println("Product definition part:  " + productDefinitionPartId);
+		System.out.println("Client LEI:                " + CLIENT_LEI);
+		System.out.println("-".repeat(79));
+
+		String discoveredFactory = callAddress(
+				productRegistry,
+				function(
+						"getProductFactoryByDefinitionId",
+						new Bytes32(productDefinitionId)
+				)
+		);
+		assertAddressEquals(
+				swapFactory,
+				discoveredFactory,
+				"Product definition resolves the wrong factory."
+		);
+
+		String payloadSchema = callString(swapFactory, "productPayloadSchema");
 		assertEquals(
-				PRODUCT_SPECIFIC_PAYLOAD_SCHEMA,
+				PRODUCT_PAYLOAD_SCHEMA,
 				payloadSchema,
 				"Unexpected swap payload schema."
-		);
-		assertBytesEqual(
-				Hash.sha3(payloadSchema.getBytes(StandardCharsets.UTF_8)),
-				payloadSchemaHash,
-				"Factory schema string and hash differ."
 		);
 
 		long now = Instant.now().getEpochSecond();
@@ -261,13 +273,83 @@ public class DemoInterestRateSwap {
 						"createTradeRequest",
 						new TradeRequestParams(
 								new Bytes32(productDefinitionId),
-								new Bytes32(payloadSchemaHash),
 								new DynamicBytes(payload)
 						)
 				)
 		);
 		DeployedTrade deployedTrade = decodeTradeRequestCreated(productRegistry, requestReceipt);
 		String product = deployedTrade.productAddress();
+
+		assertBytesEqual(
+				productDefinitionId,
+				deployedTrade.productDefinitionId(),
+				"TradeRequestCreated product definition id mismatch."
+		);
+		assertAddressEquals(
+				product,
+				callAddress(
+						productRegistry,
+						function("productOf", new Bytes32(deployedTrade.tradeId()))
+				),
+				"Registry trade lookup mismatch."
+		);
+		assertAddressEquals(
+				productRegistry,
+				callAddress(product, "productRegistry"),
+				"Product registry mismatch."
+		);
+		assertAddressEquals(
+				swapFactory,
+				callAddress(product, "productFactory"),
+				"Product factory mismatch."
+		);
+		assertAddressEquals(
+				productProvider,
+				callAddress(product, "productProvider"),
+				"Product provider mismatch."
+		);
+		assertAddressEquals(
+				client,
+				callAddress(product, "client"),
+				"Product client mismatch."
+		);
+		assertAddressEquals(
+				productTermsTemplate.contractAddress(),
+				callAddress(product, "productTermsTemplate"),
+				"Product terms template mismatch."
+		);
+		assertAddressEquals(
+				productDocumentationTemplate.contractAddress(),
+				callAddress(product, "productDocumentationTemplate"),
+				"Product documentation template mismatch."
+		);
+		assertBytesEqual(
+				deployedTrade.tradeId(),
+				callBytes32(product, "tradeId"),
+				"Product trade id mismatch."
+		);
+		assertBytesEqual(
+				productDefinitionId,
+				callBytes32(product, "productDefinitionId"),
+				"Product definition id mismatch."
+		);
+		assertEquals(
+				BigInteger.ONE,
+				callUint256(product, "productDefinitionVersion"),
+				"Product definition version mismatch."
+		);
+		assertTrue(
+				!Arrays.equals(new byte[32], callBytes32(product, "deploymentStateHash")),
+				"Product deployment state hash is zero."
+		);
+		assertTrue(
+				callBool(
+						swapFactory,
+						function("isFactoryDeployedProduct", new Address(product))
+				),
+				"Swap factory does not recognize its deployed product."
+		);
+
 		System.out.println("Client requested the swap at block " + requestReceipt.getBlockNumber() + ".");
 		System.out.println("Swap product:             " + product);
 		System.out.println("-".repeat(79));
@@ -334,7 +416,7 @@ public class DemoInterestRateSwap {
 		);
 
 		byte[] agreedTermsHash = callBytes32(product, "currentTermsHash");
-		assertTrue(!Arrays.equals(initialTermsHash, agreedTermsHash), "Terms hash did not change after amendment.");
+		assertFalse(Arrays.equals(initialTermsHash, agreedTermsHash), "Terms hash did not change after amendment.");
 		System.out.println("Client amended the requested swap at block " + amendmentReceipt.getBlockNumber() + ".");
 		System.out.println("Amended notional:         1250000.00 " + currency);
 		System.out.println("Amended fixed rate:       0.0275 (2.75%)");
@@ -364,6 +446,14 @@ public class DemoInterestRateSwap {
 				+ confirmationReceipt.getBlockNumber() + ".");
 		System.out.println("-".repeat(79));
 
+		String productStateTemplate = callString(product, "stateXmlTemplate");
+		assertContains(productStateTemplate, "<InterestRateSwap");
+		assertContains(productStateTemplate, "<ProductResources><ProductTermsTemplate><xi:include");
+		assertContains(productStateTemplate, "</ProductTermsTemplate><ProductDocumentationTemplate href=\"");
+		assertContains(productStateTemplate, productTermsTemplate.web3Url());
+		assertContains(productStateTemplate, productDocumentationTemplate.web3Url());
+		assertNotContains(productStateTemplate, "<xsl:stylesheet");
+
 		EvmXmlRenderer renderer = new EvmXmlRenderer(RPC_URL);
 		String productDefinitionIdHex = Numeric.toHexString(productDefinitionId);
 		StatePartCheckpoint definitionPublishedCheckpoint = renderStatePartCheckpoint(
@@ -373,9 +463,10 @@ public class DemoInterestRateSwap {
 				"Definition published",
 				productDefinitionPublicationReceipt,
 				"<ProductDefinition",
+				"<ProductFactory contractAddress=\"" + swapFactory + "\"/>",
 				"<ProductResources>",
 				"<ProductTermsTemplate>",
-				"<ProductDocumentationTemplate>",
+				"<ProductDocumentationTemplate href=",
 				"<ProductIndicationAssignment assigned=\"false\"/>",
 				"productDefinitionId=\"" + productDefinitionIdHex + "\"",
 				"status=\"1\"",
@@ -464,7 +555,6 @@ public class DemoInterestRateSwap {
 		System.out.println("=".repeat(79));
 		System.out.println("Interest-rate-swap demo completed.");
 		System.out.println("Product registry:         " + productRegistry);
-		System.out.println("Generic factory:          " + genericFactory);
 		System.out.println("Swap factory:             " + swapFactory);
 		System.out.println("Trade id:                 " + Numeric.toHexString(deployedTrade.tradeId()));
 		System.out.println("Swap product:             " + product);
@@ -518,8 +608,8 @@ public class DemoInterestRateSwap {
 		assertContains(xml, "<ProductResources>");
 		assertContains(xml, "<ProductTermsTemplate>");
 		assertContains(xml, "<spf:InterestRateSwapTerms");
-		assertContains(xml, "<ProductDocumentationTemplate>");
-		assertContains(xml, "<xsl:stylesheet");
+		assertContains(xml, "<ProductDocumentationTemplate href=");
+		assertNotContains(xml, "<xsl:stylesheet");
 		assertContains(xml, "<TradeStatus>" + expectedStatus + "</TradeStatus>");
 		assertContains(xml, "<fpml:dataDocument");
 		assertContains(xml, "<fpml:swapStream id=\"fixedLeg\"");
@@ -545,17 +635,24 @@ public class DemoInterestRateSwap {
 	}
 
 	private static PublishedTextResource publishTextResource(
-			String resourceTypeName,
+			String resourceLabel,
+			byte[] resourceType,
 			String mediaType,
 			String classpathResource
 	) throws Exception {
 		byte[] content = loadResourceBytes(classpathResource);
 		byte[] expectedContentHash = Hash.sha3(content);
+
+		System.out.println("Publishing TextResource:  " + resourceLabel);
+		System.out.println("Classpath resource:       " + classpathResource);
+		System.out.println("Resource type:            " + Numeric.toHexString(resourceType));
+		System.out.println("Content length:           " + content.length + " bytes");
+
 		String contractAddress = SmartContractDeployer.deploy(
 				TEXT_RESOURCE_CONTRACT,
 				SmartContractDeployer.CANCUN,
 				new Address(SmartContractDeployer.defaultSenderAddress()),
-				new Bytes32(bytes32FromKeccak256String(resourceTypeName)),
+				new Bytes32(resourceType),
 				new Utf8String(mediaType),
 				new DynamicBytes(new byte[0]),
 				new Bytes32(new byte[32])
@@ -579,17 +676,28 @@ public class DemoInterestRateSwap {
 
 		assertTrue(callBool(contractAddress, "isFinalized"), "Text resource was not finalized.");
 		assertBytesEqual(
+				resourceType,
+				callBytes32(contractAddress, "resourceType"),
+				"Text resource type mismatch."
+		);
+		assertBytesEqual(
 				expectedContentHash,
 				callBytes32(contractAddress, "contentHash"),
 				"Text resource content hash mismatch."
 		);
+		assertBytesEqual(
+				content,
+				callString(contractAddress, "text").getBytes(StandardCharsets.UTF_8),
+				"Text resource read-back mismatch."
+		);
+
 		String web3Url = callString(contractAddress, "web3Url");
-		System.out.println("Published resource:       " + resourceTypeName);
-		System.out.println("Resource address:         " + contractAddress);
-		System.out.println("Resource Web3 URL:        " + web3Url);
+		System.out.println("TextResource:             " + contractAddress);
+		System.out.println("Content hash:             " + Numeric.toHexString(expectedContentHash));
+		System.out.println("Web3 URL:                 " + web3Url);
 		System.out.println("-".repeat(79));
 
-		return new PublishedTextResource(contractAddress);
+		return new PublishedTextResource(contractAddress, expectedContentHash, web3Url);
 	}
 
 	private static byte[] encodeSwapPayload(
@@ -602,7 +710,7 @@ public class DemoInterestRateSwap {
 			String discountCurveSymbol
 	) {
 		String encoded = FunctionEncoder.encodeConstructor(List.of(
-				new SwapProductSpecificPayload(
+				new InterestRateSwapDeploymentPayload(
 						new Uint256(notional),
 						new Utf8String(currency),
 						new Uint256(maturity),
@@ -632,7 +740,6 @@ public class DemoInterestRateSwap {
 					List.of(),
 					List.of(
 							new TypeReference<Bytes32>() {},
-							new TypeReference<Bytes32>() {},
 							new TypeReference<Address>() {}
 					)
 			);
@@ -640,16 +747,19 @@ public class DemoInterestRateSwap {
 					log.getData(),
 					eventDataDecoder.getOutputParameters()
 			);
-			if (decoded.size() != 3) {
+			if (decoded.size() != 2) {
 				throw new IllegalStateException("Unexpected TradeRequestCreated event payload.");
 			}
 
 			return new DeployedTrade(
 					Numeric.hexStringToByteArray(log.getTopics().get(1)),
-					((Address) decoded.get(2)).getValue()
+					((Bytes32) decoded.get(0)).getValue(),
+					((Address) decoded.get(1)).getValue()
 			);
 		}
-		throw new IllegalStateException("TradeRequestCreated event not found.");
+		throw new IllegalStateException(
+				"TradeRequestCreated event not found in transaction " + receipt.getTransactionHash()
+		);
 	}
 
 	private static void ensureClientFunded(String productProvider, String client) throws Exception {
@@ -758,6 +868,22 @@ public class DemoInterestRateSwap {
 		return ((Utf8String) SmartContractDeployer.call(contractAddress, function).getFirst()).getValue();
 	}
 
+	private static String callAddress(String contractAddress, String functionName) throws Exception {
+		return callAddress(
+				contractAddress,
+				new Function(functionName, List.of(), List.of(new TypeReference<Address>() {}))
+		);
+	}
+
+	private static String callAddress(String contractAddress, Function inputOnlyFunction) throws Exception {
+		Function function = new Function(
+				inputOnlyFunction.getName(),
+				inputOnlyFunction.getInputParameters(),
+				List.of(new TypeReference<Address>() {})
+		);
+		return ((Address) SmartContractDeployer.call(contractAddress, function).getFirst()).getValue();
+	}
+
 	private static byte[] callBytes32(String contractAddress, String functionName) throws Exception {
 		return callBytes32(contractAddress, function(functionName));
 	}
@@ -829,9 +955,6 @@ public class DemoInterestRateSwap {
 		}
 	}
 
-	private static byte[] bytes32FromKeccak256String(String value) {
-		return Numeric.hexStringToByteArray(Hash.sha3String(value));
-	}
 
 	private static String rendererUrl(String contractAddress, BigInteger blockNumber) {
 		String url = RENDERER_XML_URL + "?contract=" + contractAddress;
@@ -926,6 +1049,12 @@ public class DemoInterestRateSwap {
 		}
 	}
 
+	private static void assertFalse(boolean condition, String message) {
+		if (condition) {
+			throw new AssertionError(message);
+		}
+	}
+
 	private static void assertContains(String value, String expectedSubstring) {
 		if (!value.toLowerCase().contains(expectedSubstring.toLowerCase())) {
 			throw new AssertionError("Expected XML to contain: " + expectedSubstring);
@@ -940,19 +1069,22 @@ public class DemoInterestRateSwap {
 
 	private static class ProductDefinitionPublicationParams extends DynamicStruct {
 
-		public ProductDefinitionPublicationParams(Utf8String name, ProductDefinitionResources resources) {
-			super(name, resources);
+		public ProductDefinitionPublicationParams(
+				Utf8String name,
+				ProductDefinition productDefinition
+		) {
+			super(name, productDefinition);
 		}
 	}
 
-	private static class ProductDefinitionResources extends StaticStruct {
+	private static class ProductDefinition extends StaticStruct {
 
-		public ProductDefinitionResources(
+		public ProductDefinition(
+				Address productFactory,
 				Address productTermsTemplate,
-				Address productDocumentationTemplate,
-				Bytes32 productTypeId
+				Address productDocumentationTemplate
 		) {
-			super(productTermsTemplate, productDocumentationTemplate, productTypeId);
+			super(productFactory, productTermsTemplate, productDocumentationTemplate);
 		}
 	}
 
@@ -967,17 +1099,16 @@ public class DemoInterestRateSwap {
 
 		public TradeRequestParams(
 				Bytes32 productDefinitionId,
-				Bytes32 productSpecificSchemaHash,
-				DynamicBytes productSpecificPayload
+				DynamicBytes productPayload
 		) {
-			super(productDefinitionId, productSpecificSchemaHash, productSpecificPayload);
+			super(productDefinitionId, productPayload);
 		}
 	}
 
-	/** ABI representation of the factory's dynamic product-specific tuple. */
-	private static class SwapProductSpecificPayload extends DynamicStruct {
+	/** ABI representation of the factory's dynamic deployment payload tuple. */
+	private static class InterestRateSwapDeploymentPayload extends DynamicStruct {
 
-		public SwapProductSpecificPayload(
+		public InterestRateSwapDeploymentPayload(
 				Uint256 notional,
 				Utf8String currency,
 				Uint256 maturity,
@@ -998,9 +1129,9 @@ public class DemoInterestRateSwap {
 		}
 	}
 
-	private record PublishedTextResource(String contractAddress) {}
+	private record PublishedTextResource(String contractAddress, byte[] contentHash, String web3Url) {}
 
-	private record DeployedTrade(byte[] tradeId, String productAddress) {}
+	private record DeployedTrade(byte[] tradeId, byte[] productDefinitionId, String productAddress) {}
 
 	private record SwapTerms(
 			BigInteger notional,

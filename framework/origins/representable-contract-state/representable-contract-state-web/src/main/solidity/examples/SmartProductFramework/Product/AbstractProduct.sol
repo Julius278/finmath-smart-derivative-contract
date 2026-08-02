@@ -212,7 +212,6 @@ abstract contract AbstractProduct is IProduct, ITradeLifecycle {
 
     // ------------------------------ XML View ------------------------------ */
 
-    /// @inheritdoc IProduct
     function stateXmlTemplate() external view override returns (string memory) {
         return _productSpecificStateXml();
     }
