@@ -5,20 +5,18 @@ title Smart Product Framework - Architecture Overview
 skinparam componentStyle rectangle
 top to bottom direction
 
-rectangle "ClientRegistry\nidentity + eligibility" as IR
-rectangle "BondProductRegistry concrete\n------\nAbstractProductRegistry" as REG
-rectangle "TextResource\nproduct terms template +\nproduct documentation template" as TR
-rectangle "CurveIndications\nper product definition" as CI
-rectangle "ProductFactoryRegistry\ngeneric router" as GF
-rectangle "SimpleBondFactory\nproduct-specific" as SF
-rectangle "SimpleBond\ndeployed product\nself-rendering + lifecycle" as P
+rectangle "ClientRegistry\nidentity + eligibility" as CR
+rectangle "ProductDefinitionRegistry\npublication + lifecycle + deployment" as REG
+rectangle "TextResource\nproduct terms XML +\ndocumentation XSLT" as TR
+rectangle "CurveIndications\noptional product indication" as IND
+rectangle "IProductFactory implementations\n------\nSimpleBondFactory\nInterestRateSwapFactory" as FACTORY
+rectangle "IProduct implementations\n------\nSimpleBond\nInterestRateSwap\nself-rendering + lifecycle" as PRODUCT
 
-REG --> IR : isEligibleClient
-REG --> TR : references / anchors
-REG --> CI : assign / read indication
-CI  --> TR : anchors
-REG --> GF : deployProduct
-GF  --> SF : routes by productTypeId
-SF  --> P  : new
-P   --> TR : includes templates
+REG --> CR : isEligibleClient
+REG --> TR : validates / anchors
+REG --> IND : assign / read indication
+REG --> FACTORY : validate / deployProduct
+FACTORY ..> IND : accepts category
+FACTORY --> PRODUCT : new
+PRODUCT --> TR : includes / references templates
 @enduml
