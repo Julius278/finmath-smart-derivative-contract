@@ -3,29 +3,22 @@ pragma solidity ^0.8.24;
 
 /**
  * @title ProductDeploymentTypes
- * @notice Shared data types for product deployment, used by the product
- *         factory, product-specific factories, and all deployable products.
- * @dev File-level structs (no library/interface wrapper) so any contract can
- *      import them directly without pulling in unrelated ABI surface.
+ * @notice Shared parameters used to deploy product contracts.
  *
  * @author Raphael Prandtl
  */
 
 /**
- * @notice Product-agnostic deployment context assembled by the registry.
- * @param productRegistry           The calling product registry.
- * @param tradeId                   Unique trade identifier.
- * @param productProvider           The product provider, usually the registry
- *                                  owner at deployment time.
- * @param client                  The client initiating the trade.
- * @param productDefinitionId       The product definition the product is
- *                                  created under.
- * @param productDefinitionVersion  The version of the product definition at
- *                                  deployment time.
- * @param productTermsTemplate         ITextResource holding the product terms template.
- * @param productDocumentationTemplate ITextResource holding the product documentation template.
- * @param deploymentStateHash       Integrity anchor of the product definition
- *                                  state and agreed payload at trade time.
+ * @notice Product-independent deployment context assembled by the product registry.
+ * @param productRegistry              Product registry initiating the deployment.
+ * @param tradeId                      Unique identifier of the trade.
+ * @param productProvider              Provider of the product.
+ * @param client                       Client entering into the trade.
+ * @param productDefinitionId          Product definition used for the deployment.
+ * @param productDefinitionVersion     Version of the product definition at deployment.
+ * @param productTermsTemplate         Product terms text resource.
+ * @param productDocumentationTemplate Product documentation text resource.
+ * @param deploymentStateHash          Integrity hash of the anchored deployment state.
  */
 struct CommonDeploymentParams {
     address productRegistry;
@@ -40,12 +33,9 @@ struct CommonDeploymentParams {
 }
 
 /**
- * @notice Full deployment parameters: common context plus product-specific
- *         payload.
- * @param common                    Product-agnostic deployment context.
- * @param productSpecificSchemaHash Identifies the schema of the payload.
- * @param productPayload    ABI-encoded product-specific economics,
- *                                  opaque to the generic factory.
+ * @notice Complete parameters passed to a product factory.
+ * @param common         Product-independent deployment context.
+ * @param productPayload ABI-encoded product-specific payload.
  */
 struct ProductDeploymentParams {
     CommonDeploymentParams common;
