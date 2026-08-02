@@ -18,81 +18,63 @@ import {IProduct} from "../Product/IProduct.sol";
 import {ProductDeploymentParams, CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 
 /**
- * @title ProductDefinitionRegistry.sol
- * @notice Product-agnostic registry implementation covering product-definition
- *         publication and lifecycle, product-indication assignment, eligible
- *         client trade requests, and product deployment.
+ * @title ProductDefinitionRegistry
+ * @notice Registry for product definitions, indication assignments, eligible
+ *         trade requests, and product deployment.
  *
- * @dev Product-specific policy remains in the concrete registry through the
- *      _isAcceptedResourceType and _isAcceptedIndication hooks.
+ * @dev Each product definition anchors the exact factory and finalized text
+ *      resources used for deployment. The registry validates the anchored
+ *      components, manages lifecycle state, and deploys products directly
+ *      through the selected factory.
  *
- * @dev PRODUCT DEFINITION ID / PART ID
- *      productDefinitionId == keccak256(abi.encode(name, address(this)))
- *      partId    == uint256(productDefinitionId)   (bijective; not stored)
+ *      Product definition ids are derived as:
+ *
+ *          keccak256(abi.encode(name, address(this)))
+ *
+ *      The corresponding state-part id is uint256(productDefinitionId).
  *
  * @author Raphael Prandtl
  */
-// TODO get product Name to know what can be traded?
 contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresentableStatePart, Ownable2Step, ReentrancyGuard {
     using Strings for uint256;
     using ERC165Checker for address;
 
     // ------------------------------ Custom Errors ------------------------------ */
 
-    // TODO: remove unused ones
-
-    /// @notice ERC-8100: requested partId does not map to a known product definition.
+    /// @notice Thrown when a state-part id does not represent a product definition.
     error UnknownPart(uint256 partId);
 
-    /// @notice Address has no contract code.
+    /// @notice Thrown when a required hash is zero.
+    error ZeroHash(string field);
+
+    /// @notice Thrown when an address has no contract code.
     error EmptyContract(address contractAddress);
 
-    /// @notice Resource does not implement the expected interface.
+    /// @notice Thrown when a contract does not implement the expected interface.
     error InvalidInterface(address contractAddress);
 
-    /// @notice Factory is not configured for this product registry.
+    /// @notice Thrown when a factory is configured for another registry.
     error FactoryNotConfigured(address configuredRegistry);
 
-    /// @notice Call to a contract failed
+    /// @notice Thrown when an external validation call fails.
     error ContractCallFailed(address contractAddress, string functionName);
 
-    /// @notice Resource is not finalized (and thus not immutable).
+    /// @notice Thrown when a text resource is not finalized.
     error ResourceNotFinalized(address resource);
 
-    /// @notice Resource type not as expected.
+    /// @notice Thrown when a text resource has an unexpected type.
     error InvalidResourceType(address resource, bytes32 expected, bytes32 actual);
 
-    /// @notice Thrown when the indication address has no contract code.
-    error InvalidIndicationContract(address productIndication);
-
-    /// @notice Thrown when the target does not implement IProductIndication.
-    error InvalidIndicationInterface(address productIndication);
-
-    /**
-     * @notice Thrown when the indication category is not accepted for the
-     *         product definition's product type.
-     */
+    /// @notice Thrown when a factory does not accept an indication category.
     error UnsupportedIndicationCategory(address productIndication, bytes32 indicationCategory);
 
-    /**
-     * @notice Thrown when the referenced indication is not in an assignable
-     *         status. Assignable statuses are Active and Suspended.
-     */
+    /// @notice Thrown when an indication cannot be assigned in its current status.
     error InvalidIndicationStatus(address productIndication, IProductIndication.IndicationStatus status);
 
     /// @notice Thrown when a product definition has no product indication assigned.
-    error MissingProductIndication(bytes32 productDefintionId);
+    error MissingProductIndication(bytes32 productDefinitionId);
 
-    /// @notice Thrown when a trade is attempted before a factory is set.
-    error MissingProductFactory();
-
-    /// @notice Thrown when the provided client registry address is invalid.
-    error MissingClientRegistry();
-
-    /**
-     * @notice Thrown when the provided factory is invalid or does not point
-     *         back at this registry.
-     */
+    /// @notice Thrown when a factory exposes an invalid specification.
     error InvalidProductFactory(address factory);
 
     /// @notice Thrown when the caller is not eligible for the product definition.
@@ -110,23 +92,17 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
 
     // ------------------------------ Events ------------------------------ */
 
-    /// @notice Generic ERC-8100-style state-part update event.
+    /// @notice Emitted when a rendered product-definition state part changes.
     event StatePartUpdated(address indexed sender, address indexed stateContract, uint256 indexed partId, uint256 partVersion);
 
     /// @notice Emitted when a product definition's product indication is assigned or replaced.
     event ProductIndicationAssigned(bytes32 indexed productDefinitionId, address indexed productIndication, bytes32 indicationId);
 
-    /// @notice Emitted when a product definition's product indication is assigned or replaced.
+    /// @notice Emitted when a product definition's indication is cleared.
     event ProductIndicationCleared(bytes32 indexed productDefinitionId);
 
-    /// @notice Emitted when the product factory is set or replaced.
-    event ProductFactorySet(address indexed previousFactory, address indexed newFactory);
-
-    /// @notice Emitted when a trade request is created and its product deployed.
+    /// @notice Emitted when a trade request creates a product.
     event TradeRequestCreated(bytes32 indexed tradeId, address indexed productProvider, address indexed client, bytes32 productDefinitionId, address product);
-
-
-
 
     // ------------------------------ Storage ------------------------------ */
 
@@ -140,7 +116,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         ProductDefinition productDefinition;
     }
 
-    /// @notice Per-product-definition indication reference.
+    /// @notice Indication assigned to a product definition.
     struct ProductIndicationAssignment {
         address productIndication;
         bytes32 indicationId;
@@ -149,8 +125,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
 
     /**
      * @notice Client-supplied parameters for a trade request.
-     * @param productDefinitionId       Product definition to trade against.
-     * @param productPayload    Product-specific deployment payload.
+     * @param productDefinitionId Product definition to trade against.
+     * @param productPayload ABI-encoded product payload.
      */
     struct TradeRequestParams {
         bytes32 productDefinitionId;
@@ -162,13 +138,13 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     /// @dev Keyed by the same productDefinitionId as _productDefinitionsById.
     mapping(bytes32 => ProductIndicationAssignment) internal _indicationsByDefinitionId;
 
-    /// @notice Client registry consulted for eligibility.
+    /// @notice Client registry used for eligibility checks.
     address public immutable clientRegistryAddress;
 
     /// @dev Monotonic nonce feeding tradeId derivation.
     uint256 internal _tradeIdNonce;
 
-    /// @dev tradeId -> deployed product instance address.
+    /// @dev Maps a trade id to its deployed product.
     mapping(bytes32 => address) internal _productByTradeId;
 
     // ------------------------------ Constructor ------------------------------ */
@@ -178,9 +154,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
      * @param clientRegistryAddress_ Client registry for eligibility checks.
      */
     constructor(address owner_, address clientRegistryAddress_) Ownable(owner_) {
-        if (clientRegistryAddress_ == address(0) || clientRegistryAddress_.code.length == 0) {
-            revert MissingClientRegistry();
-        }
+        _validateContractAddress(clientRegistryAddress_, "clientRegistry");
         clientRegistryAddress = clientRegistryAddress_;
     }
 
@@ -214,8 +188,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
         // Revalidate existing indication assignment if factory is updated
         ProductIndicationAssignment storage assignment = _indicationsByDefinitionId[productDefinitionId];
-        if (assignment.productIndication != address(0) && definitionStorage.productDefinition.productFactory != params.productDefinition.productFactory) {
-            _validateProductIndication(params.productDefinition.productFactory, assignment.productIndication, assignment.indicationId);
+        if (assignment.productIndication != address(0) && definitionStorage.productDefinition.productFactory != productDefinition.productFactory) {
+            _validateProductIndication(productDefinition.productFactory, assignment.productIndication, assignment.indicationId);
         }
 
         definitionStorage.productDefinition = productDefinition;
@@ -284,7 +258,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         emit StatePartUpdated(msg.sender, address(this), _partIdFromProductDefinitionId(productDefinitionId), definitionStorage.version);
     }
 
-    /// @notice Deletes the product indication of a product definition.
+    /// @notice Clears the indication assigned to a product definition.
     function clearProductIndication(bytes32 productDefinitionId) external onlyOwner {
         ProductDefinitionStorage storage definitionStorage = _existingProductDefinition(productDefinitionId);
         _ensureProductDefinitionWritable(productDefinitionId, definitionStorage.status);
@@ -299,8 +273,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     }
 
     /**
-     * @notice Returns the product indication assigned to a product definition, together with the partId to render it on the indication contract.
-     * @dev Does not check the indication's current status — consumers should verify liveness if required.
+     * @notice Returns the indication assigned to a product definition.
+     * @dev Does not revalidate the indication's current lifecycle status.
      */
     function productIndicationOfDefinition(bytes32 productDefinitionId) external view returns (address productIndication, bytes32 indicationId, uint256 partId) {
         ProductIndicationAssignment storage assignment = _existingProductIndicationAssignment(productDefinitionId);
@@ -310,10 +284,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     // ------------------------------ Trade Request Creation ------------------------------ */
 
     /**
-     * @notice Creates a trade request, validates the product definition,
-     *         the caller's eligibility and the product type, then deploys the
-     *         product instance and records the tradeId -> product mapping.
-     * @dev The caller (msg.sender) is the client; owner() is the product provider.
+     * @notice Creates a trade request and deploys the corresponding product.
+     * @dev The caller is the client and the registry owner is the product provider.
      */
     function createTradeRequest(TradeRequestParams calldata params) external nonReentrant returns (bytes32 tradeId, address product) {
         bytes32 productDefinitionId = params.productDefinitionId;
@@ -344,16 +316,16 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         product = factory.deployProduct(
             ProductDeploymentParams({
                 common: CommonDeploymentParams({
-                    productRegistry: address(this),
-                    tradeId: tradeId,
-                    productProvider: productProvider,
-                    client: client,
-                    productDefinitionId: productDefinitionId,
-                    productDefinitionVersion: definitionStorage.version,
-                    productTermsTemplate: productDefinition.productTermsTemplate,
-                    productDocumentationTemplate: productDefinition.productDocumentationTemplate,
-                    deploymentStateHash: deploymentStateHash
-                }),
+                productRegistry: address(this),
+                tradeId: tradeId,
+                productProvider: productProvider,
+                client: client,
+                productDefinitionId: productDefinitionId,
+                productDefinitionVersion: definitionStorage.version,
+                productTermsTemplate: productDefinition.productTermsTemplate,
+                productDocumentationTemplate: productDefinition.productDocumentationTemplate,
+                deploymentStateHash: deploymentStateHash
+            }),
                 productPayload: params.productPayload
             })
         );
@@ -367,15 +339,15 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         // Validate immutable common deployment parameters
         IProduct deployedProduct = IProduct(product);
         if (deployedProduct.productRegistry() != address(this) ||
-            deployedProduct.productFactory() != address(factory) ||
-            deployedProduct.tradeId() != tradeId ||
-            deployedProduct.productProvider() != productProvider ||
-            deployedProduct.client() != client ||
-            deployedProduct.productDefinitionId() != productDefinitionId ||
-            deployedProduct.productDefinitionVersion() != definitionStorage.version ||
-            deployedProduct.productTermsTemplate() != productDefinition.productTermsTemplate ||
-            deployedProduct.productDocumentationTemplate() != productDefinition.productDocumentationTemplate ||
-            deployedProduct.deploymentStateHash() != deploymentStateHash) {
+        deployedProduct.productFactory() != address(factory) ||
+        deployedProduct.tradeId() != tradeId ||
+        deployedProduct.productProvider() != productProvider ||
+        deployedProduct.client() != client ||
+        deployedProduct.productDefinitionId() != productDefinitionId ||
+        deployedProduct.productDefinitionVersion() != definitionStorage.version ||
+        deployedProduct.productTermsTemplate() != productDefinition.productTermsTemplate ||
+        deployedProduct.productDocumentationTemplate() != productDefinition.productDocumentationTemplate ||
+        deployedProduct.deploymentStateHash() != deploymentStateHash) {
             revert InvalidDeployedProduct(product);
         }
 
@@ -403,14 +375,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
     }
 
 
-    /**
-     * @dev The registry exposes the product terms template and product
-     *      documentation template under role-labelled resource wrappers. It does
-     *      not resolve the `evmstate:call` bindings itself (those are served by the
-     *      deployed product implementing the declared product type interface).
-     *      The product indication assignment is represented as a reference to
-     *      the separately rendered indication contract and state part.
-     */
+    /// @notice Returns the XML representation of a product definition.
     function _productDefinitionStateXml(bytes32 productDefinitionId, ProductDefinitionStorage storage definitionStorage) internal view returns (string memory) {
         return string.concat(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -421,6 +386,8 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
             " productDefinitionVersion=\"", definitionStorage.version.toString(), "\"",
             " updatedAt=\"", uint256(definitionStorage.updatedAt).toString(), "\"",
             ">",
+            "<ProductFactory contractAddress=\"", Strings.toHexString(definitionStorage.productDefinition.productFactory),
+            "\"/>",
             "<ProductResources>",
                 "<ProductTermsTemplate>",
                     _include(definitionStorage.productDefinition.productTermsTemplate),
@@ -462,11 +429,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         );
     }
 
-    /**
-     * @dev References a finalized TextResource without including its content in
-     *      the canonical XML. The term-sheet stylesheet is therefore loaded
-     *      only by the optional post-processing step.
-     */
+    /// @notice Returns an XML reference to a finalized text resource.
     function _resourceReference(string memory elementName, address resource) internal view returns (string memory) {
         ITextResource textResource = ITextResource(resource);
         string memory integrity = string.concat("keccak256-", uint256(textResource.contentHash()).toHexString(32));
@@ -517,11 +480,7 @@ contract ProductDefinitionRegistry is IProductDefinitionRegistry, IXMLRepresenta
         return keccak256(abi.encode(address(this), block.chainid, _tradeIdNonce, client, productDefinitionId));
     }
 
-    /**
-     * @dev Integrity anchor recorded in the product instance at deployment. Binds the trade identity to the exact product definition state
-     *      at trade time, including version and immutable resource contents, and to the agreed product-specific payload, so it can be
-     *      independently recomputed and verified later.
-     */
+    /// @notice Computes the integrity hash anchored in the deployed product.
     function _deploymentStateHash(bytes32 tradeId, address productProvider, address client, bytes32 productDefinitionId, uint256 productDefinitionVersion, ProductDefinition memory productDefinition, bytes calldata productPayload) internal view returns (bytes32) {
         bytes32 productTermsTemplateContentHash = ITextResource(productDefinition.productTermsTemplate).contentHash();
         bytes32 productDocumentationTemplateContentHash = ITextResource(productDefinition.productDocumentationTemplate).contentHash();
