@@ -1,26 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
-
 /**
  * @title IProduct
  * @notice Interface for a deployed product exposing its immutable deployment
- *         context and XML-representable state.
+ *         context.
  *
  * @dev The deployment context is assembled by the product registry and fixed at
  *      construction time. It deliberately contains NO counterparty information:
  *      a product may be issued with or without preceding trade requests, and the
- *      client is only bound later during trade inception (see ITradeLifecycle).
+ *      client is only bound later during trade inception.
  *
  * @author Raphael Prandtl
  */
-interface IProduct is IXMLRepresentableState {
-    // ------------------------------ Events ------------------------------ */
-
-    /// @notice Emitted when the product state changes.
-    event StateUpdated(address indexed sender, address indexed stateContract, bytes32 currentStateHash);
-
+interface IProduct {
     // ------------------------------ Deployment State ------------------------------ */
 
     /// @notice Returns the factory that deployed the product.

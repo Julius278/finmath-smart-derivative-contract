@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ITextResource} from "../../../resources/ITextResource.sol";
+import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {IProduct} from "./IProduct.sol";
@@ -22,8 +23,12 @@ import {CommonDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.s
  *
  * @author Raphael Prandtl
  */
-abstract contract AbstractProduct is IProduct, ITradeLifecycle {
+abstract contract AbstractProduct is IProduct, IXMLRepresentableState, ITradeLifecycle {
     using Strings for uint256;
+    // ------------------------------ Events ------------------------------ */
+
+    /// @notice Emitted when the product state changes.
+    event StateUpdated(address indexed sender, address indexed stateContract, bytes32 currentStateHash);
 
     // ------------------------------ Immutable State ------------------------------ */
 
