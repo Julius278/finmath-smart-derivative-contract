@@ -34,7 +34,7 @@ abstract contract AbstractProductFactory is IProductFactory {
     error NotProductRegistry(address caller);
 
     /// @notice Thrown when the deployment hook returns an invalid product address.
-    error ProductDeploymentFailed(bytes32 tradeId);
+    error ProductDeploymentFailed(address productProvider, bytes32 productDefinitionId);
 
     // ------------------------------ Constructor / Modifiers ------------------------------ */
 
@@ -69,11 +69,11 @@ abstract contract AbstractProductFactory is IProductFactory {
 
         product = _deployProduct(params);
         if (product == address(0) || product.code.length == 0) {
-            revert ProductDeploymentFailed(common.tradeId);
+            revert ProductDeploymentFailed(common.productProvider, common.productDefinitionId);
         }
 
         _isFactoryDeployedProduct[product] = true;
-        emit ProductDeployed(common.tradeId, common.productDefinitionId, product, common.productProvider, common.client);
+        emit ProductDeployed(common.productProvider, common.productDefinitionId, product);
     }
 
     // ------------------------------ Product Specification ------------------------------ */

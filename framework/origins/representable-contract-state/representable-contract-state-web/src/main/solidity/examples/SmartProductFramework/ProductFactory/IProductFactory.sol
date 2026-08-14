@@ -19,7 +19,7 @@ interface IProductFactory is IERC165 {
     // ------------------------------ Events ------------------------------------- */
 
     /// @notice Emitted after a product has been deployed.
-    event ProductDeployed(bytes32 indexed tradeId, bytes32 indexed productDefinitionId, address product, address productProvider, address client);
+    event ProductDeployed(address indexed productProvider, bytes32 indexed productDefinitionId, address product);
 
     // ------------------------------ Factory Configuration ------------------------------ */
 

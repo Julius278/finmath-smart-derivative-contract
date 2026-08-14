@@ -8,33 +8,29 @@ import {IXMLRepresentableState} from "../../../IRepresentableState.sol";
  * @notice Interface for a deployed product exposing its immutable deployment
  *         context and XML-representable state.
  *
- * @dev The product records the factory that deployed it and the deployment
- *      state hash assembled by the product registry.
+ * @dev The deployment context is assembled by the product registry and fixed at
+ *      construction time. It deliberately contains NO counterparty information:
+ *      a product may be issued with or without preceding trade requests, and the
+ *      client is only bound later during trade inception (see ITradeLifecycle).
  *
  * @author Raphael Prandtl
  */
 interface IProduct is IXMLRepresentableState {
-    // ------------------------------ Events ------------------------------
+    // ------------------------------ Events ------------------------------ */
 
     /// @notice Emitted when the product state changes.
     event StateUpdated(address indexed sender, address indexed stateContract, bytes32 currentStateHash);
 
-    // ------------------------------ Deployment State ------------------------------
-
-    /// @notice Returns the product registry that initiated deployment.
-    function productRegistry() external view returns (address);
+    // ------------------------------ Deployment State ------------------------------ */
 
     /// @notice Returns the factory that deployed the product.
     function productFactory() external view returns (address);
 
-    /// @notice Returns the trade identifier associated with the product.
-    function tradeId() external view returns (bytes32);
+    /// @notice Returns the product registry that initiated deployment.
+    function productRegistry() external view returns (address);
 
-    /// @notice Returns the product provider.
+    /// @notice Returns the product provider (issuer/seller) of this product.
     function productProvider() external view returns (address);
-
-    /// @notice Returns the client.
-    function client() external view returns (address);
 
     /// @notice Returns the product definition used for deployment.
     function productDefinitionId() external view returns (bytes32);
@@ -47,7 +43,4 @@ interface IProduct is IXMLRepresentableState {
 
     /// @notice Returns the product documentation template resource.
     function productDocumentationTemplate() external view returns (address);
-
-    /// @notice Returns the deployment state integrity hash.
-    function deploymentStateHash() external view returns (bytes32);
 }
