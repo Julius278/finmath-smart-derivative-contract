@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IssuanceType, DeliveryType, DistributionMethod,
+import {IssuanceType, DeliveryType, DistributionMethod, BusinessDayCenter,
 InterestType, RedemptionType, RedemptionBasis, FormOfNote, SafekeepingStructure,
 Seniority, Subordination, Collateralization, DLTPlatform, TokenStandard} from "./BondTypes.sol";
 
@@ -223,12 +223,8 @@ interface IBond {
     /// @notice Returns the ISO 3166-1 alpha-2 country code of the governing law, e.g. "DE".
     function governingLaw() external view returns (bytes2);
 
-    /**
-     * @notice Returns the settlement system calendar used for business day adjustment.
-     * @dev Free form calendar code, e.g. "TARGET2". Applies to interest and
-     *      redemption payments alike and is therefore not interest type specific.
-     */
-    function businessDayCenter() external view returns (string memory);
+    /// @notice Returns the settlement system calendar used for business day adjustment, e.g. "TARGET2".
+    function businessDayCenter() external view returns (BusinessDayCenter);
 
     /// @notice Returns whether the bond is eligible as central bank collateral.
     function centralBankEligible() external view returns (bool);

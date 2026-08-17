@@ -74,6 +74,14 @@ pragma solidity ^0.8.24;
         THIRTY_E_360
     }
 
+/// @notice Settlement system calendar used for business day adjustment.
+    enum BusinessDayCenter {
+        TARGET2,
+        LONDON,
+        NEW_YORK,
+        FRANKFURT
+    }
+
 /// @notice Convention used to shift a payment date falling on a non-business day.
     enum BusinessDayConvention {
         Unadjusted,
