@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AbstractProductFactory} from "../ProductFactory/AbstractProductFactory.sol";
 import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
-import {InterestRateSwap} from "./InterestRateSwap.sol";
+import {InterestRateSwap} from "../products/swaps/InterestRateSwap.sol";
 
 /**
  * @title InterestRateSwapFactory

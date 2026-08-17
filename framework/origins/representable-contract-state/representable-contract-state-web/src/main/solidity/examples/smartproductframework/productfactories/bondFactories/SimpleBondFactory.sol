@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AbstractProductFactory} from "../ProductFactory/AbstractProductFactory.sol";
 import {ProductDeploymentParams} from "../ProductFactory/ProductDeploymentTypes.sol";
 import {IProductIndication} from "../ProductIndication/IProductIndication.sol";
-import {SimpleBond} from "./SimpleBond.sol";
+import {SimpleBond} from "../products/bonds/SimpleBond.sol";
 
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
