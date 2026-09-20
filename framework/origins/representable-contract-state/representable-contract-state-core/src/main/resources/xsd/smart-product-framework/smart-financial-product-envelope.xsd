@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Product-neutral Smart Financial Product envelope.
+
+  DeploymentState is deliberately open. A selected product profile constrains
+  its fields and ERC-8100 bindings and may further restrict resource metadata.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:spf="urn:smart-product-framework:financial-product:1.0"
+           xmlns:evmstate="urn:evm:state:1.0"
+           targetNamespace="urn:smart-product-framework:financial-product:1.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0.0">
+
+    <xs:import namespace="urn:evm:state:1.0"
+               schemaLocation="../evmstate-bindings.xsd"/>
+    <xs:import namespace="http://www.w3.org/2001/XInclude"
+               schemaLocation="xinclude-smart-product-profile.xsd"/>
+
+    <xs:simpleType name="VersionType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]+[.][0-9]+([.][0-9]+)?"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="AbsoluteUriType">
+        <xs:restriction base="xs:anyURI">
+            <xs:pattern value="[A-Za-z][A-Za-z0-9+.-]*:.+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:element name="SmartFinancialProduct" type="spf:SmartFinancialProductType"/>
+
+    <xs:complexType name="SmartFinancialProductType">
+        <xs:sequence>
+            <xs:element name="DeploymentState" type="spf:OpenDeploymentStateType"/>
+            <xs:element name="ProductResources" type="spf:ProductResourcesType"/>
+        </xs:sequence>
+        <xs:attribute name="schemaVersion" type="spf:VersionType"
+                      use="required" fixed="1.0.0"/>
+        <!-- Profile-dispatch metadata, deliberately not xsi:type. -->
+        <xs:attribute name="type" type="xs:NCName" use="required"/>
+        <xs:attribute name="typeVersion" type="spf:VersionType" use="required"/>
+        <!-- Empty in a raw template and populated by the renderer. -->
+        <xs:attributeGroup ref="evmstate:renderingContextAttributes"/>
+    </xs:complexType>
+
+    <xs:complexType name="OpenDeploymentStateType">
+        <xs:sequence>
+            <xs:any namespace="##any" processContents="lax"
+                    minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ProductResourcesType">
+        <xs:sequence>
+            <xs:element ref="spf:ProductTermsTemplate"/>
+            <xs:element ref="spf:ProductDocumentationTemplate"/>
+            <xs:any namespace="##other" processContents="lax"
+                    minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="ProductTermsTemplate" type="spf:ProductTermsTemplateType"/>
+
+    <xs:complexType name="ProductTermsTemplateType">
+        <xs:sequence>
+            <!-- xi:include before resolution; a business-document root after it. -->
+            <xs:any namespace="##any" processContents="lax"/>
+        </xs:sequence>
+        <xs:attribute name="type" type="xs:NCName" use="required"/>
+        <xs:attribute name="version" type="spf:VersionType" use="required"/>
+        <xs:attribute name="namespace" type="spf:AbsoluteUriType" use="required"/>
+        <xs:attribute name="mediaType" type="evmstate:NonEmptyTokenType" use="required"/>
+    </xs:complexType>
+
+    <xs:element name="ProductDocumentationTemplate"
+                type="spf:ProductDocumentationTemplateType"/>
+
+    <xs:complexType name="ProductDocumentationTemplateType">
+        <xs:attribute name="type" type="xs:NCName" use="required"/>
+        <xs:attribute name="formatVersion" type="spf:VersionType" use="required"/>
+        <xs:attribute name="mediaType" type="evmstate:NonEmptyTokenType" use="required"/>
+        <xs:attribute name="href" type="spf:AbsoluteUriType" use="required"/>
+        <xs:attribute name="integrity" type="evmstate:IntegrityType" use="required"/>
+    </xs:complexType>
+
+</xs:schema>

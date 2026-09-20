@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SmartFinancialProduct
+        xmlns="urn:smart-product-framework:financial-product:1.0"
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:evmstate="urn:evm:state:1.0"
+        schemaVersion="1.0.0"
+        type="ExampleProduct"
+        typeVersion="1.0.0">
+    <DeploymentState>
+        <ProductRegistry evmstate:call="productRegistry()(address)"/>
+    </DeploymentState>
+    <ProductResources>
+        <ProductTermsTemplate
+                type="ExampleTermsVocabulary"
+                version="1.0.0"
+                namespace="urn:example:product-terms:1.0"
+                mediaType="application/xml">
+            <xi:include
+                    href="web3://0x0000000000000000000000000000000000000001:1/content"
+                    parse="xml"
+                    evmstate:integrity="keccak256-0x0000000000000000000000000000000000000000000000000000000000000000"/>
+        </ProductTermsTemplate>
+        <ProductDocumentationTemplate
+                type="XSLT"
+                formatVersion="1.0"
+                mediaType="application/xslt+xml"
+                href="web3://0x0000000000000000000000000000000000000002:1/content"
+                integrity="keccak256-0x1111111111111111111111111111111111111111111111111111111111111111"/>
+    </ProductResources>
+</SmartFinancialProduct>

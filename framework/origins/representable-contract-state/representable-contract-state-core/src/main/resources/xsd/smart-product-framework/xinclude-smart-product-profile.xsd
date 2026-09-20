@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Restricted XInclude profile for Smart Product Framework product terms.
+  The renderer resolves the resource and verifies evmstate:integrity before
+  parsing the included bytes as XML.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xi="http://www.w3.org/2001/XInclude"
+           xmlns:evmstate="urn:evm:state:1.0"
+           targetNamespace="http://www.w3.org/2001/XInclude"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+    <xs:import namespace="urn:evm:state:1.0"
+               schemaLocation="../evmstate-bindings.xsd"/>
+
+    <xs:simpleType name="ResourceUriType">
+        <xs:restriction base="xs:anyURI">
+            <xs:pattern value="(http|https|ipfs|web3|w3)://[^#]+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:element name="include">
+        <xs:complexType>
+            <xs:attribute name="href" type="xi:ResourceUriType" use="required"/>
+            <xs:attribute name="parse" type="xs:string" use="required" fixed="xml"/>
+            <xs:attribute ref="evmstate:integrity" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

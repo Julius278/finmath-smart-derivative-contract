@@ -10,6 +10,10 @@ Clients request trades against a product definition;
 each trade deploys a concrete *product* instance that resolves its own live
 state into a renderable document via an ERC-8100 / `evmstate` binding profile.
 
+The proposed [Smart Financial Product XML envelope](smart-financial-product-envelope.html)
+defines a stable, versioned root and the validation boundary between this
+framework and product-specific business-document profiles.
+
 ---
 
 ## Table of Contents
