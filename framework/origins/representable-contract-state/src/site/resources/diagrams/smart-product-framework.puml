@@ -40,17 +40,17 @@ ProductFactory --> PProvider : terms resource type
 PProvider -> ProductFactory : productDocumentationTemplateResourceType()
 ProductFactory --> PProvider : documentation resource type
 
-PProvider -> ProductTermsTemplate : deploy TextResource(owner, termsResourceType,\n"application/xml", bytes(""), bytes32(0))
+PProvider -> ProductTermsTemplate : deploy TextResource(owner, termsResourceType,\n"application/xml", bytes(""), keccak256(content))
 loop for every product terms template chunk
-    PProvider -> ProductTermsTemplate : appendChunk(chunk)
+    PProvider -> ProductTermsTemplate : appendChunkAt(offset, chunk)
 end
 PProvider -> ProductTermsTemplate : finalize(keccak256(content))
 ProductTermsTemplate -> ProductTermsTemplate : verify content hash and lock resource
 ProductTermsTemplate --> PProvider : finalized product terms XML
 
-PProvider -> ProductDocumentationTemplate : deploy TextResource(owner, documentationResourceType,\n"application/xslt+xml", bytes(""), bytes32(0))
+PProvider -> ProductDocumentationTemplate : deploy TextResource(owner, documentationResourceType,\n"application/xslt+xml", bytes(""), keccak256(content))
 loop for every documentation template chunk
-    PProvider -> ProductDocumentationTemplate : appendChunk(chunk)
+    PProvider -> ProductDocumentationTemplate : appendChunkAt(offset, chunk)
 end
 PProvider -> ProductDocumentationTemplate : finalize(keccak256(content))
 ProductDocumentationTemplate -> ProductDocumentationTemplate : verify content hash and lock resource
