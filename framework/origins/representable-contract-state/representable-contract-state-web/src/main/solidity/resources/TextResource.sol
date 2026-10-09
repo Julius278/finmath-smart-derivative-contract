@@ -66,10 +66,10 @@ contract TextResource is ITextResource {
 
     /**
      * @notice Maximum number of storage pointers used by one resource.
-     * @dev Keeps finalization and reads bounded even if an owner submits tiny chunks.
-     *      Ten full chunks cover MAX_CONTENT_SIZE exactly.
+     * @dev Bounds the per-pointer work performed during finalization and reads,
+     *      while leaving publishers flexibility to use chunks below MAX_CHUNK_SIZE.
      **/
-    uint256 public constant MAX_CHUNK_COUNT = (MAX_CONTENT_SIZE + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE;
+    uint256 public constant MAX_CHUNK_COUNT = 32;
 
     /*
      * Storage
