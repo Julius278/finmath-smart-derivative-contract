@@ -77,15 +77,15 @@ and product documentation templates, stored as SSTORE2-chunked bytecode.
 
 - **One-shot:** full content in the constructor (small resources, ≤ EIP-3860
   init-code limit).
-- **Staged:** `appendChunk` across transactions, then
-  `finalize` (large resources).
+- **Staged:** commit the full-content hash in the constructor, call
+  `appendChunkAt` across transactions, then `finalize` (large resources).
 - **Integrity:** `contentHash() == keccak256(content())`, verified on-chain at
   finalization and reproducible off-chain
   (`keccak256(fetchedBytes) === contentHash()`).
 - **Canonical URL:** after finalization, `web3Url()` returns
   `web3://<resource-address>:<chain-id>/content`.
 - Chunk size bounded by `MAX_CHUNK_SIZE = 20_000` (< SSTORE2's 24 KB limit).
-- Uses `mcopy` (EIP-5656) — **requires Cancun EVM**.
+- Avoids `mcopy` (EIP-5656) and can be compiled for pre-Cancun EVM targets.
 
 ### 2. Client Registry
 
@@ -307,7 +307,7 @@ e.g. `BondConstants.sol` and `SwapConstants.sol`:
 | `solady` | `SSTORE2` (chunked resource storage) |
 
 - **Solidity:** `^0.8.24`
-- **EVM version:** **Cancun** (required for `mcopy` in resource/product XML paths)
+- **EVM version:** the demos currently target **Cancun**; `TextResource` can also target **Paris**.
 
 ---
 
