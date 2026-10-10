@@ -87,12 +87,6 @@ interface ITextResource is IERC165 {
     error ZeroContentHash();
 
     /**
-     * @notice Thrown when a nonzero content hash is supplied to the constructor
-     *         for staged publishing.
-     **/
-    error UnexpectedContentHash(bytes32 contentHash);
-
-    /**
      * @notice Thrown when the provided content hash does not match
      *         keccak256 of the stored content.
      **/

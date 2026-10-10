@@ -655,7 +655,7 @@ public class DemoInterestRateSwap {
 				new Bytes32(resourceType),
 				new Utf8String(mediaType),
 				new DynamicBytes(new byte[0]),
-				new Bytes32(new byte[32])
+				new Bytes32(expectedContentHash)
 		);
 
 		for (int offset = 0; offset < content.length; offset += RESOURCE_CHUNK_SIZE) {
@@ -666,7 +666,7 @@ public class DemoInterestRateSwap {
 			);
 			SmartContractDeployer.transact(
 					contractAddress,
-					function("appendChunk", new DynamicBytes(chunk))
+					function("appendChunkAt", new Uint256(BigInteger.valueOf(offset)), new DynamicBytes(chunk))
 			);
 		}
 		SmartContractDeployer.transact(

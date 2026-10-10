@@ -20,9 +20,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  *                     hash-verified and finalized atomically in a single tx.
  *                     Limited by the EIP-3860 init-code size limit (~49 KB),
  *                     so suitable for small to medium resources.
- *      2. Staged    – deploy with empty content, then append chunks across
- *                     several transactions via appendChunk and finalize() at
- *                     the end. Use this for large resources.
+ *      2. Staged    – deploy with empty content and the intended full-content
+ *                     hash, then append chunks across several transactions via
+ *                     appendChunkAt and finalize() at the end. Use this for
+ *                     large resources.
  *
  * @dev GAS / MEMORY LIMITATIONS
  *      Staged publishing splits writes across transactions, but this
@@ -63,6 +64,13 @@ contract TextResource is ITextResource {
      **/
     uint256 public constant MAX_CHUNK_SIZE = 20_000;
 
+    /**
+     * @notice Maximum number of storage pointers used by one resource.
+     * @dev Bounds the per-pointer work performed during finalization and reads,
+     *      while leaving publishers flexibility to use chunks below MAX_CHUNK_SIZE.
+     **/
+    uint256 public constant MAX_CHUNK_COUNT = 32;
+
     /*
      * Storage
      */
@@ -74,6 +82,8 @@ contract TextResource is ITextResource {
 
     address public immutable owner;
     bytes32 public immutable resourceType;
+    /** Full-content hash committed at deployment. */
+    bytes32 public immutable committedContentHash;
     string public mediaType;
 
     bytes32 public contentHash;
@@ -98,6 +108,21 @@ contract TextResource is ITextResource {
      **/
     error ChunkTooLarge(uint256 index, uint256 length, uint256 maxLength);
 
+    /**
+     * @notice Thrown when appending would make full-content reconstruction too expensive.
+     **/
+    error TooManyChunks(uint256 count, uint256 maxCount);
+
+    /**
+     * @notice Thrown when a compare-and-append call observes a different current length.
+     **/
+    error UnexpectedContentLength(uint256 expectedLength, uint256 actualLength);
+
+    /**
+     * @notice Thrown when finalization does not use the hash committed at deployment.
+     **/
+    error ContentHashCommitmentMismatch(bytes32 committedHash, bytes32 suppliedHash);
+
     /*
      * Events
      */
@@ -118,25 +143,34 @@ contract TextResource is ITextResource {
      * @param mediaType_           IANA media type, e.g. "application/xml".
      * @param content_             Full content for one-shot mode, or empty
      *                             bytes to publish later via the staged API.
-     * @param expectedContentHash_ Required if content_ is non-empty and must be
-     *                             zero for staged publishing; verified on-chain
-     *                             as keccak256(content_).
+     * @param expectedContentHash_ Required in both modes. For staged publishing
+     *                             it commits the resource address to the intended
+     *                             full content before any chunks are written.
      **/
     constructor(address owner_, bytes32 resourceType_, string memory mediaType_, bytes memory content_, bytes32 expectedContentHash_) {
         if (owner_ == address(0)) revert ZeroOwner();
         if (resourceType_ == bytes32(0)) revert ZeroResourceType();
         if (bytes(mediaType_).length == 0) revert EmptyMediaType();
+        if (expectedContentHash_ == bytes32(0)) revert ZeroContentHash();
 
         owner = owner_;
         resourceType = resourceType_;
+        committedContentHash = expectedContentHash_;
         mediaType = mediaType_;
 
         // One-shot mode: publish and finalize atomically.
         if (content_.length != 0) {
+            if (content_.length > MAX_CONTENT_SIZE) {
+                revert ContentTooLarge(content_.length, MAX_CONTENT_SIZE);
+            }
+            bytes32 actualContentHash = keccak256(content_);
+            if (actualContentHash != expectedContentHash_) {
+                revert ContentHashMismatch(expectedContentHash_, actualContentHash);
+            }
             _appendContentInChunks(content_);
-            _finalize(expectedContentHash_);
-        } else if (expectedContentHash_ != bytes32(0)) {
-            revert UnexpectedContentHash(expectedContentHash_);
+            // Chunks come directly from the already verified constructor input.
+            // Avoid reconstructing the entire resource a second time in this transaction.
+            _completeFinalization(actualContentHash);
         }
         // Otherwise: staged mode – content is appended later by the owner.
     }
@@ -160,6 +194,23 @@ contract TextResource is ITextResource {
      * @dev Caller is responsible for splitting data into MAX_CHUNK_SIZE pieces.
      **/
     function appendChunk(bytes calldata chunk) external onlyOwner onlyBeforeFinalized {
+        _appendChunk(chunk);
+    }
+
+    /**
+     * @notice Appends a chunk only if the resource still has the expected length.
+     * @dev This compare-and-append operation prevents two concurrent resumptions
+     *      from both appending the same suffix after inspecting the same prefix.
+     */
+    function appendChunkAt(uint256 expectedContentLength, bytes calldata chunk)
+        external
+        onlyOwner
+        onlyBeforeFinalized
+    {
+        uint256 actualLength = contentLength;
+        if (actualLength != expectedContentLength) {
+            revert UnexpectedContentLength(expectedContentLength, actualLength);
+        }
         _appendChunk(chunk);
     }
 
@@ -193,6 +244,16 @@ contract TextResource is ITextResource {
      **/
     function chunkCount() external view returns (uint256) {
         return _pointers.length;
+    }
+
+    /**
+     * @notice Returns the hash of all content stored so far, including before finalization.
+     * @dev This is deliberately not part of ITextResource: consumers should continue to use the
+     *      immutable contentHash after finalization. Publishers use this extension to prove that
+     *      an interrupted staged upload is a prefix of the file they are about to resume.
+     **/
+    function currentContentHash() external view returns (bytes32) {
+        return keccak256(_readContent());
     }
 
     /*
@@ -237,6 +298,9 @@ contract TextResource is ITextResource {
         }
         if (chunkLength > MAX_CHUNK_SIZE) {
             revert ChunkTooLarge(index, chunkLength, MAX_CHUNK_SIZE);
+        }
+        if (index >= MAX_CHUNK_COUNT) {
+            revert TooManyChunks(index + 1, MAX_CHUNK_COUNT);
         }
         uint256 newContentLength = contentLength + chunkLength;
         if (newContentLength > MAX_CONTENT_SIZE) {
@@ -294,13 +358,21 @@ contract TextResource is ITextResource {
         if (_pointers.length == 0 || contentLength == 0) revert EmptyContent();
         if (expectedContentHash == bytes32(0)) revert ZeroContentHash();
 
+        bytes32 commitment = committedContentHash;
+        if (commitment != expectedContentHash) {
+            revert ContentHashCommitmentMismatch(commitment, expectedContentHash);
+        }
+
         bytes32 computedHash = keccak256(_readContent());
         if (computedHash != expectedContentHash) {
             revert ContentHashMismatch(expectedContentHash, computedHash);
         }
 
-        contentHash = computedHash;
+        _completeFinalization(computedHash);
+    }
 
+    function _completeFinalization(bytes32 computedHash) private {
+        contentHash = computedHash;
         emit ResourceFinalized(resourceType, contentLength, computedHash);
     }
 

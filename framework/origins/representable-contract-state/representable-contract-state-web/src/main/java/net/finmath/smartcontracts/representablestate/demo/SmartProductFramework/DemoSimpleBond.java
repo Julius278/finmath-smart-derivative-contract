@@ -737,7 +737,7 @@ public class DemoSimpleBond {
 				new Bytes32(resourceType),
 				new Utf8String(mediaType),
 				new DynamicBytes(new byte[0]),
-				new Bytes32(new byte[32])
+				new Bytes32(expectedContentHash)
 		);
 
 		for (int offset = 0; offset < content.length; offset += DEMO_CHUNK_SIZE) {
@@ -745,7 +745,7 @@ public class DemoSimpleBond {
 			byte[] chunk = Arrays.copyOfRange(content, offset, offset + chunkLength);
 			SmartContractDeployer.transact(
 					contractAddress,
-					function("appendChunk", new DynamicBytes(chunk))
+					function("appendChunkAt", new Uint256(BigInteger.valueOf(offset)), new DynamicBytes(chunk))
 			);
 		}
 
