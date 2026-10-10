@@ -113,7 +113,7 @@ The equivalent command-line launch for the current snapshot is:
 cd representable-contract-state-web
 java \
   -Dloader.main=net.finmath.smartcontracts.representablestate.demo.SmartProductFramework.DemoInterestRateSwap \
-  -cp target/representable-contract-state-web-2.5.1.jar \
+  -cp target/representable-contract-state-web-2.8.0.jar \
   org.springframework.boot.loader.launch.PropertiesLauncher
 ```
 
