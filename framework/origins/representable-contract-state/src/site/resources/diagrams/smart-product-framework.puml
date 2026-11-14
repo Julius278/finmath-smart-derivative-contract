@@ -1,0 +1,301 @@
+@startuml
+' Published as ../images/smart-product-framework.svg.
+title Smart Product Framework - End-to-End Sequence Flow
+
+actor "Product Provider" as PProvider
+actor Client
+participant "Frontend / dApp" as Frontend
+participant "TextResource\n(product terms XML)\n----\nITextResource" as ProductTermsTemplate
+participant "TextResource\n(documentation XSLT)\n----\nITextResource" as ProductDocumentationTemplate
+participant "ClientRegistry\n----\nIClientRegistry" as ClientRegistry
+participant "ProductDefinitionRegistry\n----\nIProductDefinitionRegistry" as Registry
+participant "CurveIndications\n----\nIProductIndication" as CurveRegistry
+participant "SimpleBondFactory\n----\nIProductFactory" as ProductFactory
+participant "SimpleBond\n(deployed product)\n----\nIProduct" as Bond
+participant "EvmXmlRenderer" as Renderer
+
+== Infrastructure Setup ==
+
+PProvider -> ClientRegistry : deploy ClientRegistry(owner)
+PProvider -> Registry : deploy ProductDefinitionRegistry(owner, clientRegistry)
+PProvider -> CurveRegistry : deploy CurveIndications(owner)
+PProvider -> ProductFactory : deploy SimpleBondFactory(registry, curveIndications)
+
+ProductFactory -> CurveRegistry : supportsInterface(IProductIndication)
+CurveRegistry --> ProductFactory : true
+ProductFactory -> CurveRegistry : indicationCategory()
+CurveRegistry --> ProductFactory : CURVE
+ProductFactory -> ProductFactory : store accepted indication category
+
+note right of ProductFactory
+The exact factory represents one product specification.
+It owns the payload schema, required resource types,
+accepted indication categories, and deployment logic.
+end note
+
+== Resource Publication ==
+
+PProvider -> ProductFactory : productTermsTemplateResourceType()
+ProductFactory --> PProvider : terms resource type
+PProvider -> ProductFactory : productDocumentationTemplateResourceType()
+ProductFactory --> PProvider : documentation resource type
+
+PProvider -> ProductTermsTemplate : deploy TextResource(owner, termsResourceType,\n"application/xml", bytes(""), keccak256(content))
+loop for every product terms template chunk
+    PProvider -> ProductTermsTemplate : appendChunkAt(offset, chunk)
+end
+PProvider -> ProductTermsTemplate : finalize(keccak256(content))
+ProductTermsTemplate -> ProductTermsTemplate : verify content hash and lock resource
+ProductTermsTemplate --> PProvider : finalized product terms XML
+
+PProvider -> ProductDocumentationTemplate : deploy TextResource(owner, documentationResourceType,\n"application/xslt+xml", bytes(""), keccak256(content))
+loop for every documentation template chunk
+    PProvider -> ProductDocumentationTemplate : appendChunkAt(offset, chunk)
+end
+PProvider -> ProductDocumentationTemplate : finalize(keccak256(content))
+ProductDocumentationTemplate -> ProductDocumentationTemplate : verify content hash and lock resource
+ProductDocumentationTemplate --> PProvider : finalized documentation XSLT
+
+note over ProductTermsTemplate, ProductDocumentationTemplate
+The text resources can also be published in one step
+by supplying content and its expected hash to the constructor.
+end note
+
+== Product Definition Publication ==
+
+PProvider -> Registry : publishProductDefinition({name,\n{productFactory, productTermsTemplate,\nproductDocumentationTemplate}})
+
+Registry -> ProductFactory : supportsInterface(IProductFactory)
+ProductFactory --> Registry : true
+Registry -> ProductFactory : productRegistryAddress()
+ProductFactory --> Registry : registry
+Registry -> ProductFactory : productPayloadSchema()
+ProductFactory --> Registry : non-empty schema
+Registry -> ProductFactory : productTermsTemplateResourceType()
+ProductFactory --> Registry : required terms type
+Registry -> ProductFactory : productDocumentationTemplateResourceType()
+ProductFactory --> Registry : required documentation type
+
+Registry -> ProductTermsTemplate : supportsInterface(ITextResource)
+ProductTermsTemplate --> Registry : true
+Registry -> ProductTermsTemplate : isFinalized()
+ProductTermsTemplate --> Registry : true
+Registry -> ProductTermsTemplate : resourceType()
+ProductTermsTemplate --> Registry : required terms type
+
+Registry -> ProductDocumentationTemplate : supportsInterface(ITextResource)
+ProductDocumentationTemplate --> Registry : true
+Registry -> ProductDocumentationTemplate : isFinalized()
+ProductDocumentationTemplate --> Registry : true
+Registry -> ProductDocumentationTemplate : resourceType()
+ProductDocumentationTemplate --> Registry : required documentation type
+
+Registry -> Registry : productDefinitionId =\nkeccak256(abi.encode(name, address(this)))
+Registry -> Registry : store ProductDefinition\n(status = Active, version = 1)
+Registry --> PProvider : ProductDefinitionPublished\n+ StatePartUpdated
+
+PProvider -> Registry : computeProductDefinitionId(name)
+Registry --> PProvider : productDefinitionId\n(partId = uint256(productDefinitionId))
+
+note right of Registry
+Each product definition anchors:
+- the exact product factory
+- the exact product terms template
+- the exact documentation template
+
+No product-type routing registry is required.
+end note
+
+== Optional Indication Publication and Assignment ==
+
+PProvider -> CurveRegistry : publishCurveIndications(curveName, quotes[])
+CurveRegistry -> CurveRegistry : curveId =\nkeccak256(abi.encode(curveName, address(this)))
+CurveRegistry -> CurveRegistry : store active quote set\nand update indication version
+CurveRegistry --> PProvider : IndicationPublished\n+ StatePartUpdated
+
+opt assign curve indication to the product definition
+    PProvider -> Registry : assignProductIndication(\nproductDefinitionId, curveRegistry, curveId)
+
+    Registry -> Registry : load productFactory from definition
+    Registry -> CurveRegistry : supportsInterface(IProductIndication)
+    CurveRegistry --> Registry : true
+    Registry -> CurveRegistry : indicationStatus(curveId)
+    CurveRegistry --> Registry : Active
+    Registry -> CurveRegistry : indicationCategory()
+    CurveRegistry --> Registry : CURVE
+    Registry -> ProductFactory : isAcceptedIndicationCategory(CURVE)
+    ProductFactory --> Registry : true
+    Registry -> CurveRegistry : partIdForIndication(curveId)
+    CurveRegistry --> Registry : indicationPartId
+
+    Registry -> Registry : store indication assignment\nand increment definition version
+    Registry --> PProvider : ProductIndicationAssigned\n+ StatePartUpdated
+end
+
+note right of Registry
+Indication assignment is optional registry metadata.
+The current trade flow does not require or revalidate
+an indication during deployment.
+end note
+
+== Client Registration ==
+
+PProvider -> ClientRegistry : registerClient({client, lei})
+ClientRegistry -> ClientRegistry : store status = Active
+ClientRegistry --> PProvider : ClientRegistered\n+ ClientStatusChanged
+
+== Frontend Prepares Trade Request ==
+
+Client -> Frontend : select product definition
+Frontend -> Registry : getProductDefinition(productDefinitionId)
+Registry --> Frontend : definition record including exact factory
+
+opt render assigned indication
+    Frontend -> Registry : productIndicationOfDefinition(productDefinitionId)
+    Registry --> Frontend : indication contract, indicationId, partId
+
+    Frontend -> Renderer : render indication(contract, partId)
+    Renderer -> CurveRegistry : statePartXmlTemplate(partId)
+    CurveRegistry --> Renderer : XML template with $partId callbacks
+    Renderer -> CurveRegistry : indicationStatusByPartId(partId)
+    CurveRegistry --> Renderer : status
+    Renderer -> CurveRegistry : activeQuoteCountByPartId(partId)
+    CurveRegistry --> Renderer : quote count
+    Renderer -> CurveRegistry : activeQuotesByPartId(partId)
+    CurveRegistry --> Renderer : QuoteView[]
+    Renderer --> Frontend : resolved curve indication XML
+end
+
+Frontend -> ProductFactory : productPayloadSchema()
+ProductFactory --> Frontend : SimpleBond payload schema
+Frontend -> Frontend : build inputs and ABI-encode productPayload
+
+note right of Frontend
+SimpleBond payload:
+- uint256 notional
+- uint256 maturity
+end note
+
+== Trade Request and Direct Deployment ==
+
+Client -> Frontend : submit trade request
+Frontend -> Registry : createTradeRequest({productDefinitionId, productPayload})\n(client-signed transaction)
+
+Registry -> Registry : load active ProductDefinition
+Registry -> ClientRegistry : isEligibleClient(client, productDefinitionId)
+ClientRegistry --> Registry : true
+
+Registry -> Registry : tradeId = keccak256(abi.encode(\nregistry, chainId, nonce, client,\nproductDefinitionId))
+
+Registry -> ProductTermsTemplate : contentHash()
+ProductTermsTemplate --> Registry : terms content hash
+Registry -> ProductDocumentationTemplate : contentHash()
+ProductDocumentationTemplate --> Registry : documentation content hash
+
+Registry -> Registry : deploymentStateHash = keccak256(abi.encode(\nregistry, chainId, tradeId, parties,\ndefinition id + version, exact factory,\nresource addresses + content hashes,\nkeccak256(productPayload)))
+
+Registry -> ProductFactory : deployProduct({common, productPayload})
+
+ProductFactory -> ProductFactory : require caller == productRegistryAddress
+ProductFactory -> Bond : new SimpleBond(common, productPayload)
+
+Bond -> Bond : store immutable common deployment state
+Bond -> Bond : productFactory = msg.sender
+Bond -> Bond : trade status = Requested
+Bond -> Bond : decode and validate productPayload
+Bond -> Bond : emit StateUpdated
+Bond --> ProductFactory : product address
+
+ProductFactory -> ProductFactory : require product address has code
+ProductFactory -> ProductFactory : record isFactoryDeployedProduct(product)
+ProductFactory -> ProductFactory : emit ProductDeployed
+ProductFactory --> Registry : product address
+
+Registry -> Registry : require product address has code
+Registry -> ProductFactory : isFactoryDeployedProduct(product)
+ProductFactory --> Registry : true
+
+Registry -> Bond : productRegistry(), productFactory(), tradeId()
+Bond --> Registry : immutable deployment values
+Registry -> Bond : productProvider(), client()
+Bond --> Registry : parties
+Registry -> Bond : productDefinitionId(), productDefinitionVersion()
+Bond --> Registry : definition reference
+Registry -> Bond : productTermsTemplate(),\nproductDocumentationTemplate(),\ndeploymentStateHash()
+Bond --> Registry : resources and integrity hash
+
+Registry -> Registry : verify complete deployment context
+Registry -> Registry : store tradeId -> product
+Registry -> Registry : emit TradeRequestCreated
+Registry --> Frontend : tradeId + product address
+Frontend --> Client : product deployed\n(status Requested)
+
+== Trade Lifecycle ==
+
+opt client amends terms while Requested
+    Client -> Frontend : update terms
+    Frontend -> Bond : updateTerms(productPayload)
+    Bond -> Bond : require client and Requested status
+    Bond -> Bond : decode and validate payload
+    Bond -> Bond : emit TermsUpdated + StateUpdated
+    Bond --> Frontend : ok
+end
+
+PProvider -> Frontend : read current terms hash
+Frontend -> Bond : currentTermsHash()
+Bond --> Frontend : agreedTermsHash
+
+PProvider -> Bond : inceptTrade(agreedTermsHash)
+Bond -> Bond : verify provider, status, and terms hash
+Bond -> Bond : store agreed hash\nstatus = Incepted
+Bond -> Bond : emit TradeStatusChanged + TradeIncepted
+Bond --> PProvider : ok
+
+Client -> Bond : confirmTrade(agreedTermsHash)
+Bond -> Bond : verify client, status, and agreed hash
+Bond -> Bond : status = Active
+Bond -> Bond : emit TradeStatusChanged\n+ TradeConfirmed + TradeActivated
+Bond -> Bond : _onActivated()
+Bond --> Client : trade Active
+
+== Product State Rendering and Documentation ==
+
+Client -> Frontend : open product
+Frontend -> Renderer : render(product)
+
+Renderer -> Bond : stateXmlTemplate()
+Bond -> ProductTermsTemplate : web3Url()
+ProductTermsTemplate --> Bond : product terms template URL
+Bond -> ProductTermsTemplate : contentHash()
+ProductTermsTemplate --> Bond : terms integrity hash
+Bond -> ProductDocumentationTemplate : web3Url()
+ProductDocumentationTemplate --> Bond : documentation template URL
+Bond -> ProductDocumentationTemplate : contentHash()
+ProductDocumentationTemplate --> Bond : documentation integrity hash
+
+Bond --> Renderer : product state XML template containing\nDeploymentState, terms XInclude,\nand documentation resource reference
+
+Renderer -> ProductTermsTemplate : resolve product terms XInclude
+ProductTermsTemplate --> Renderer : product terms XML template
+
+Renderer -> Renderer : resolve evmstate bindings\nagainst the deployed product
+Renderer -> Bond : productRegistry(), productFactory(), tradeId(),\nparties, definition data, tradeStatus(), ...
+Bond --> Renderer : deployment and lifecycle values
+Renderer -> Bond : notional()
+Bond --> Renderer : value
+Renderer -> Bond : maturity()
+Bond --> Renderer : value
+
+Renderer --> Frontend : resolved product state XML
+
+Frontend -> ProductDocumentationTemplate : content()
+ProductDocumentationTemplate --> Frontend : documentation XSLT
+Frontend -> Frontend : apply XSLT to resolved product state
+Frontend --> Client : rendered legal documentation
+
+note right of Renderer
+EvmXmlRenderer resolves XIncludes and evmstate bindings.
+The frontend applies the documentation XSLT separately.
+end note
+
+@enduml

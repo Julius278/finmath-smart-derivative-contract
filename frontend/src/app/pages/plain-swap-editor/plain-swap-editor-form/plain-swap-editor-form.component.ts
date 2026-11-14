@@ -95,7 +95,7 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
   /**
    * List of counterparties available for interaction.
    */
-  protected counterparties = counterparties;
+  protected counterparties = [...counterparties];
   /**
    * List of currencies available for interaction.
    */
@@ -159,10 +159,16 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
    */
   protected startDelayString: string = "+?";
 
-  /**
-   * Currently selected generator filename.
-   */
-  protected generatorFileName: string | undefined;
+  // Defaults match the plain-swap backend. Keep saved contract settings that
+  // are not exposed as controls in this editor when loading and saving again.
+  private contractSettings: Pick<PlainSwapOperationRequest,
+    "tradeType" | "dailySettlementTime" | "marketDataProvider" | "receiverPartyID" |
+    "uniqueTradeIdentifier" | "fixedRollConvention" | "floatingRollConvention"> = {
+    tradeType: "SDCPledgedBalance",
+    dailySettlementTime: "12:00",
+    marketDataProvider: "refinitiv",
+    receiverPartyID: "party1",
+  };
 
   constructor(
     private _snackBar: MatSnackBar,
@@ -220,6 +226,21 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
     let timeZoneDifference = (date.getTimezoneOffset() / 60) * -1; //convert to positive value.
     date.setTime(date.getTime() + timeZoneDifference * 60 * 60 * 1000);
     return date;
+  }
+
+  /** Restore a saved contract date as a local calendar date for the datepicker. */
+  private calendarDate(date: string): Date {
+    const [year, month, day] = date.slice(0, 10).split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  private retainCounterparty(party: Counterparty): void {
+    const index = this.counterparties.findIndex((candidate) => candidate.bicCode === party.bicCode);
+    if (index < 0) {
+      this.counterparties.push(party);
+    } else {
+      this.counterparties[index] = party;
+    }
   }
 
   ngOnInit() {
@@ -294,13 +315,18 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
    * @returns {PlainSwapOperationRequest} the resulting request.
    */
   mapRequest(): PlainSwapOperationRequest {
+    const firstCounterparty = this.counterparties.find(
+      (cp) => cp.bicCode === this.swapForm.get("firstCounterparty")!.value
+    )!;
+    const secondCounterparty = this.counterparties.find(
+      (cp) => cp.bicCode === this.swapForm.get("secondCounterparty")!.value
+    )!;
     return {
-      firstCounterparty: this.counterparties.find(
-        (cp) => cp.bicCode === this.swapForm.get("firstCounterparty")!.value
-      ),
-      secondCounterparty: this.counterparties.find(
-        (cp) => cp.bicCode === this.swapForm.get("secondCounterparty")!.value
-      ),
+      ...this.contractSettings,
+      firstCounterparty,
+      secondCounterparty,
+      fixPayerPartyID: this.swapForm.get("fixedPayingParty")!.value ===
+        firstCounterparty.bicCode ? "party1" : "party2",
       marginBufferAmount: this.swapForm.get("marginBufferAmount")!.value,
       terminationFeeAmount: this.swapForm.get("terminationFeeAmount")!.value,
       notionalAmount: this.swapForm.get("notionalAmount")!.value,
@@ -329,15 +355,14 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
       floatingRateIndex: this.swapForm.get("floatingRateIndex")!.value,
       floatingDayCountFraction: this.swapForm.get("floatingDayCountFraction")!
         .value,
-      floatingFixingDayOffset: this.swapForm.get("floatingFixingDayOffset")!
-        .value,
+      floatingFixingDayOffset: Number(this.swapForm.get("floatingFixingDayOffset")!
+        .value),
       floatingPaymentFrequency: this.paymentFrequencies.find(
         (pf) =>
           pf.fullName === this.swapForm.get("floatingPaymentFrequency")!.value
       ),
       valuationSymbols: this.selectedSymbols,
-      currentGenerator: this.generatorFileName,
-    } as PlainSwapOperationRequest;
+    };
   }
 
   /**
@@ -574,7 +599,7 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
   onFirstPartySelection() {
     if (!this.firstPartySelected) {
       this.selectedParties.push(
-        counterparties.find(
+        this.counterparties.find(
           (p: any) =>
             p.bicCode === this.swapForm.get("firstCounterparty")!.value
         )!
@@ -583,7 +608,7 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
     }
 
     if (this.selectedParties.length == 2) {
-      this.selectedParties[0] = counterparties.find(
+      this.selectedParties[0] = this.counterparties.find(
         (p: any) => p.bicCode === this.swapForm.get("firstCounterparty")!.value
       )!;
 
@@ -600,7 +625,7 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
   onSecondPartySelection() {
     if (!this.secondPartySelected) {
       this.selectedParties.push(
-        counterparties.find(
+        this.counterparties.find(
           (p: any) =>
             p.bicCode === this.swapForm.get("secondCounterparty")!.value
         )!
@@ -609,7 +634,7 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
     }
 
     if (this.selectedParties.length == 2) {
-      this.selectedParties[1] = counterparties.find(
+      this.selectedParties[1] = this.counterparties.find(
         (p: any) => p.bicCode === this.swapForm.get("secondCounterparty")!.value
       )!;
       this.swapForm.get("fixedPayingParty")!.enable();
@@ -748,7 +773,6 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
       .subscribe((currentGenerator: PlainSwapEditorGenerator | undefined) => {
         if (currentGenerator) {
           this.selectedSymbols = currentGenerator.defaultSymbolsList;
-          this.generatorFileName = currentGenerator.fileName;
           this.swapForm
             .get("floatingFixingDayOffset")!
             .setValue(currentGenerator.floatingFixingDayOffset.id);
@@ -795,39 +819,51 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
         .afterClosed()
         .subscribe((currentSettings: PlainSwapOperationRequest | undefined) => {
           if (currentSettings) {
-            this.selectedSymbols = currentSettings.valuationSymbols;
-            this.generatorFileName = currentSettings.currentGenerator;
+            this.retainCounterparty(currentSettings.firstCounterparty);
+            this.retainCounterparty(currentSettings.secondCounterparty);
+            this.selectedSymbols = currentSettings.valuationSymbols ?? marketDataItems;
+            this.contractSettings = {
+              tradeType: currentSettings.tradeType ?? "SDCPledgedBalance",
+              dailySettlementTime: currentSettings.dailySettlementTime ?? "12:00",
+              marketDataProvider: currentSettings.marketDataProvider ?? "refinitiv",
+              receiverPartyID: currentSettings.receiverPartyID ?? "party1",
+              uniqueTradeIdentifier: currentSettings.uniqueTradeIdentifier,
+              fixedRollConvention: currentSettings.fixedRollConvention,
+              floatingRollConvention: currentSettings.floatingRollConvention,
+            };
             this.swapForm
               .get("floatingFixingDayOffset")!
-              .setValue(currentSettings.floatingFixingDayOffset.toString());
+              .setValue((currentSettings.floatingFixingDayOffset ?? -2).toString());
             this.swapForm
               .get("floatingRateIndex")!
-              .setValue(currentSettings.floatingRateIndex);
+              .setValue(currentSettings.floatingRateIndex ?? "EURIBOR 6M");
             this.swapForm
               .get("fixedPaymentFrequency")!
-              .setValue(currentSettings.fixedPaymentFrequency.fullName);
+              .setValue(currentSettings.fixedPaymentFrequency?.fullName ?? "Annual");
             this.swapForm
               .get("floatingPaymentFrequency")!
-              .setValue(currentSettings.floatingPaymentFrequency.fullName);
+              .setValue(currentSettings.floatingPaymentFrequency?.fullName ?? "Semiannual");
             this.swapForm
               .get("floatingDayCountFraction")!
-              .setValue(currentSettings.floatingDayCountFraction);
+              .setValue(currentSettings.floatingDayCountFraction ?? "ACT/360");
             this.swapForm
               .get("fixedDayCountFraction")!
-              .setValue(currentSettings.fixedDayCountFraction);
+              .setValue(currentSettings.fixedDayCountFraction ?? "30E/360");
             this.swapForm.get("fixedRate")!.setValue(currentSettings.fixedRate);
             this.swapForm
               .get("firstCounterparty")!
               .setValue(currentSettings.firstCounterparty.bicCode);
             this.swapForm.updateValueAndValidity();
             this.onFirstPartySelection();
-            this.swapForm.get("tradeDate")!.setValue(currentSettings.tradeDate);
+            this.swapForm.get("tradeDate")!.setValue(this.calendarDate(currentSettings.tradeDate));
+            this.swapForm.get("currency")!.setValue(currentSettings.currency);
+            this.onCurrencyChange();
             this.swapForm
               .get("terminationDate")!
-              .setValue(currentSettings.terminationDate);
+              .setValue(this.calendarDate(currentSettings.terminationDate));
             this.swapForm
               .get("effectiveDate")!
-              .setValue(currentSettings.effectiveDate);
+              .setValue(this.calendarDate(currentSettings.effectiveDate));
             this.swapForm
               .get("secondCounterparty")!
               .setValue(currentSettings.secondCounterparty.bicCode);
@@ -841,10 +877,16 @@ export class PlainSwapEditorFormComponent implements OnInit, AfterViewInit {
               .setValue(currentSettings.terminationFeeAmount);
             this.swapForm
               .get("floatingPayingParty")!
-              .setValue(currentSettings.floatingPayingParty.bicCode);
+              .setValue(currentSettings.floatingPayingParty?.bicCode ??
+                (currentSettings.fixPayerPartyID === "party2"
+                  ? currentSettings.firstCounterparty.bicCode
+                  : currentSettings.secondCounterparty.bicCode));
             this.swapForm
               .get("fixedPayingParty")!
-              .setValue(currentSettings.fixedPayingParty.bicCode);
+              .setValue(currentSettings.fixedPayingParty?.bicCode ??
+                (currentSettings.fixPayerPartyID === "party2"
+                  ? currentSettings.secondCounterparty.bicCode
+                  : currentSettings.firstCounterparty.bicCode));
             this.swapForm
               .get("notionalAmount")!
               .setValue(currentSettings.notionalAmount);

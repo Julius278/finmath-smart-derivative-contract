@@ -45,8 +45,8 @@ data:
 Clone this repository, if not done yet:
 
 ```
-git clone https://github.com/finmath/finmath-smart-derivative-contract.git
-cd finmath-smart-derivative-contract
+git clone https://github.com/finmath/smart-financial-contracts.git
+cd smart-financial-contracts
 ```
 
 Run

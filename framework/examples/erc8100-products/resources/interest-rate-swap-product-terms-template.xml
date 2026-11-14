@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The FpML confirmation and Smart Product Framework valuation inputs are kept
+  as siblings deliberately: symbolic curve assignments are application state,
+  not standard FpML economic terms.
+-->
+<spf:InterestRateSwapTerms
+    xmlns:spf="urn:smart-product-framework:interest-rate-swap:1.0"
+    xmlns:fpml="http://www.fpml.org/FpML-5/confirmation"
+    xmlns:evmstate="urn:evm:state:1.0"
+    templateVersion="1.0.0">
+
+    <fpml:dataDocument fpmlVersion="5-6">
+        <fpml:trade>
+            <fpml:tradeHeader>
+                <fpml:partyTradeIdentifier>
+                    <fpml:partyReference href="client"/>
+                    <fpml:tradeId
+                        tradeIdScheme="urn:smart-product-framework:trade-id:client"
+                        evmstate:call="tradeId()(bytes32)"/>
+                </fpml:partyTradeIdentifier>
+                <fpml:partyTradeIdentifier>
+                    <fpml:partyReference href="productProvider"/>
+                    <fpml:tradeId
+                        tradeIdScheme="urn:smart-product-framework:trade-id:product-provider"
+                        evmstate:call="tradeId()(bytes32)"/>
+                </fpml:partyTradeIdentifier>
+                <fpml:tradeDate
+                    evmstate:call="tradeDate()(uint256)"
+                    evmstate:format="iso8601-date"/>
+            </fpml:tradeHeader>
+
+            <fpml:swap>
+                <!-- The selected payer and receiver are resolved from the client's fixed-rate role. -->
+                <fpml:swapStream id="fixedLeg">
+                    <fpml:payerPartyReference
+                        evmstate:call="fixedLegPayerPartyReference()(string)"
+                        evmstate:target="href"/>
+                    <fpml:receiverPartyReference
+                        evmstate:call="fixedLegReceiverPartyReference()(string)"
+                        evmstate:target="href"/>
+
+                    <fpml:calculationPeriodDates id="fixedCalculationPeriodDates">
+                        <fpml:effectiveDate>
+                            <fpml:unadjustedDate
+                                evmstate:call="effectiveDate()(uint256)"
+                                evmstate:format="iso8601-date"/>
+                            <fpml:dateAdjustments>
+                                <fpml:businessDayConvention>NONE</fpml:businessDayConvention>
+                            </fpml:dateAdjustments>
+                        </fpml:effectiveDate>
+                        <fpml:terminationDate>
+                            <fpml:unadjustedDate
+                                evmstate:call="maturity()(uint256)"
+                                evmstate:format="iso8601-date"/>
+                            <fpml:dateAdjustments>
+                                <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                                <fpml:businessCenters>
+                                    <fpml:businessCenter>EUTA</fpml:businessCenter>
+                                </fpml:businessCenters>
+                            </fpml:dateAdjustments>
+                        </fpml:terminationDate>
+                        <fpml:calculationPeriodDatesAdjustments>
+                            <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:calculationPeriodDatesAdjustments>
+                        <fpml:calculationPeriodFrequency>
+                            <fpml:periodMultiplier>12</fpml:periodMultiplier>
+                            <fpml:period>M</fpml:period>
+                            <fpml:rollConvention>NONE</fpml:rollConvention>
+                        </fpml:calculationPeriodFrequency>
+                    </fpml:calculationPeriodDates>
+
+                    <fpml:paymentDates>
+                        <fpml:calculationPeriodDatesReference href="fixedCalculationPeriodDates"/>
+                        <fpml:paymentFrequency>
+                            <fpml:periodMultiplier>12</fpml:periodMultiplier>
+                            <fpml:period>M</fpml:period>
+                        </fpml:paymentFrequency>
+                        <fpml:payRelativeTo>CalculationPeriodEndDate</fpml:payRelativeTo>
+                        <fpml:paymentDaysOffset>
+                            <fpml:periodMultiplier>0</fpml:periodMultiplier>
+                            <fpml:period>D</fpml:period>
+                            <fpml:dayType>Calendar</fpml:dayType>
+                        </fpml:paymentDaysOffset>
+                        <fpml:paymentDatesAdjustments>
+                            <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:paymentDatesAdjustments>
+                    </fpml:paymentDates>
+
+                    <fpml:calculationPeriodAmount>
+                        <fpml:calculation>
+                            <fpml:notionalSchedule>
+                                <fpml:notionalStepSchedule>
+                                    <fpml:initialValue
+                                        evmstate:call="notional()(uint256)"
+                                        evmstate:format="decimal"
+                                        evmstate:scale="2"/>
+                                    <fpml:currency evmstate:call="currency()(string)"/>
+                                </fpml:notionalStepSchedule>
+                            </fpml:notionalSchedule>
+                            <fpml:fixedRateSchedule>
+                                <!-- The on-chain value 250 is the FpML decimal rate 0.0250 (= 2.50%). -->
+                                <fpml:initialValue
+                                    evmstate:call="swapRate()(int256)"
+                                    evmstate:format="decimal"
+                                    evmstate:scale="4"/>
+                            </fpml:fixedRateSchedule>
+                            <fpml:dayCountFraction>30E/360</fpml:dayCountFraction>
+                        </fpml:calculation>
+                    </fpml:calculationPeriodAmount>
+                </fpml:swapStream>
+
+                <fpml:swapStream id="floatingLeg">
+                    <fpml:payerPartyReference
+                        evmstate:call="floatingLegPayerPartyReference()(string)"
+                        evmstate:target="href"/>
+                    <fpml:receiverPartyReference
+                        evmstate:call="floatingLegReceiverPartyReference()(string)"
+                        evmstate:target="href"/>
+
+                    <fpml:calculationPeriodDates id="floatingCalculationPeriodDates">
+                        <fpml:effectiveDate>
+                            <fpml:unadjustedDate
+                                evmstate:call="effectiveDate()(uint256)"
+                                evmstate:format="iso8601-date"/>
+                            <fpml:dateAdjustments>
+                                <fpml:businessDayConvention>NONE</fpml:businessDayConvention>
+                            </fpml:dateAdjustments>
+                        </fpml:effectiveDate>
+                        <fpml:terminationDate>
+                            <fpml:unadjustedDate
+                                evmstate:call="maturity()(uint256)"
+                                evmstate:format="iso8601-date"/>
+                            <fpml:dateAdjustments>
+                                <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                                <fpml:businessCenters>
+                                    <fpml:businessCenter>EUTA</fpml:businessCenter>
+                                </fpml:businessCenters>
+                            </fpml:dateAdjustments>
+                        </fpml:terminationDate>
+                        <fpml:calculationPeriodDatesAdjustments>
+                            <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:calculationPeriodDatesAdjustments>
+                        <fpml:calculationPeriodFrequency>
+                            <fpml:periodMultiplier>3</fpml:periodMultiplier>
+                            <fpml:period>M</fpml:period>
+                            <fpml:rollConvention>NONE</fpml:rollConvention>
+                        </fpml:calculationPeriodFrequency>
+                    </fpml:calculationPeriodDates>
+
+                    <fpml:paymentDates>
+                        <fpml:calculationPeriodDatesReference href="floatingCalculationPeriodDates"/>
+                        <fpml:paymentFrequency>
+                            <fpml:periodMultiplier>3</fpml:periodMultiplier>
+                            <fpml:period>M</fpml:period>
+                        </fpml:paymentFrequency>
+                        <fpml:payRelativeTo>CalculationPeriodEndDate</fpml:payRelativeTo>
+                        <fpml:paymentDaysOffset>
+                            <fpml:periodMultiplier>0</fpml:periodMultiplier>
+                            <fpml:period>D</fpml:period>
+                            <fpml:dayType>Calendar</fpml:dayType>
+                        </fpml:paymentDaysOffset>
+                        <fpml:paymentDatesAdjustments>
+                            <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:paymentDatesAdjustments>
+                    </fpml:paymentDates>
+
+                    <fpml:resetDates>
+                        <fpml:calculationPeriodDatesReference href="floatingCalculationPeriodDates"/>
+                        <fpml:resetRelativeTo>CalculationPeriodStartDate</fpml:resetRelativeTo>
+                        <fpml:fixingDates>
+                            <fpml:periodMultiplier>-2</fpml:periodMultiplier>
+                            <fpml:period>D</fpml:period>
+                            <fpml:dayType>Business</fpml:dayType>
+                            <fpml:businessDayConvention>PRECEDING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:fixingDates>
+                        <fpml:resetFrequency>
+                            <fpml:periodMultiplier>3</fpml:periodMultiplier>
+                            <fpml:period>M</fpml:period>
+                        </fpml:resetFrequency>
+                        <fpml:resetDatesAdjustments>
+                            <fpml:businessDayConvention>MODFOLLOWING</fpml:businessDayConvention>
+                            <fpml:businessCenters>
+                                <fpml:businessCenter>EUTA</fpml:businessCenter>
+                            </fpml:businessCenters>
+                        </fpml:resetDatesAdjustments>
+                    </fpml:resetDates>
+
+                    <fpml:calculationPeriodAmount>
+                        <fpml:calculation>
+                            <fpml:notionalSchedule>
+                                <fpml:notionalStepSchedule>
+                                    <fpml:initialValue
+                                        evmstate:call="notional()(uint256)"
+                                        evmstate:format="decimal"
+                                        evmstate:scale="2"/>
+                                    <fpml:currency evmstate:call="currency()(string)"/>
+                                </fpml:notionalStepSchedule>
+                            </fpml:notionalSchedule>
+                            <fpml:floatingRateCalculation>
+                                <fpml:floatingRateIndex
+                                    floatingRateIndexScheme="http://www.fpml.org/coding-scheme/floating-rate-index">
+                                    EUR-EURIBOR-Reuters
+                                </fpml:floatingRateIndex>
+                                <fpml:indexTenor>
+                                    <fpml:periodMultiplier>3</fpml:periodMultiplier>
+                                    <fpml:period>M</fpml:period>
+                                </fpml:indexTenor>
+                            </fpml:floatingRateCalculation>
+                            <fpml:dayCountFraction>ACT/360</fpml:dayCountFraction>
+                        </fpml:calculation>
+                    </fpml:calculationPeriodAmount>
+                </fpml:swapStream>
+            </fpml:swap>
+        </fpml:trade>
+
+        <fpml:party id="client">
+            <fpml:partyId
+                partyIdScheme="urn:ethereum:address"
+                evmstate:call="client()(address)"/>
+        </fpml:party>
+        <fpml:party id="productProvider">
+            <fpml:partyId
+                partyIdScheme="urn:ethereum:address"
+                evmstate:call="productProvider()(address)"/>
+        </fpml:party>
+    </fpml:dataDocument>
+
+    <spf:valuationInputs>
+        <spf:clientFixedRateRole evmstate:call="clientFixedRateRoleName()(string)"/>
+        <spf:forwardCurveSymbol evmstate:call="forwardCurveSymbol()(string)"/>
+        <spf:discountCurveSymbol evmstate:call="discountCurveSymbol()(string)"/>
+    </spf:valuationInputs>
+
+</spf:InterestRateSwapTerms>

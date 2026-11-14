@@ -277,6 +277,7 @@ $RECYCLE.BIN/
 .idea
 *.iml
 /frontend/.angular
+/frontend/dist/
 /frontend/node_modules
 /frontend/src/app/openapi/**
 .vscode/**

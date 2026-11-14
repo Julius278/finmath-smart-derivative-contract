@@ -1,0 +1,14 @@
+node_modules/
+artifacts/
+cache/
+types/
+typechain/
+typechain-types/
+coverage/
+coverage.json
+.env
+.env.*
+*.log
+.DS_Store
+.idea/
+.vscode/

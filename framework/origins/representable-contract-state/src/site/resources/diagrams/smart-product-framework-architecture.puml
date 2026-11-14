@@ -1,0 +1,22 @@
+@startuml
+' Published as ../images/smart-product-framework-architecture.svg.
+title Smart Product Framework - Architecture Overview
+
+skinparam componentStyle rectangle
+top to bottom direction
+
+rectangle "ClientRegistry\nidentity + eligibility" as CR
+rectangle "ProductDefinitionRegistry\npublication + lifecycle + deployment" as REG
+rectangle "TextResource\nproduct terms XML +\ndocumentation XSLT" as TR
+rectangle "CurveIndications\noptional product indication" as IND
+rectangle "IProductFactory implementations\n------\nSimpleBondFactory\nInterestRateSwapFactory" as FACTORY
+rectangle "IProduct implementations\n------\nSimpleBond\nInterestRateSwap\nself-rendering + lifecycle" as PRODUCT
+
+REG --> CR : isEligibleClient
+REG --> TR : validates / anchors
+REG --> IND : assign / read indication
+REG --> FACTORY : validate / deployProduct
+FACTORY ..> IND : accepts category
+FACTORY --> PRODUCT : new
+PRODUCT --> TR : includes / references templates
+@enduml
