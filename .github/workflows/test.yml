@@ -1,6 +1,9 @@
-name: finmath smart derivative contract
+name: Java and legacy Solidity tests
 
-on: [ push ]
+on: [ push, pull_request ]
+
+permissions:
+  contents: read
 
 jobs:
   bCP1ld:
@@ -15,3 +18,20 @@ jobs:
           java-version: 17
       - name: Build with Maven
         run: mvn -B package --file pom.xml
+
+  legacy-solidity:
+    name: Legacy Solidity build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: solidity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Retain the runtime supported by the existing Hardhat 2.12 lockfile.
+          node-version: 16
+          cache: npm
+          cache-dependency-path: solidity/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm test

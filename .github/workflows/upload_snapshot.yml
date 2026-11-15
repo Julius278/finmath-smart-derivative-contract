@@ -1,11 +1,11 @@
-name: finmath smart derivative contract
+name: Legacy snapshot publishing (manual)
 
-#trigg
-#only push new SNAPSHOTS from develop
+# Publishing remains manual while the snapshot repository is being migrated.
 on:
-  push:
-    branches:
-      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   bCP1ld:
@@ -23,4 +23,3 @@ jobs:
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
           PRIVATE_TOKEN: ${{ secrets.PRIVATE_TOKEN }}
         run: mvn -s github_SNAPSHOT_settings.xml clean install deploy
-        continue-on-error: true

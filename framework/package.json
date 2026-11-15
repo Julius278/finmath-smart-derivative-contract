@@ -1,0 +1,42 @@
+{
+  "name": "@finmath.net/smart-product-framework",
+  "version": "1.0.0",
+  "description": "Smart Product Framework and reference financial contracts",
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SEE LICENSE IN README.md",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@finmath.net/dvp": "0.9.0",
+    "@finmath.net/dvp-legacy": "npm:@finmath.net/dvp@0.7.0",
+    "@finmath.net/sdc": "0.8.0",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
+    "@types/chai": "^5.2.3",
+    "@types/chai-as-promised": "^8.0.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.1.2",
+    "chai": "^6.2.2",
+    "dotenv": "16.3.1",
+    "ethereumjs-wallet": "^1.0.2",
+    "ethers": "^6.17.0",
+    "hardhat": "^3.11.1"
+  },
+  "dependencies": {
+    "@ethereumjs/common": "^4.4.0",
+    "@openzeppelin/contracts": "4.8.0",
+    "eth-crypto": "^2.7.0",
+    "secp256k1": "^5.0.1",
+    "solady": "0.1.26"
+  },
+  "type": "module",
+  "optionalDependencies": {
+    "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "0.1.1"
+  },
+  "private": true
+}

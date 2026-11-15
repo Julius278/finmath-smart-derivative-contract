@@ -9,8 +9,8 @@ To build a local version of the container (for testing) and running it, execute 
 Clone this repository, if not done yet:
 
 ```
-git clone https://github.com/finmath/finmath-smart-derivative-contract.git
-cd finmath-smart-derivative-contract
+git clone https://github.com/finmath/smart-financial-contracts.git
+cd smart-financial-contracts
 ```
 
 ### Building the Docker Container using Spring Boot

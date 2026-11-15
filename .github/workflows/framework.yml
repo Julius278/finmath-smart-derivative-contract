@@ -1,0 +1,68 @@
+name: Smart Product Framework
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  framework:
+    name: Framework and reference contract tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: framework
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: framework/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build contracts
+        run: npm run build
+      - name: Test contracts and deployment limits
+        run: npm test
+
+  fx-atomic-swap:
+    name: FX Atomic Swap demo tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: framework/examples/fx-atomic-swap
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.0
+          cache: false
+      - name: Test FX Atomic Swap lifecycle
+        run: forge test -vv
+
+  erc8100-products:
+    name: Original ERC-8100 product demo tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: framework/examples/erc8100-products
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: framework/examples/erc8100-products/package-lock.json
+      - name: Install locked demo dependencies
+        run: npm ci
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.0
+          cache: false
+      - name: Test original product lifecycles and representations
+        run: forge test -vv

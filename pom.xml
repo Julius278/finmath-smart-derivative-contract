@@ -19,7 +19,7 @@
     <description>
         Project to support the implementation a of smart derivative contract.
     </description>
-    <url>https://www.finmath.net/finmath-smart-derivative-contract</url>
+    <url>https://www.finmath.net/smart-financial-contracts</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -957,7 +957,7 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/finmath/finmath-lib/issues</url>
+        <url>https://github.com/finmath/smart-financial-contracts/issues</url>
     </issueManagement>
 
     <reporting>
@@ -1003,7 +1003,7 @@
         <!--site for mvn site -->
         <site>
             <id>github</id>
-            <url>scm:git:https://github.com/finmath/finmath-smart-derivative-contract.git</url>
+            <url>scm:git:https://github.com/finmath/smart-financial-contracts.git</url>
         </site>
         <!-- We need to deploy releases to maven central!
         <repository>
@@ -1018,9 +1018,9 @@
     </distributionManagement>
 
     <scm>
-        <url>https://github.com/finmath/finmath-smart-derivative-contract</url>
-        <connection>scm:git:https://github.com/finmath/finmath-smart-derivative-contract.git</connection>
-        <developerConnection>scm:git:https://github.com/finmath/finmath-smart-derivative-contract.git
+        <url>https://github.com/finmath/smart-financial-contracts</url>
+        <connection>scm:git:https://github.com/finmath/smart-financial-contracts.git</connection>
+        <developerConnection>scm:git:https://github.com/finmath/smart-financial-contracts.git
         </developerConnection>
         <tag>HEAD</tag>
     </scm>
