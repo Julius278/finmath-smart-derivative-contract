@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: framework
+        working-directory: solidity/framework
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: framework/package-lock.json
+          cache-dependency-path: solidity/framework/package-lock.json
       - name: Install locked dependencies
         run: npm ci
       - name: Build contracts
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: framework/examples/fx-atomic-swap
+        working-directory: solidity/examples/fx-atomic-swap
     steps:
       - uses: actions/checkout@v4
       - name: Install Foundry
@@ -49,14 +49,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: framework/examples/erc8100-products
+        working-directory: solidity/examples/erc8100-products
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: framework/examples/erc8100-products/package-lock.json
+          cache-dependency-path: solidity/examples/erc8100-products/package-lock.json
       - name: Install locked demo dependencies
         run: npm ci
       - name: Install Foundry

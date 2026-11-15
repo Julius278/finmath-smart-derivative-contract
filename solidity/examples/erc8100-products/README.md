@@ -16,9 +16,10 @@ valuation are outside their workflow.
 
 ## Build and run
 
-Use Node.js 22 or newer and Foundry. CI uses Foundry 1.5.0. From this directory:
+Use Node.js 22 or newer and Foundry. CI uses Foundry 1.5.0. From the repository root:
 
 ```sh
+cd solidity/examples/erc8100-products
 npm ci
 forge test -vv
 forge build --sizes

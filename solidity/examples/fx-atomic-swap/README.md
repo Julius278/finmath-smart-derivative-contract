@@ -93,7 +93,7 @@ Leave the renderer running. It serves rendered contract state on port 8080.
 From a checkout of `smart-financial-contracts`, enter the example directory:
 
 ```bash
-cd framework/examples/fx-atomic-swap
+cd solidity/examples/fx-atomic-swap
 ```
 
 This standalone Foundry project includes five contracts, two Solidity test files,
@@ -626,7 +626,7 @@ Because exact settlement allowances were granted, both are fully consumed. The d
 In a repository checkout, run the Foundry tests from the repository root:
 
 ```bash
-forge test --root framework/examples/fx-atomic-swap -vv
+forge test --root solidity/examples/fx-atomic-swap -vv
 ```
 
 The tests run locally without Anvil or the renderer service. They cover settlement, permissions and matching terms, cancellation and authorization revocation, failed-transfer rollback, and single-use lifecycle behavior.

@@ -5,7 +5,7 @@ against the maintained Smart Product Framework. The factory selects an existing
 ERC-20 asset and a local payment adapter. Asset units and cash move between the
 issuer's and buyer's wallets on the local test chain.
 
-From `framework/`, run:
+From `solidity/framework/`, run:
 
 ```sh
 npm ci

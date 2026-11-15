@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: solidity
+        working-directory: solidity/derivatives
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,6 +32,6 @@ jobs:
           # Retain the runtime supported by the existing Hardhat 2.12 lockfile.
           node-version: 16
           cache: npm
-          cache-dependency-path: solidity/package-lock.json
+          cache-dependency-path: solidity/derivatives/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm test

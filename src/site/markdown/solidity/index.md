@@ -14,13 +14,12 @@ See [ERC 7573](erc-7573.md).
 
 #### Unit Tests
 
-To run the unit tests, switch to directory `solidity`. Launch test nodes via hardhat (`npx hardhat node`).
-Then run the unit test via hardhat (`npx hardhat test`).
+Use Node.js 16 for the legacy derivative package. Install its locked dependencies and
+run the tests on Hardhat's isolated local chain:
 
 ```shell
-cd solidity
-npm i
-npx hardhat node
-npx hardhat test
+cd solidity/derivatives
+npm ci --ignore-scripts
+npm test
 ```
 
