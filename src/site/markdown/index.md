@@ -6,10 +6,10 @@
 
 ****************************************
 
-The [Smart Product Framework](https://github.com/finmath/smart-financial-contracts/tree/main/framework)
+The [Smart Product Framework](https://github.com/finmath/smart-financial-contracts/tree/main/solidity/framework)
 provides reusable product infrastructure and a fixed-rate bond reference implementation.
-The Java valuation service and existing derivative implementations retain their build paths
-and published artifact names.
+The Solidity packages are grouped under `solidity/`. The Java valuation service retains
+its build paths and published artifact names.
 
 ## Introduction
 

@@ -6,16 +6,19 @@
 - Smart Product Framework and its demo implementations that were originally
   distributed through the ERC-8100 repository (`representable-contract-state`).
 - Runnable original ERC-8100 bond and interest-rate-swap demos with isolated
-  dependencies and lifecycle tests in `framework/examples/erc8100-products/`.
+  dependencies and lifecycle tests in `solidity/examples/erc8100-products/`.
 - Functional `FixedRateBond`, `FixedRateBondLib` and factory example using an
   existing ERC-20 asset and local payment adapter in
-  `framework/contracts/examples/fixedRateBond/`; lifecycle tests cover agreement,
+  `solidity/framework/contracts/examples/fixedRateBond/`; lifecycle tests cover agreement,
   asset delivery, coupon payments and redemption between participant wallets.
 - FX atomic swap contracts, factory, Foundry tests and ERC-8100 lifecycle
-  walkthrough in `framework/examples/fx-atomic-swap/`. The existing example in
+  walkthrough in `solidity/examples/fx-atomic-swap/`. The existing example in
   `representable-contract-state` remains available.
 
 === Changed
+- Solidity packages grouped under `solidity/`: maintained framework, derivative
+  contracts, standalone examples and source references, each retaining its build
+  configuration and dependencies.
 - Core framework imports limited to the reviewed components and their independent
   dependencies; documentation and test coverage match the retained functionality.
 - Repository renamed to `smart-financial-contracts`; existing repository and

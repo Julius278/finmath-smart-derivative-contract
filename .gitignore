@@ -282,8 +282,10 @@ $RECYCLE.BIN/
 /frontend/src/app/openapi/**
 .vscode/**
 
-#solidity / hardhat
+# Solidity package build outputs
 
-solidity/node_modules
-solidity/cache
-solidity/artifacts
+/solidity/**/node_modules/
+/solidity/**/cache/
+/solidity/**/artifacts/
+/solidity/**/out/
+/solidity/**/broadcast/

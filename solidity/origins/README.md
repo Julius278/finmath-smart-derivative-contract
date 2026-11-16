@@ -2,7 +2,8 @@
 
 These directories preserve selected documentation, examples and notices from the
 framework's source projects. The maintained, independently tested package is
-[`framework/`](../README.md), with its contracts in [`contracts/`](../contracts/).
+[`../framework/`](../framework/README.md), with its contracts in
+[`../framework/contracts/`](../framework/contracts/).
 
 - [`representable-contract-state/`](representable-contract-state/) includes the
   original framework, interest-rate-swap and simple-bond examples, Java renderer
@@ -12,7 +13,7 @@ framework's source projects. The maintained, independently tested package is
 - [`product-framework/`](product-framework/) contains the retained source license.
 
 Some relative links in the reference documentation point outside the extracted
-subset. Use the maintained [framework guide](../README.md) for supported build
+subset. Use the maintained [framework guide](../framework/README.md) for supported build
 and test commands. Reference documentation uses the current component names.
 The [repository guide](../../docs/migration/smart-financial-contracts.md) describes
 component boundaries and compatibility.
